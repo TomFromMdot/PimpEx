@@ -1,0 +1,210 @@
+@startuml
+!theme cyborg-outline
+title PimpEx - The Game Engine
+
+
+package EngineAPI{
+  
+  
+  interface IEngineStorageDecoder{}
+  interface IEnigneStorageEncoder{}
+  interface IEngineDebugger{}
+  
+  
+  interface IEngineSceneAPI
+  {
+    +change_current_scene(sceneName : string) : void
+    +load_scene(sceneName : string) : void
+    +unload_scene(sceneName : string) : void
+  }
+  
+  
+  interface IEngineActorAPI{
+  
+    +get_actor_components_list(actorName : string) : std::vector<string>
+    +get_actor_component(actorName : string, compName : string) : std::optional<std::any>
+    
+    +add_transform(actorName : string) : void
+    +get_transform(actorName : string) : Transform
+    +set_transform(actorName : string, Transform t) : void
+    
+    +add_mesh_2D(actorName : string) : void
+    +get_mesh_2D(actorName : string) : Mesh2D
+    +set_mesh_2D(actorName : string, mesh : Mesh2D) : void
+    
+    +add_mesh(actorName : string) : void
+    +get_mesh(actorName : string) : Mesh3D
+    +set_mesh(actorName : string, mesh : Mesh3D) : void
+    
+    +add_texture_2D(actorName : string) : void
+    +get_texture_2D(actorName : string) : void
+    +set_texture_2D(actorName : string) : void
+    
+    +add_sprite_2D(actorName : string) : void
+    +get_sprite_2D(actorName : string) : Sprite2D
+    +set_sprite_2D(actorName : string) : void
+    
+  }
+  
+  
+  
+  interface IEngineStorageAPI{
+  
+    -load_file_binary(file : string) : void
+    -load_file_data(file : string) : void
+    
+    +hot_reload_storage() : void
+    +load_engine_configuration(file : string) : void
+    +load_script_file(file : string) : void
+    +load_sprite_file(file : string) : void
+    +load_image_file(file : string) : void
+    +load_texture_file(file : string) : void
+    +load_audio_file(file : string) : void
+    +load_scene_resource(file : string) : void
+    +load_scene_actors(file : string) : void
+    +load_scene_controller(file : string) : void
+  }
+  
+  interface IEngineConfigurationAPI{
+  
+    +set_hot_reload(value : bool) : void
+    +set_current_project_dir(projectDir : string) : void
+    +set_audio_buffer_size(size : uint8) : void
+  
+  }
+  
+  interface IEngineWindowConfiguration{
+    +set_resolution_options(resolution : std::map<string, std::vector<std::pair<int, int>>>) : void
+    +set_title(windowName : string) : void
+    +set_style(uint8 windowStyle) : void
+  }
+  
+  
+  interface IEngineAudioAPI{
+    +set_audio_main_volume(value : float) : void
+    +add_to_buffer(soundName : string, storageFile : string) : void
+    +remove_form_buffer(soundName : string) : void
+    +play_sound(soundName : string) : void
+    +play_sound(soundName : string, soundStopTime float) : void
+    +stop_sound(soundName : string) : void
+  }
+  
+  interface IEngineImage{
+    +create_image_block(items : std::vector<string>) : ImageBlock
+    +create_sprite_sheet(items : std::vector<string>) : SpriteSheet
+    +create_texture_sheet(items : std::vector<string>) : TextureSheet
+    +scale_size(scaleX : float, scaleY : float) : void
+  }
+  
+  
+  interface IEngine2DTextureAPI{
+  
+    +bind(textureName : string, slot : uint) : void
+    +unbind(slot : uint8) : void
+    +set_data(textureName : string, data : byte[]) : void
+    +set_sub_data(textureName : string, int xOffset : int, yOffset : int, width : int, height : int, data : byte[]) : void
+    +copy(textureName : string) : Texture2D
+    +set_filter(textureName : string) : void
+    +set_warp(textureName : string) : void
+    +get_data(textureName : string) : byte[]
+    +get_width(textureName : string) : uint
+    +get_height(textureName : string) : uint
+    +generate_mipmap(textureName : string) : void
+  
+  }
+  
+  interface IEngineTextureAPI{
+  
+  }
+  
+  interface IEngine2DMeshAPI{}
+  
+  interface IEngineMeshAPI{
+  
+  }
+  
+  interface IEngine2DSpriteAPI{
+  
+    +select_one_from_image(posX : float, posY : float, sizeX : float, sizeY : float) : Sprite2D
+    +select_sequence_image(seqDir : SpriteSlicerDirection, startX : float, startY : float,sizeX : float, sizeY : float, count : int) : std::map<int, Sprite2D>
+    
+  }
+  
+  interface IEngineTransformAPI{}
+  
+  interface IEngineScriptAPI{}
+
+}
+
+package EngineModules{
+
+  interface IEngineController{
+    +init() : void
+    +update() : void
+    +shutdown() : void
+  }
+
+  interface IEngineGraphics{
+    +init() : void
+    +update() : void
+    +update(dt : float) : void
+    +shutdown() : void
+  }
+  interface IEngineAudio{
+    +init() : void
+    +update() : void
+    +shutdown() : void
+  }
+  interface IEngineStorage{
+    +init() : void
+    +update() : void
+    +shutdown() : void
+  }
+  interface IEnginePhysics{
+    +init() : void
+    +update() : void
+    +update(dt : float) : void
+    +shutdown() : void
+  }
+  
+}
+package EngineCore{
+
+  interface IEngineModuleState{
+    +init() : void
+    +update() : void
+    +shutdown() : void
+  }
+
+  enum EngineModule{
+    +Graphics
+    +Physics
+    +Storage
+    +Audio
+  }
+
+  class EngineCore {
+    -_storage : std::shader_ptr<IEngineStorage>
+    -_graphcis : std::shared_ptr<IEngineGraphics>
+    -_physics : std::shared_ptr<IEnginePhysics>
+    -_audio : std::shared_ptr<IEngineAudio>
+    
+    +set_module(type : EngineModule, module : std::shared_ptr<IEngineModuleState>) : void
+    
+    +init() : void
+    +run() : void
+    +shutdown() : void
+  }
+
+
+IEngineModuleState <|-- IEngineGraphics
+IEngineModuleState <|-- IEngineStorage
+IEngineModuleState <|-- IEnginePhysics
+IEngineModuleState <|-- IEngineAudio
+}
+
+package Game{
+
+}
+@enduml
+
