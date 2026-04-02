@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    "entt",
+    "glad",
+    "glfw3",
+    "tinyxml2",
+    "glm"
+  ]
+}

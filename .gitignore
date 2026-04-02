@@ -1,0 +1,5 @@
+./build
+./CMakePresets.json 
+./example_files
+./compile_commands.json
+

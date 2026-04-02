@@ -1,0 +1,35 @@
+
+<EngineConfiguration name="window_resolution_800x600" style="resolution">
+  <ConfigValue name="window_x" value ="800"/>
+  <ConfigValue name="window_y" value="600"/>
+</EngineConfiguration>
+
+<EngineConfiguration name="window_resolution_800x600" style="resolution">
+  <ConfigValue name="window_x" value ="800"/>
+  <ConfigValue name="window_y" value="600"/>
+</EngineConfiguration>
+
+<EngineConfiguration name="window_resolution_800x600" style="resolution">
+  <ConfigValue name="window_x" value ="800"/>
+  <ConfigValue name="window_y" value="600"/>
+</EngineConfiguration>
+
+<EngineConfiguration name="window_resolution_800x600" style="resolution">
+  <ConfigValue name="window_x"  value ="800"/>
+  <ConfigValue name="window_y"  value="600"/>
+</EngineConfiguration>
+
+<Scenes>
+  <Scene name="main_scene">
+    <Actors>
+      <Actor name="Player">
+        <Transform x="0" y="0" z="0"/>
+        <Image name="player_sprite" href="player_sprite_sheet">
+          <ImageSlice name="player_slice" startX="0" startY="0" cellSizeX="32"
+    cellSizeY="32"/>
+        </Image>
+      </Actor>
+    </Actors>
+  </Scene>
+</Scenes>
+

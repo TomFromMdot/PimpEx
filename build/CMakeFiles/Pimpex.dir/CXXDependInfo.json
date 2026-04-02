@@ -1,0 +1,45 @@
+{
+	"bmi-installation" : null,
+	"compiler-frontend-variant" : "GNU",
+	"compiler-id" : "Clang",
+	"compiler-simulate-id" : "",
+	"config" : "Debug",
+	"cxx-modules" : {},
+	"database-info" : null,
+	"dir-cur-bld" : "/home/Tomasz/live_content/git_workspace/PimpEx/build",
+	"dir-cur-src" : "/home/Tomasz/live_content/git_workspace/PimpEx",
+	"dir-top-bld" : "/home/Tomasz/live_content/git_workspace/PimpEx/build",
+	"dir-top-src" : "/home/Tomasz/live_content/git_workspace/PimpEx",
+	"exports" : [],
+	"forward-modules-from-target-dirs" : [],
+	"include-dirs" : 
+	[
+		"vcpkg_installed/x64-linux/include"
+	],
+	"language" : "CXX",
+	"linked-target-dirs" : [],
+	"module-dir" : "/home/Tomasz/live_content/git_workspace/PimpEx/build/CMakeFiles/Pimpex.dir",
+	"sources" : 
+	{
+		"CMakeFiles/Pimpex.dir/src/EngineFileChecker.cpp.o" : 
+		{
+			"language" : "CXX",
+			"source" : "/home/Tomasz/live_content/git_workspace/PimpEx/src/EngineFileChecker.cpp"
+		},
+		"CMakeFiles/Pimpex.dir/src/EngineXMLReader.cpp.o" : 
+		{
+			"language" : "CXX",
+			"source" : "/home/Tomasz/live_content/git_workspace/PimpEx/src/EngineXMLReader.cpp"
+		},
+		"CMakeFiles/Pimpex.dir/src/EngineXMLWriter.cpp.o" : 
+		{
+			"language" : "CXX",
+			"source" : "/home/Tomasz/live_content/git_workspace/PimpEx/src/EngineXMLWriter.cpp"
+		},
+		"CMakeFiles/Pimpex.dir/src/main.cpp.o" : 
+		{
+			"language" : "CXX",
+			"source" : "/home/Tomasz/live_content/git_workspace/PimpEx/src/main.cpp"
+		}
+	}
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Actors>
+<Actor name="player">
+  <Transform x="0" y="0" z="0"/>
+    <Image name="player_sprite" href="player_sprite_sheet">
+      <ImageSlice name="player_slice" startX="0" startY="0" cellSizeX="32"
+        cellSizeY="32"/>
+    </Image>
+  </Actor>
+  <Actor name="player">
+  <Transform x="0" y="0" z="0"/>
+    <Image name="player_sprite" href="player_sprite_sheet">
+      <ImageSlice name="player_slice" startX="0" startY="0" cellSizeX="32"
+        cellSizeY="32"/>
+    </Image>
+</Actor>
+
+</Actors>
+
