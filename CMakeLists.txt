@@ -41,12 +41,24 @@ foreach(FILE ${SOURCE_FILES})
 endforeach()
 
 
-add_executable(
-  ${PROJECT_NAME}
+add_library(
+  PimpexLib
   ${HEADER_FILES}
   ${SOURCE_FILES}
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE EnTT::EnTT glfw glad::glad tinyxml2::tinyxml2 glm::glm spdlog::spdlog_header_only pugixml::pugixml)
+target_link_directories(PimpexLib PUBLIC "./include")
+target_link_libraries(PimpexLib PUBLIC pugixml::pugixml tinyxml2::tinyxml2)
+add_executable(${PROJECT_NAME} "./main.cpp")
 
+
+target_link_libraries(${PROJECT_NAME} PRIVATE PimpexLib)
+enable_testing()
+
+add_executable(cpp_test "./test/test_e.cpp")
+target_link_libraries(cpp_test PRIVATE PimpexLib)
+
+add_test(NAME TEST_XMLReader COMMAND $<TARGET_FILE:cpp_test>)
+
+add_dependencies(${PROJECT_NAME} cpp_test)
 

@@ -1,11 +1,8 @@
 
-add_library(
-  XML_MODULE 
-  "../include/EngineXML.h"
-  "../src/EngineXMLReader.cpp"
-)
 
-target_link_libraries(XML_MODULE tinyxml glfw glad)
 
-add_executable(test "../test/test_e.cpp")
-target_link_libraries(test XML_MODULE)
+
+add_executable(cpp_test "../test/test_e.cpp")
+
+enable_testing()
+add_test(NAME TEST_XMLReader COMMAND $<TARGET_FILE:cpp_test>)

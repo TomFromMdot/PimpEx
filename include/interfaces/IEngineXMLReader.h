@@ -6,7 +6,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <tinyxml2.h>
 #include <utility>
 #include <valarray>
 #include <vector>

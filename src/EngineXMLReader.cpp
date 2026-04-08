@@ -10,7 +10,6 @@ EngineXMLReader::~EngineXMLReader() {}
 std::optional<
     const std::map<std::string, std::shared_ptr<Types::EngineResource>>>
 EngineXMLReader::get_scene_resources(const std::string &sceneName) {
-
   if (file_checker())
     return std::nullopt;
 

@@ -17,6 +17,7 @@ class EngineXMLReader : public IEngineXMLReader {
 
 private:
   bool file_checker() {
+    _result = _doc.load_file(_filePath.c_str());
     if (!_result) {
       std::cerr << "Can't parse file: " << _filePath
                 << "\nError: " << _result.description() << "\n";
@@ -47,8 +48,6 @@ public:
 };
 
 class EngineXMLWriter : public IEngineXMLWriter {
-  tinyxml2::XMLDocument doc;
-
 public:
   EngineXMLWriter() {}
   ~EngineXMLWriter() {}
