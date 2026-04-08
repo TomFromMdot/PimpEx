@@ -1,9 +1,0 @@
-{
-  "revision": 0,
-  "rules": [
-    {
-      "primary-output": "CMakeFiles/Pimpex.dir/src/EngineFileChecker.cpp.o"
-    }
-  ],
-  "version": 1
-}

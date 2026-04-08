@@ -1,4 +1,0 @@
-/home/Tomasz/live_content/git_workspace/PimpEx/build/CMakeFiles/Pimpex.dir
-/home/Tomasz/live_content/git_workspace/PimpEx/build/CMakeFiles/test.dir
-/home/Tomasz/live_content/git_workspace/PimpEx/build/CMakeFiles/edit_cache.dir
-/home/Tomasz/live_content/git_workspace/PimpEx/build/CMakeFiles/rebuild_cache.dir
