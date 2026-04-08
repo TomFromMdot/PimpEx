@@ -1,98 +1,49 @@
 #pragma once
 
-#include "Types.h"
 #include "interfaces/IEngineXMLReader.h"
 #include "interfaces/IEnigneXMLWriter.h"
-#include <complex>
 #include <filesystem>
 #include <glm/detail/qualifier.hpp>
 #include <iostream>
 #include <optional>
-#include <print>
-#include <tinyxml2.h>
+#include <pugixml.hpp>
 #include <vector>
 
 namespace PimpEx::Utils {
 class EngineXMLReader : public IEngineXMLReader {
-  tinyxml2::XMLDocument _doc;
-  std::filesystem::path _path;
-  tinyxml2::XMLElement *_pre;
-  /*
-   * @brief Mehtod open xml file check if all is good then return 0 if all ok
-   * @param path - Path to file.
-   * @return true if something go wrong.*/
-  bool open_and_check_error(const std::filesystem::path &path) {
-    if (!std::filesystem::exists(path)) {
-      std::println("Path not exists: {}", path.c_str());
-      return true;
-    }
-    if (std::filesystem::is_directory(path)) {
-      std::println("Path return directory not file: {}", path.c_str());
-      return true;
-    }
-    auto result = _doc.LoadFile(path.c_str());
-    if (result != tinyxml2::XML_SUCCESS) {
-      std::cout << "XML ERROR" << _doc.ErrorStr() << "\n";
+  std::filesystem::path _filePath;
+  pugi::xml_document _doc;
+  pugi::xml_parse_result _result;
+
+private:
+  bool file_checker() {
+    if (!_result) {
+      std::cerr << "Can't parse file: " << _filePath
+                << "\nError: " << _result.description() << "\n";
+      std::cerr << "Błąd offsetL: " << _result.offset << "(Okolice znaku)\n";
+      if (_result.status == pugi::status_file_not_found) {
+        std::cerr << "Nie znaleziono pliku\n";
+      }
       return true;
     }
     return false;
   }
 
 public:
-  EngineXMLReader() {};
-  ~EngineXMLReader() {};
+  explicit EngineXMLReader(const std::string &path);
+  ~EngineXMLReader();
 
-  void open_xml(const std::filesystem::path &path) override;
+  std::optional<
+      const std::map<std::string, std::shared_ptr<Types::EngineResource>>>
+  get_scene_resources(const std::string &sceneName) override;
 
-  tinyxml2::XMLElement *
-  find_actor_element(const std::filesystem::path &path) override;
+  std::optional<
+      const std::map<std::string, std::shared_ptr<Types::EngineActor>>>
+  get_scene_actors(const std::string &sceneName) override;
 
-  tinyxml2::XMLElement *
-  find_actor_element(const std::filesystem::path &path,
-                     const std::string &actorName) override;
-
-  tinyxml2::XMLElement *
-  find_actor_component_element(const std::filesystem::path &path,
-                               const std::string &actorName) override;
-
-  tinyxml2::XMLElement *
-  find_actor_component_element(const std::filesystem::path &path,
-                               const std::string &actorName,
-                               const std::string &compName) override;
-
-  tinyxml2::XMLElement *
-  find_actor_in_scene(const std::filesystem::path &path,
-                      const std::string &sceneName,
-                      const std::string &actorName) override;
-
-  tinyxml2::XMLElement *
-  find_scene_element(const std::filesystem::path &path) override;
-
-  tinyxml2::XMLElement *
-  find_scene_element(const std::filesystem::path &path,
-                     const std::string &sceneName) override;
-
-  tinyxml2::XMLElement *
-  find_scene_resource_element(const std::filesystem::path &path,
-                              const std::string &sceneName) override;
-
-  tinyxml2::XMLElement *
-  find_scene_resource_element(const std::filesystem::path &path,
-                              const std::string &sceneName,
-                              const std::string &resourceName) override;
-
-  tinyxml2::XMLElement *
-  find_engine_config_element(const std::filesystem::path &path) override;
-
-  tinyxml2::XMLElement *
-  find_engine_config_element(const std::filesystem::path &path,
-                             const std::string &configName) override;
-
-  std::optional<std::vector<Types::EngineActor>>
-  get_all_actors(const std::filesystem::path &path);
   std::optional<std::vector<Types::EngineActorComponent>>
-  get_actor_components(const std::filesystem::path &path,
-                       const std::string &actorName) override;
+  get_scene_actor_components(const std::string &sceneName,
+                             const std::string &actorName) override;
 };
 
 class EngineXMLWriter : public IEngineXMLWriter {

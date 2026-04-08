@@ -3,7 +3,9 @@
     "entt",
     "glad",
     "glfw3",
+    "glm",
+    "spdlog",
     "tinyxml2",
-    "glm"
+    "pugixml"
   ]
 }

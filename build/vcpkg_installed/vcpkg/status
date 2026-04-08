@@ -85,3 +85,31 @@ Abi: 77139cc7ca512ab7a49f2691c3dce58baa5d3c65d1c6e3165f3b9daef88a97dc
 Description: OpenGL Mathematics (GLM)
 Status: install ok installed
 
+Package: fmt
+Version: 11.0.2
+Port-Version: 1
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 5dc150a4db068e478110224c0223bdf8586acfe3508d55ae481f1bf63915898e
+Description: {fmt} is an open-source formatting library providing a fast and safe alternative to C stdio and C++ iostreams.
+Status: install ok installed
+
+Package: spdlog
+Version: 1.15.3
+Depends: fmt, vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 91a90513d8bea16ff83000c6c1c23526b7b64244b44a3bebb3439d250939a903
+Description: Very fast, header-only/compiled, C++ logging library.
+Status: install ok installed
+
+Package: pugixml
+Version: 1.15
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: c14b898406ccc43387413a0c3fa6c8566b57968db5b0815677a310044b7b4c08
+Description: Light-weight, simple and fast XML parser for C++ with XPath support
+Status: install ok installed
+

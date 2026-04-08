@@ -1,6 +1,8 @@
 #pragma once
 
+#include <filesystem>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -13,10 +15,15 @@ using ComponentProceduresBuffer =
 using EngineXMLElement =
     std::pair<std::string, std::map<std::string, std::string>>;
 
+struct EngineComponentProperty {
+  std::string name;
+  std::map<std::string, std::string> attrs;
+};
+
 struct EngineActorComponent {
   std::string name;
-  std::map<std::string, std::string> attr;
-  std::map<std::string, std::map<std::string, std::string>> procedures;
+  std::vector<EngineComponentProperty> property;
+  std::vector<std::string> onStartProcedures;
 };
 
 struct EngineActor {
@@ -24,4 +31,19 @@ struct EngineActor {
   std::vector<EngineActorComponent> components;
 };
 
+struct EngineResource {
+  enum class Type { Model, Texture, Audio };
+  std::string name;
+  Type type;
+  std::filesystem::path path;
+};
+
+struct EngineScene {
+  std::map<std::string, std::shared_ptr<EngineResource>> resources;
+  std::map<std::string, std::shared_ptr<EngineActor>> actors;
+};
+
+struct EngineProject {
+  std::map<std::string, std::shared_ptr<EngineScene>> scenes;
+};
 } // namespace PimpEx::Types

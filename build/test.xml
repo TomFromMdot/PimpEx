@@ -1,19 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Actors>
-<Actor name="player">
-  <Transform x="0" y="0" z="0"/>
-    <Image name="player_sprite" href="player_sprite_sheet">
-      <ImageSlice name="player_slice" startX="0" startY="0" cellSizeX="32"
-        cellSizeY="32"/>
-    </Image>
-  </Actor>
-  <Actor name="player">
-  <Transform x="0" y="0" z="0"/>
-    <Image name="player_sprite" href="player_sprite_sheet">
-      <ImageSlice name="player_slice" startX="0" startY="0" cellSizeX="32"
-        cellSizeY="32"/>
-    </Image>
-</Actor>
-
-</Actors>
-
+<Project>
+  <Scene id="Cave">
+    <Resources>
+      <Resource id="mesh_player" type="Model" path="assets/models/hero.fbx" />
+      <Resource id="mesh_torch" type="Model" path="assets/models/torch.obj" />
+      <Resource id="tex_fire" type="Texture" path="assets/textures/fire_diffuse.png" />
+      <Resource id="sfx_ambience" type="Audio" path="assets/audio/wind_cave.mp3" />
+    </Resources>
+    <Actors>
+      <Actor id="Player" name="Gracz">
+        <Components>
+          <Component type="Transform">
+            <Property name="position" value="0, 0, 0" />
+            <Property name="rotation" value="0, 90, 0" />
+            <Property name="scale" value="1, 1, 1" />
+            <OnStart>
+              <Procedure name="ResetToSpawnPoint" />
+              <Procedure name="AlignToGround" />
+            </OnStart>
+          </Component>
+          <Component type="CharacterController">
+            <Property name="speed" value="5.5" />
+            <OnStart>
+              <Procedure name="InitializeInput" />
+            </OnStart>
+          </Component>
+        </Components>
+      </Actor>
+      <Actor id="Pochodnia">
+        <Components>
+          <Component type="Transform">
+            <Property name="position" value="10, 5, -2" />
+            <OnStart>
+              <Procedure name="AttachToWall" />
+            </OnStart>
+          </Component>
+          <Component type="LightSource">
+            <Property name="intensity" value="1.2" />
+            <Property name="color" value="#FFA500" />
+            <OnStart>
+              <Procedure name="StartFlickerEffect" />
+            </OnStart>
+          </Component>
+        </Components>
+      </Actor>
+    </Actors>
+  </Scene>
+</Project>

@@ -1,11 +1,14 @@
 #pragma once
 
+#include <complex>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <tinyxml2.h>
 #include <utility>
+#include <valarray>
 #include <vector>
 
 #include "../Types.h"
@@ -15,55 +18,17 @@ class IEngineXMLReader {
 public:
   virtual ~IEngineXMLReader() = default;
 
-  virtual void open_xml(const std::filesystem::path &path) = 0;
+  virtual std::optional<
+      const std::map<std::string, std::shared_ptr<Types::EngineResource>>>
+  get_scene_resources(const std::string &sceneName) = 0;
 
-  virtual tinyxml2::XMLElement *
-  find_actor_element(const std::filesystem::path &path) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_actor_element(const std::filesystem::path &path,
-                     const std::string &actorName) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_actor_component_element(const std::filesystem::path &path,
-                               const std::string &actorName) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_actor_component_element(const std::filesystem::path &path,
-                               const std::string &actorName,
-                               const std::string &compName) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_actor_in_scene(const std::filesystem::path &path,
-                      const std::string &sceneName,
-                      const std::string &actorName) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_scene_element(const std::filesystem::path &path) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_scene_element(const std::filesystem::path &path,
-                     const std::string &sceneName) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_scene_resource_element(const std::filesystem::path &path,
-                              const std::string &sceneName) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_scene_resource_element(const std::filesystem::path &path,
-                              const std::string &sceneName,
-                              const std::string &resourceName) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_engine_config_element(const std::filesystem::path &path) = 0;
-
-  virtual tinyxml2::XMLElement *
-  find_engine_config_element(const std::filesystem::path &path,
-                             const std::string &configName) = 0;
+  virtual std::optional<
+      const std::map<std::string, std::shared_ptr<Types::EngineActor>>>
+  get_scene_actors(const std::string &sceneName) = 0;
 
   virtual std::optional<std::vector<Types::EngineActorComponent>>
-  get_actor_components(const std::filesystem::path &path,
-                       const std::string &actorName) = 0;
+  get_scene_actor_components(const std::string &sceneName,
+                             const std::string &actorName) = 0;
 };
 
 } // namespace PimpEx
