@@ -30,6 +30,11 @@ private:
     return false;
   }
 
+private:
+  std::optional<std::vector<Types::EngineActorComponent>>
+  get_scene_actor_components(const std::string &sceneName,
+                             const std::string &actorName) override;
+
 public:
   explicit EngineXMLReader(const std::string &path);
   ~EngineXMLReader();
@@ -41,10 +46,6 @@ public:
   std::optional<
       const std::map<std::string, std::shared_ptr<Types::EngineActor>>>
   get_scene_actors(const std::string &sceneName) override;
-
-  std::optional<std::vector<Types::EngineActorComponent>>
-  get_scene_actor_components(const std::string &sceneName,
-                             const std::string &actorName) override;
 };
 
 class EngineXMLWriter : public IEngineXMLWriter {

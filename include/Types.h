@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,20 +28,26 @@ struct EngineActorComponent {
 };
 
 struct EngineActor {
+  std::string id;
   std::string name;
   std::vector<EngineActorComponent> components;
 };
 
 struct EngineResource {
-  enum class Type { Model, Texture, Audio };
+  enum class Type { Model, Texture, Audio, Error };
   std::string name;
   Type type;
   std::filesystem::path path;
+  const std::string get_string_type(EngineResource::Type type) const;
+  const Type get_type_from_string(const std::string &type) const;
 };
 
 struct EngineScene {
   std::map<std::string, std::shared_ptr<EngineResource>> resources;
   std::map<std::string, std::shared_ptr<EngineActor>> actors;
+
+  const std::optional<std::weak_ptr<EngineResource>>
+  get_resouce(const std::string &resourceId) const;
 };
 
 struct EngineProject {
