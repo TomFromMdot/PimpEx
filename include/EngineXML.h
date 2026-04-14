@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Types.h"
 #include "interfaces/IEngineXMLReader.h"
 #include "interfaces/IEnigneXMLWriter.h"
 #include <filesystem>
@@ -30,10 +31,16 @@ private:
     return false;
   }
 
-private:
   std::optional<std::vector<Types::EngineActorComponent>>
   get_scene_actor_components(const std::string &sceneName,
                              const std::string &actorName) override;
+
+  const std::vector<Types::EngineComponentProperty>
+  get_properties(pugi::xml_node component);
+
+  const std::vector<std::string> get_procedures(pugi::xml_node component);
+
+  const std::map<std::string, std::string> get_attrs(pugi::xml_node element);
 
 public:
   explicit EngineXMLReader(const std::string &path);

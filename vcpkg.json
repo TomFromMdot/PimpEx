@@ -4,8 +4,9 @@
     "glad",
     "glfw3",
     "glm",
+    "pugixml",
     "spdlog",
     "tinyxml2",
-    "pugixml"
+    "cli11"
   ]
 }

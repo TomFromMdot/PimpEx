@@ -14,6 +14,7 @@ find_package(tinyxml2 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
+find_package(CLI11 CONFIG REQUIRED)
 
 
 
@@ -48,7 +49,7 @@ add_library(
 )
 
 target_link_directories(PimpexLib PUBLIC "./include")
-target_link_libraries(PimpexLib PUBLIC pugixml::pugixml tinyxml2::tinyxml2)
+target_link_libraries(PimpexLib PUBLIC CLI11::CLI11 pugixml::pugixml tinyxml2::tinyxml2)
 add_executable(${PROJECT_NAME} "./main.cpp")
 
 

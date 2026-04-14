@@ -7,12 +7,15 @@
 #include <print>
 #include <vector>
 
-namespace PimpEx::Utils {
-EngineXMLReader::EngineXMLReader(const std::string &path) { _filePath = path; }
-EngineXMLReader::~EngineXMLReader() {}
+PimpEx::Utils::EngineXMLReader::EngineXMLReader(const std::string &path) {
+  _filePath = path;
+}
+PimpEx::Utils::EngineXMLReader::~EngineXMLReader() {}
+
 std::optional<
-    const std::map<std::string, std::shared_ptr<Types::EngineResource>>>
-EngineXMLReader::get_scene_resources(const std::string &sceneName) {
+    const std::map<std::string, std::shared_ptr<PimpEx::Types::EngineResource>>>
+PimpEx::Utils::EngineXMLReader::get_scene_resources(
+    const std::string &sceneName) {
   if (file_checker())
     return std::nullopt;
   // //Scene[@name="NAZWA_SCENY"]/Resources/Resource
@@ -40,8 +43,9 @@ EngineXMLReader::get_scene_resources(const std::string &sceneName) {
   return mapResult;
 }
 
-std::optional<const std::map<std::string, std::shared_ptr<Types::EngineActor>>>
-EngineXMLReader::get_scene_actors(const std::string &sceneName) {
+std::optional<
+    const std::map<std::string, std::shared_ptr<PimpEx::Types::EngineActor>>>
+PimpEx::Utils::EngineXMLReader::get_scene_actors(const std::string &sceneName) {
   // //Scene[@name="NAZWA_SCENY"]/Actors/Actor
   if (file_checker())
     return std::nullopt;
@@ -71,9 +75,9 @@ EngineXMLReader::get_scene_actors(const std::string &sceneName) {
   return mapResult;
 }
 
-std::optional<std::vector<Types::EngineActorComponent>>
-EngineXMLReader::get_scene_actor_components(const std::string &sceneName,
-                                            const std::string &actorName) {
+std::optional<std::vector<PimpEx::Types::EngineActorComponent>>
+PimpEx::Utils::EngineXMLReader::get_scene_actor_components(
+    const std::string &sceneName, const std::string &actorName) {
   std::vector<Types::EngineActorComponent> comps;
   // //Scene[@id="NAZWA_SCENY"]/Actors/Actor[@id="NAZWA_AKTORA"]/Components/Component
 
@@ -88,23 +92,8 @@ EngineXMLReader::get_scene_actor_components(const std::string &sceneName,
       Types::EngineActorComponent aComp;
       aComp.name = component.attribute("type").value();
       auto p = component.select_nodes("Property");
-
-      for (const auto e : p) {
-        Types::EngineComponentProperty props;
-        pugi::xml_node node = e.node();
-        props.name = node.attribute("name").value();
-        aComp.property.push_back(std::move(props));
-      }
-
-      auto onStart = component.select_nodes("OnStart");
-
-      for (const auto &e : onStart) {
-        pugi::xml_node node = e.node();
-        for (const auto &d : node) {
-          std::string pName = d.attribute("name").value();
-          aComp.onStartProcedures.push_back(std::move(pName));
-        }
-      }
+      aComp.property = get_properties(component);
+      aComp.onStartProcedures = get_procedures(component);
       comps.push_back(std::move(aComp));
     }
   } catch (const pugi::xpath_exception &e) {
@@ -113,4 +102,36 @@ EngineXMLReader::get_scene_actor_components(const std::string &sceneName,
   }
   return comps;
 }
-} // namespace PimpEx::Utils
+
+const std::map<std::string, std::string>
+PimpEx::Utils::EngineXMLReader::get_attrs(pugi::xml_node element) {
+  std::map<std::string, std::string> mapResult;
+  for (pugi::xml_attribute attr = element.first_attribute(); attr;
+       attr = attr.next_attribute()) {
+    mapResult[attr.name()] = attr.value();
+  }
+  return mapResult;
+}
+
+const std::vector<PimpEx::Types::EngineComponentProperty>
+PimpEx::Utils::EngineXMLReader::get_properties(pugi::xml_node component) {
+  std::vector<PimpEx::Types::EngineComponentProperty> vectorResult;
+  for (auto prop = component.child("Property"); prop;
+       prop = component.next_sibling("Property")) {
+    Types::EngineComponentProperty property;
+    property.name = prop.attribute("name").value();
+    vectorResult.push_back(property);
+  }
+  return vectorResult;
+}
+
+const std::vector<std::string>
+PimpEx::Utils::EngineXMLReader::get_procedures(pugi::xml_node component) {
+  std::vector<std::string> vectorResult;
+  auto onStartNode = component.child("OnStart");
+  for (auto p = onStartNode.child("Procedure"); p;
+       p = onStartNode.next_sibling("Procedure")) {
+    vectorResult.push_back(p.attribute("name").value());
+  }
+  return vectorResult;
+}
