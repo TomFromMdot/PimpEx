@@ -7,6 +7,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <raylib.h>
+
 namespace PimpEx::Types {
 using ComponentsBuffer =
     std::map<std::string, std::vector<std::pair<std::string, std::string>>>;
@@ -15,6 +18,29 @@ using ComponentProceduresBuffer =
 
 using EngineXMLElement =
     std::pair<std::string, std::map<std::string, std::string>>;
+
+struct EngineGraphicsWindowResolution {
+  int x, y;
+  std::string aspekt;
+};
+
+// Main wątek do przetwarzania grafiki.
+// Drugi wątek powinien być odpowiedzialny za odczytanie danych,
+// przemielenie ich na następne dane gotowe do odbioru przez Main wątek.
+// głównym zamysłem jest odciążenie głównej pętli gry od ciężkich operacji.
+// Adaptery wymagają czasu a same dane wymagają procesu pieczenia w piecu zanim
+// ciasto będzie gotowe.
+
+struct EngineGraphicsWindowOptions {
+private:
+  bool isFullscreen = false;
+  int exitKey = KEY_ESCAPE;
+  std::map<std::string, Types::EngineGraphicsWindowResolution> Resolution;
+
+public:
+  EngineGraphicsWindowOptions &
+  add_resolution(EngineGraphicsWindowResolution res);
+};
 
 struct EngineComponentProperty {
   std::string name;

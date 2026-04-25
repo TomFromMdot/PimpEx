@@ -7,6 +7,7 @@
     "pugixml",
     "spdlog",
     "tinyxml2",
-    "cli11"
+    "cli11",
+    "raylib"
   ]
 }

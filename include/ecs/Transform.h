@@ -9,15 +9,4 @@ struct Transform {
   glm::vec3 scale;
   glm::vec3 rotation;
 };
-
-struct Mesh {
-  unsigned int vao;
-  unsigned int vbo;
-  unsigned int ebo;
-};
-
-struct Shader {
-  unsigned int program;
-};
-
 }; // namespace PimpEx::Components

@@ -4,7 +4,7 @@ project(Pimpex)
 
 enable_testing()
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(glfw3 CONFIG REQUIRED)
@@ -15,6 +15,7 @@ find_package(glm CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 find_package(CLI11 CONFIG REQUIRED)
+find_package(raylib CONFIG REQUIRED)
 
 
 
@@ -49,7 +50,7 @@ add_library(
 )
 
 target_link_directories(PimpexLib PUBLIC "./include")
-target_link_libraries(PimpexLib PUBLIC CLI11::CLI11 pugixml::pugixml tinyxml2::tinyxml2)
+target_link_libraries(PimpexLib PUBLIC raylib CLI11::CLI11 pugixml::pugixml tinyxml2::tinyxml2)
 add_executable(${PROJECT_NAME} "./main.cpp")
 
 
