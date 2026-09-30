@@ -1,0 +1,12 @@
+# Biblioteka procedur. Te PROC nie wykonują się same –
+# silnik wkleja je do scene.swap przez PROC_ADD albo swap.add() w Lua.
+
+# Turbo: przez 3 sekundy (180 klatek) gracz jest szybszy, potem procedura
+# sama usuwa się z scene.swap.
+PROC turbo
+  SET Player.speed 8
+  ADD Player.turbo 1
+  IF Player.turbo > 180 : PROC_REMOVE turbo
+  IF Player.turbo > 180 : SET Player.speed 4
+  IF Player.turbo > 180 : SET Player.turbo 0
+END

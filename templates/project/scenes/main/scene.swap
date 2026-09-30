@@ -1,0 +1,30 @@
+# Program sceny – każda PROC wykonuje się w każdej klatce.
+# Zmień coś i zapisz plik: gra podmieni procedury bez restartu.
+
+PROC ruch_gracza
+  IF KEY LEFT  : MOVE Player -Player.speed 0
+  IF KEY RIGHT : MOVE Player Player.speed 0
+  IF KEY UP    : MOVE Player 0 -Player.speed
+  IF KEY DOWN  : MOVE Player 0 Player.speed
+END
+
+PROC granice_ekranu
+  IF Player.x < 20  : SET Player.x 20
+  IF Player.x > 780 : SET Player.x 780
+  IF Player.y < 20  : SET Player.y 20
+  IF Player.y > 580 : SET Player.y 580
+END
+
+PROC zbieranie_monet
+  IF TOUCH Player Coin : ADD Game.coins 1
+  IF TOUCH Player Coin : CALL coin_collected
+END
+
+PROC iskry
+  CALL update_sparks
+END
+
+# Spacja wkleja procedurę `turbo` z library.swap do tego pliku.
+PROC turbo_wlacznik
+  IF PRESSED SPACE : PROC_ADD turbo
+END

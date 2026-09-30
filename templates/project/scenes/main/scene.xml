@@ -1,0 +1,31 @@
+<!-- Scena: kto jest na planszy i jak wygląda. Logika jest w scene.swap. -->
+<Scene background="#101018">
+
+  <!-- Gracz: kwadrat sterowany strzałkami -->
+  <Actor name="Player" x="400" y="300" w="40" h="40">
+    <Rect color="#4cc9f0"/>
+    <Var name="speed" value="4"/>
+  </Actor>
+
+  <!-- Moneta do zebrania -->
+  <Actor name="Coin" x="200" y="150" w="20" h="20">
+    <Circle color="gold"/>
+  </Actor>
+
+  <!-- Niewidoczny aktor, który przechowuje stan gry -->
+  <Actor name="Game" w="0" h="0" visible="false">
+    <Var name="coins" value="0"/>
+  </Actor>
+
+  <!-- Napis z wynikiem. {Game.coins} zmienia się na żywo -->
+  <Actor name="Score" x="20" y="20" w="0" h="0" z="10">
+    <Text value="Monety: {Game.coins}   (SPACJA = turbo)" size="24" color="white"/>
+  </Actor>
+
+  <!-- Archetyp: wzór aktora tworzonego w trakcie gry przez SPAWN -->
+  <Archetype name="Spark" w="6" h="6">
+    <Circle color="gold"/>
+    <Var name="life" value="30"/>
+  </Archetype>
+
+</Scene>
