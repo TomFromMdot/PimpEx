@@ -1,0 +1,19 @@
+# Scena {{SCENE}}: logika gry z góry.
+
+# Każda moneta sprawdza, czy dotyka gracza (FOR @coin = dla każdej monety, SELF = ta moneta).
+PROC monety FOR @coin
+  IF TOUCH SELF Player : ADD Game.coins 1
+  IF TOUCH SELF Player : DESTROY SELF
+END
+
+# Duch złapał gracza: minus życie i gracz wraca na start.
+PROC wrogowie FOR @enemy
+  IF TOUCH SELF Player : ADD Game.lives -1
+  IF TOUCH SELF Player : SET Player.y 200
+  IF TOUCH SELF Player : SET Player.x 200
+END
+
+PROC koniec
+  IF NOT EXISTS @coin : SET Hud.Text.value "Wszystkie monety! Brawo!"
+  IF Game.lives <= 0  : SCENE {{SCENE}}
+END

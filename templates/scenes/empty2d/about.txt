@@ -1,0 +1,1 @@
+Pusta scena 2D z napisem i aktorem Game na stan gry

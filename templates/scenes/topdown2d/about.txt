@@ -1,0 +1,1 @@
+Gra z góry: ruch WASD, ściany, kamera śledząca, monety i goniący duch

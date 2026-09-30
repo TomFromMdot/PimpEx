@@ -1,4 +1,5 @@
 #include "render/Renderer.hpp"
+#include "render/EmbeddedFont.hpp"
 #include "render/LightingShader.hpp"
 
 #include <raylib.h>
@@ -38,6 +39,23 @@ struct Renderer::Impl {
   };
   LightLocs lightLocs[MaxLights]{};
   bool cursorLocked = false;
+  Font font{};
+
+  // Czcionka z polskimi znakami. Rozmiar bazowy duży, żeby napisy były ostre.
+  void load_font() {
+    std::vector<int> codepoints;
+    for (int c = 32; c < 127; ++c)
+      codepoints.push_back(c);
+    for (int c = 0xA0; c <= 0x17F; ++c) // Latin-1 + Latin Extended-A (ą, ć, ę, ł, ń, ś, ź, ż...)
+      codepoints.push_back(c);
+    for (int c : {0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x201E, 0x2022, 0x2026, 0x20AC})
+      codepoints.push_back(c);
+    const auto data = embedded_font();
+    font = LoadFontFromMemory(".ttf", reinterpret_cast<const unsigned char *>(data.data()),
+                              static_cast<int>(data.size()), 48, codepoints.data(),
+                              static_cast<int>(codepoints.size()));
+    SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+  }
 
   const Texture2D *texture(const SceneData &data, const std::string &id) {
     const auto res = data.textures.find(id);
@@ -101,6 +119,8 @@ struct Renderer::Impl {
   }
 
   ~Impl() {
+    if (font.texture.id != 0)
+      UnloadFont(font);
     if (ready3d) {
       UnloadModel(cube);
       UnloadModel(sphere);
@@ -238,8 +258,9 @@ struct Renderer::Impl {
                  Vector2 topLeft) {
     const auto &text = world.registry().get<Text>(e);
     const auto value = vm::format_text(world, ctx, text.value, name);
-    DrawText(value.c_str(), static_cast<int>(topLeft.x), static_cast<int>(topLeft.y), text.size,
-             to_color(text.color));
+    const auto size = static_cast<float>(text.size);
+    DrawTextEx(font, value.c_str(), {std::round(topLeft.x), std::round(topLeft.y)}, size, size / 16,
+               to_color(text.color));
   }
 
   void draw_2d(const World &world, const SceneData &data, entt::entity e, const Transform &t) {
@@ -291,6 +312,7 @@ struct Renderer::Impl {
 
 Renderer::Renderer(std::filesystem::path projectRoot) : _impl(std::make_unique<Impl>()) {
   _impl->root = std::move(projectRoot);
+  _impl->load_font();
 }
 
 Renderer::~Renderer() { unload_textures(); }

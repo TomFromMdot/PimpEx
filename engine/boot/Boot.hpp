@@ -70,7 +70,7 @@ public:
   ~Boot() override;
 
   // Wczytuje pimpex.xml, skrypty i scenę startową. false = nie da się grać.
-  bool start();
+  bool start(const std::string &sceneOverride = "");
   bool load_scene(const std::string &name);
 
   // Wczytuje components.xml (jeśli jest). false = błędy w pliku.

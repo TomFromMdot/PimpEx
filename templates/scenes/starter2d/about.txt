@@ -1,0 +1,1 @@
+Zbieracz monet 2D: ruch w .swap, iskry w Lua, turbo wklejane z library.swap

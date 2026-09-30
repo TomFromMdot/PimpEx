@@ -1,0 +1,4 @@
+# Procedury sceny {{SCENE}} – każda PROC działa co klatkę (docs/opcodes.md).
+
+PROC start
+END

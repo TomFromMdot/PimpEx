@@ -1,0 +1,17 @@
+# Scena {{SCENE}}: logika platformówki.
+
+PROC monety FOR @coin
+  IF TOUCH SELF Player : ADD Game.coins 1
+  IF TOUCH SELF Player : DESTROY SELF
+END
+
+# Spadł z planszy – wraca na start.
+PROC upadek
+  IF Player.y > 900 : SET Player.x 100
+  IF Player.y > 900 : SET Player.vy 0
+  IF Player.y > 900 : SET Player.y 480
+END
+
+PROC meta
+  IF TOUCH Player Flag : SET Hud.Text.value "Meta! Monety: {Game.coins}"
+END

@@ -12,7 +12,7 @@ Boot::Boot(ProjectPaths paths, Log &log, unsigned seed)
 
 Boot::~Boot() = default;
 
-bool Boot::start() {
+bool Boot::start(const std::string &sceneOverride) {
   const auto projectXml = read_file(_paths.project_xml());
   if (!projectXml) {
     _log.error(std::format("Nie ma pliku {} – to nie jest projekt PimpEx.",
@@ -29,7 +29,7 @@ bool Boot::start() {
     return false;
   _lua = std::make_unique<script::LuaRuntime>(*this);
   load_scripts();
-  return load_scene(_config.startScene);
+  return load_scene(sceneOverride.empty() ? _config.startScene : sceneOverride);
 }
 
 bool Boot::load_components(const std::string *text) {

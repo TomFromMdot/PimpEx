@@ -6,10 +6,11 @@
 
 namespace PimpEx::cli {
 
-// pimpex init <nazwa> [--dir katalog] – tworzy nowy projekt gry z szablonu.
+// pimpex init <nazwa> [--dir katalog] [--template szablon] – nowy projekt gry.
 class InitCommand : public ICommand {
   std::string _name;
   std::string _dir = ".";
+  std::string _template = "starter2d";
 
 public:
   CLI::App *setup(CLI::App &app) override;

@@ -30,9 +30,9 @@ find_package(sol2 CONFIG REQUIRED)
 find_package(Lua REQUIRED)
 find_package(doctest CONFIG REQUIRED)
 
-# --- Szablon projektu gry wbudowany w binarkę (pimpex init) -----------------
+# --- Szablony projektu i scen wbudowane w binarkę (pimpex init / scene new) --
 file(GLOB_RECURSE PIMPEX_TEMPLATE_FILES CONFIGURE_DEPENDS
-  "${CMAKE_SOURCE_DIR}/templates/project/*"
+  "${CMAKE_SOURCE_DIR}/templates/*"
   "${CMAKE_SOURCE_DIR}/docs/*.md"
 )
 set(PIMPEX_EMBEDDED_CPP "${CMAKE_BINARY_DIR}/generated/EmbeddedTemplate.cpp")
@@ -46,13 +46,30 @@ add_custom_command(
   COMMENT "Wbudowuję szablon projektu"
 )
 
+# Czcionka z polskimi znakami (Anonymous Pro, SIL OFL) wbudowana w binarkę.
+set(PIMPEX_FONT_TTF "${CMAKE_SOURCE_DIR}/third_party/fonts/AnonymousPro-Bold.ttf")
+set(PIMPEX_EMBEDDED_FONT_CPP "${CMAKE_BINARY_DIR}/generated/EmbeddedFont.cpp")
+add_custom_command(
+  OUTPUT "${PIMPEX_EMBEDDED_FONT_CPP}"
+  COMMAND ${CMAKE_COMMAND}
+    -DINPUT=${PIMPEX_FONT_TTF}
+    -DOUT=${PIMPEX_EMBEDDED_FONT_CPP}
+    -DNAMESPACE=PimpEx::render
+    -DFUNCTION=embedded_font
+    -DHEADER=render/EmbeddedFont.hpp
+    -P "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+  DEPENDS "${PIMPEX_FONT_TTF}" "${CMAKE_SOURCE_DIR}/cmake/EmbedBinary.cmake"
+  COMMENT "Wbudowuję czcionkę"
+)
+
 # --- Silnik ------------------------------------------------------------------
 file(GLOB_RECURSE PIMPEX_ENGINE_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/engine/*.cpp"
   "${CMAKE_SOURCE_DIR}/engine/*.hpp"
 )
 
-add_library(pimpex_engine STATIC ${PIMPEX_ENGINE_SOURCES} "${PIMPEX_EMBEDDED_CPP}")
+add_library(pimpex_engine STATIC ${PIMPEX_ENGINE_SOURCES} "${PIMPEX_EMBEDDED_CPP}"
+  "${PIMPEX_EMBEDDED_FONT_CPP}")
 target_include_directories(pimpex_engine PUBLIC "${CMAKE_SOURCE_DIR}/engine" ${LUA_INCLUDE_DIR})
 target_link_libraries(pimpex_engine PUBLIC
   raylib
@@ -82,6 +99,11 @@ add_test(NAME pimpex_tests COMMAND pimpex_tests)
 add_test(NAME template_init_check
   COMMAND sh -c "rm -rf template_test && $<TARGET_FILE:pimpex> init template_test >/dev/null && $<TARGET_FILE:pimpex> check template_test && $<TARGET_FILE:pimpex> play template_test --headless --frames 300 --input 'LEFT:0-60 SPACE:10' --quiet"
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+# docs/components.md musi zgadzać się z rejestrem komponentów w kodzie.
+add_test(NAME components_doc_in_sync
+  COMMAND sh -c "$<TARGET_FILE:pimpex> components --markdown | diff -u '${CMAKE_SOURCE_DIR}/docs/components.md' -")
+add_test(NAME scene_templates
+  COMMAND sh "${CMAKE_SOURCE_DIR}/tests/e2e/templates.sh" $<TARGET_FILE:pimpex> "${CMAKE_BINARY_DIR}")
 file(GLOB PIMPEX_EXAMPLES LIST_DIRECTORIES true "${CMAKE_SOURCE_DIR}/examples/*")
 foreach(EXAMPLE ${PIMPEX_EXAMPLES})
   get_filename_component(EXAMPLE_NAME "${EXAMPLE}" NAME)

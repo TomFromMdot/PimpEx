@@ -13,6 +13,7 @@ struct EngineOptions {
   bool quiet = false;    // bez wypisywania dziennika na konsolę
   std::string input;     // --headless: zaplanowane klawisze, np. "RIGHT:0-60 SPACE:10"
   std::string screenshot; // zrzut ekranu ostatniej klatki (wymaga okna i --frames)
+  std::string scene;      // scena startowa zamiast <StartScene> z pimpex.xml
 };
 
 // Pętla gry:

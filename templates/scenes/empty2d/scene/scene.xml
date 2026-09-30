@@ -1,0 +1,12 @@
+<!-- Scena {{SCENE}} (2D). Dodawaj aktorów i komponenty – docs/components.md -->
+<Scene background="#101018">
+
+  <Actor name="Game" w="0" h="0" visible="false">
+    <Var name="score" value="0"/>
+  </Actor>
+
+  <Actor name="Title" x="20" y="20" w="0" h="0" space="screen">
+    <Text value="Scena {{SCENE}}" size="28" color="white"/>
+  </Actor>
+
+</Scene>

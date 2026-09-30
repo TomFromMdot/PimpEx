@@ -38,18 +38,24 @@ Pozostałe przychodzą jako tekst.
 
 | Funkcja                               | Zwraca / robi                                                |
 |---------------------------------------|--------------------------------------------------------------|
-| `get(aktor, pole)`                    | liczba albo `nil`, gdy aktor nie istnieje; też `Screen.w`, `Mouse.x`, `Scene.frame` |
-| `set(aktor, pole, wartość)`           | `true`/`false`; tworzy zmienną, jeśli jej nie było           |
-| `move(aktor, dx, dy)`                 | przesuwa aktora                                              |
+| `get(aktor, pole)`                    | liczba, tekst albo `nil`, gdy aktor nie istnieje; pole jak w `.swap`: `"x"`, `"Health.hp"`; też `get("Mouse", "dx")` |
+| `set(aktor, pole, wartość)`           | ustawia liczbę, tekst albo true/false; brakujący komponent zostaje dodany; błąd = wyjątek Lua |
+| `move(aktor, dx, dy, [dz])`           | przesuwa aktora                                              |
 | `exists(aktor)`                       | `true`, jeśli aktor istnieje                                 |
 | `touching(a, b)`                      | `true`, jeśli aktorzy się stykają                            |
-| `spawn(archetyp, [nazwa], [x], [y])`  | nazwa nowego aktora albo `nil`, gdy nie ma archetypu         |
+| `spawn(archetyp, [nazwa], [x], [y], [z])` | nazwa nowego aktora albo `nil`, gdy nie ma archetypu     |
 | `destroy(aktor)`                      | usuwa aktora                                                 |
 | `text(aktor, "tekst {pole}")`         | ustawia napis aktora                                         |
-| `actors([archetyp])`                  | tabela nazw wszystkich aktorów (albo tylko z archetypu)      |
+| `actors([selektor])`                  | tabela nazw aktorów: wszystkich, z komponentem (`"Health"`) albo z tagiem (`"@enemy"`) |
+| `has(aktor, komponent)`               | `true`, jeśli aktor ma komponent                             |
+| `add(aktor, komponent)`               | dodaje komponent z wartościami domyślnymi                    |
+| `remove(aktor, komponent)`            | usuwa komponent                                              |
+| `has_tag(aktor, tag)`                 | `true`, jeśli aktor ma tag                                   |
+| `system(selektor, funkcja)`           | rejestruje system: `funkcja(e)` co klatkę dla każdego pasującego aktora (docs/behaviors.md) |
 
-Pola są takie same jak w `.swap`: `x`, `y`, `vx`, `vy`, `w`, `h`,
-`rotation`, `z`, `visible` i własne zmienne.
+Pola są takie same jak w `.swap`: skróty (`x`, `y`, `z`, `vx`, `rotation`…),
+`Komponent.pole` (docs/components.md) i własne zmienne. Zachowania aktorów
+(`<Behavior>`) opisuje docs/behaviors.md.
 
 ### Wejście i czas
 

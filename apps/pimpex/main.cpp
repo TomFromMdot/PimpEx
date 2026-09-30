@@ -1,8 +1,10 @@
 #include "cli/Command.hpp"
 #include "cli/commands/BuildCommand.hpp"
 #include "cli/commands/CheckCommand.hpp"
+#include "cli/commands/ComponentsCommand.hpp"
 #include "cli/commands/InitCommand.hpp"
 #include "cli/commands/RunCommand.hpp"
+#include "cli/commands/SceneCommand.hpp"
 
 int main(int argc, char **argv) {
   CLI::App app{"PimpEx – silnik gier, w którym wszystko jest tekstem."};
@@ -14,6 +16,8 @@ int main(int argc, char **argv) {
   commands.add(std::make_unique<PimpEx::cli::CheckCommand>());
   commands.add(std::make_unique<PimpEx::cli::RunCommand>(true));
   commands.add(std::make_unique<PimpEx::cli::RunCommand>(false));
+  commands.add(std::make_unique<PimpEx::cli::SceneCommand>());
+  commands.add(std::make_unique<PimpEx::cli::ComponentsCommand>());
   commands.add(std::make_unique<PimpEx::cli::BuildCommand>());
   return commands.run(app, argc, argv);
 }

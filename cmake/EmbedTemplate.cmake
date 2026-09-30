@@ -1,8 +1,10 @@
-# Generuje plik C++ z zawartością szablonu projektu (templates/project + docs).
+# Generuje plik C++ z zawartością szablonów (templates/**) i dokumentacji.
+# Klucze: ścieżka względem templates/ (np. "project/pimpex.xml",
+# "scenes/arena3d/scene/scene.xml"), a docs trafiają do "project/docs/...".
 # Wywołanie: cmake -DSOURCE_DIR=... -DOUT=... -P EmbedTemplate.cmake
 
-file(GLOB_RECURSE TEMPLATE_FILES RELATIVE "${SOURCE_DIR}/templates/project"
-  "${SOURCE_DIR}/templates/project/*")
+file(GLOB_RECURSE TEMPLATE_FILES RELATIVE "${SOURCE_DIR}/templates"
+  "${SOURCE_DIR}/templates/*")
 file(GLOB DOC_FILES RELATIVE "${SOURCE_DIR}" "${SOURCE_DIR}/docs/*.md")
 list(SORT TEMPLATE_FILES)
 list(SORT DOC_FILES)
@@ -23,10 +25,10 @@ macro(embed_file ABSOLUTE_PATH PROJECT_PATH)
 endmacro()
 
 foreach(FILE ${TEMPLATE_FILES})
-  embed_file("${SOURCE_DIR}/templates/project/${FILE}" "${FILE}")
+  embed_file("${SOURCE_DIR}/templates/${FILE}" "${FILE}")
 endforeach()
 foreach(FILE ${DOC_FILES})
-  embed_file("${SOURCE_DIR}/${FILE}" "${FILE}")
+  embed_file("${SOURCE_DIR}/${FILE}" "project/${FILE}")
 endforeach()
 
 file(WRITE "${OUT}.tmp"

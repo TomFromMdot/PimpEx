@@ -5,13 +5,13 @@
 
 namespace PimpEx::cli {
 
-// Jeden plik szablonu projektu wbudowany w binarkę silnika.
+// Jeden plik szablonu wbudowany w binarkę silnika.
 struct EmbeddedFile {
-  std::string_view path; // ścieżka względem katalogu nowego projektu
+  std::string_view path; // względem templates/: "project/...", "scenes/<szablon>/..."
   std::string_view content;
 };
 
-// Wszystkie pliki, które `pimpex init` kopiuje do nowego projektu.
+// Wszystkie pliki szablonów (projekt, sceny, dokumentacja).
 const std::vector<EmbeddedFile> &embedded_template();
 
 } // namespace PimpEx::cli

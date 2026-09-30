@@ -10,6 +10,7 @@ CLI::App *RunCommand::setup(CLI::App &app) {
                                                "w plikach pojawiają się od razu.")
                    : app.add_subcommand("play", "Uruchamia grę (bez obserwowania plików).");
   sub->add_option("project", _project, "Katalog projektu")->capture_default_str();
+  sub->add_option("--scene", _options.scene, "Scena startowa (zamiast <StartScene> z pimpex.xml)");
   sub->add_option("--frames", _options.frames, "Zakończ po tylu klatkach (0 = bez limitu)");
   sub->add_flag("--headless", _options.headless,
                 "Bez okna – tylko logika (testy, CI, agenci AI); wymaga --frames");

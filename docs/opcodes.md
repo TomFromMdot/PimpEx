@@ -23,6 +23,10 @@ END
 | `PROC nazwa` … `END`  | wykonuje się co klatkę                                       |
 | `PROC nazwa EVERY 30` | wykonuje się co 30 klatek (60 klatek = 1 sekunda)            |
 | `PROC nazwa ONCE`     | wykonuje się raz, a potem silnik **sam usuwa ją z pliku**    |
+| `PROC nazwa FOR @tag` | ciało wykonuje się dla **każdego** aktora z tagiem (`SELF`)  |
+| `PROC nazwa FOR Health` | … dla każdego aktora z komponentem `Health`                |
+
+Można łączyć tryby, np. `PROC regeneracja FOR Health EVERY 60`.
 
 `ONCE` przydaje się do „wklejania” jednorazowych poleceń do działającej gry.
 Dopisujesz na koniec pliku procedurę `ONCE`, zapisujesz, silnik ją wykonuje
@@ -35,7 +39,7 @@ Nazwy procedur muszą być unikalne w pliku.
 Wszędzie, gdzie instrukcja oczekuje liczby, możesz wpisać:
 
 - liczbę: `4`, `-2.5`
-- pole aktora: `Player.x`, `Game.score`
+- pole aktora: `Player.x`, `Game.score`, `Player.Health.hp`
 - pole z minusem: `-Ball.vx`
 - losową liczbę: `RANDOM 1 6` (liczba z przedziału od 1 do 6, z ułamkami)
 
@@ -48,28 +52,39 @@ Wszędzie, gdzie instrukcja oczekuje liczby, możesz wpisać:
 | `w`, `h`    | szerokość i wysokość                                   |
 | `rotation`  | obrót w stopniach                                      |
 | `visible`   | `1` – widoczny, `0` – ukryty                           |
+| `z`, `vz`, `d`, `rx`, `ry` | trzecia oś, prędkość, głębokość i obrót w 3D |
+| `Komponent.pole` | pole komponentu, np. `Player.Health.hp`, `Cam.Camera.zoom` (docs/components.md) |
 | inne nazwy  | Twoje zmienne, np. `Game.score`, `Player.lives`        |
 
 Zmienna, której jeszcze nie ma, powstaje przy pierwszym `SET` albo `ADD`.
-Odczyt nieistniejącej zmiennej daje `0`.
+Odczyt nieistniejącej zmiennej daje `0`. Zmienne przechowują tylko liczby.
+Pola tekstowe komponentów ustawia się tekstem w cudzysłowie:
+`SET Hud.Text.value "Brawo!"`, `SET Player.Rect.color "red"`.
+
+### SELF i OTHER
+
+- `SELF` – w `PROC ... FOR` aktor, dla którego właśnie wykonuje się ciało:
+  `MOVE SELF 1 0`, `IF SELF.Health.hp <= 0 : DESTROY SELF`.
+- `OTHER` – aktor znaleziony przez ostatnie `TOUCH` z grupą:
+  `IF TOUCH SELF @enemy : ADD OTHER.Health.hp -1`.
 
 Pola specjalne (tylko do odczytu):
 
 - `Screen.w`, `Screen.h` – rozmiar okna
-- `Mouse.x`, `Mouse.y` – pozycja myszki
+- `Mouse.x`, `Mouse.y` – pozycja myszki, `Mouse.dx`, `Mouse.dy` – jej ruch w tej klatce
 - `Scene.frame` – numer bieżącej klatki
 
 ## Instrukcje
 
 | Instrukcja                              | Co robi                                                        |
 |-----------------------------------------|----------------------------------------------------------------|
-| `MOVE aktor dx dy`                      | przesuwa aktora o `dx`, `dy`                                   |
-| `SET Aktor.pole wartość`                | ustawia pole                                                   |
+| `MOVE aktor dx dy [dz]`                 | przesuwa aktora o `dx`, `dy` (i `dz` w 3D)                     |
+| `SET Aktor.pole wartość`                | ustawia pole (liczbą albo "tekstem" w cudzysłowie)             |
 | `ADD Aktor.pole wartość`                | dodaje do pola (ujemna wartość odejmuje)                       |
 | `MUL Aktor.pole wartość`                | mnoży pole (np. `MUL Ball.vx -1` odbija piłkę)                 |
-| `SPAWN Archetyp [AS nazwa] [AT x y]`    | tworzy nowego aktora z archetypu opisanego w `scene.xml`       |
+| `SPAWN Archetyp [AS nazwa] [AT x y [z]]`| tworzy nowego aktora z archetypu opisanego w `scene.xml`       |
 | `DESTROY aktor`                         | usuwa aktora                                                   |
-| `FOLLOW aktor cel prędkość`             | przesuwa aktora w stronę celu                                  |
+| `FOLLOW aktor cel prędkość`             | przesuwa aktora w stronę celu (w 3D też po osi z)              |
 | `TEXT aktor "tekst"`                    | zmienia napis aktora; `{Aktor.pole}` wstawia wartość pola      |
 | `LOG "tekst"`                           | wypisuje tekst w konsoli i w `.pimpex/runtime.log`             |
 | `CALL funkcja [argumenty…]`             | wywołuje funkcję Lua ze skryptów w katalogu `scripts/`         |
@@ -95,8 +110,11 @@ IF warunek : IF inny_warunek : instrukcja
 |---------------------------|------------------------------------------------------|
 | `KEY W`                   | klawisz jest wciśnięty (trzymany)                    |
 | `PRESSED SPACE`           | klawisz został wciśnięty w tej klatce (jednorazowo)  |
-| `TOUCH a b`               | aktorzy `a` i `b` stykają się (prostokąty kolizji)   |
+| `TOUCH a b`               | aktorzy `a` i `b` stykają się (prostokąty w, h, d)   |
+| `TOUCH a @tag`            | `a` dotyka **któregokolwiek** aktora z tagiem – on staje się `OTHER` |
+| `TOUCH a Komponent`       | jak wyżej, dla aktorów z komponentem                 |
 | `EXISTS aktor`            | aktor istnieje                                       |
+| `EXISTS @tag`             | istnieje choć jeden aktor z tagiem                   |
 | `CHANCE 10`               | wylosowano 10% szans (w każdej klatce osobno)        |
 | `wartość < wartość`       | porównanie: `<`, `<=`, `>`, `>=`, `==`, `!=`         |
 | `NOT warunek`             | odwraca warunek                                      |
