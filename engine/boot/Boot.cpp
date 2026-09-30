@@ -1,6 +1,7 @@
 #include "boot/Boot.hpp"
 #include "boot/SwapFile.hpp"
 #include "boot/XmlLoader.hpp"
+#include "scene/Physics.hpp"
 
 #include <format>
 
@@ -24,9 +25,41 @@ bool Boot::start() {
   if (has_errors(diagnostics))
     return false;
 
+  if (!load_components())
+    return false;
   _lua = std::make_unique<script::LuaRuntime>(*this);
   load_scripts();
   return load_scene(_config.startScene);
+}
+
+bool Boot::load_components(const std::string *text) {
+  const auto file = text ? std::optional(*text) : read_file(_paths.components_xml());
+  auto registry = scene::ComponentRegistry::with_builtins();
+  if (file) {
+    Diagnostics diagnostics;
+    registry->load_custom(*file, _paths.display(_paths.components_xml()), diagnostics);
+    _log.diagnostics(diagnostics);
+    if (has_errors(diagnostics))
+      return false;
+  }
+  _components = std::move(registry);
+  _world.set_components(_components);
+  return true;
+}
+
+void Boot::apply_components_xml(const std::string &text) {
+  if (!load_components(&text)) {
+    _log.error("components.xml ma błędy – komponenty się nie zmieniają.");
+    return;
+  }
+  _log.info(std::format("hot-reload: components.xml (komponenty: {})", _components->all().size()));
+  // Scena mogła używać nowych komponentów – wczytujemy ją jeszcze raz.
+  const auto xmlPath = _paths.scene_xml(_sceneName);
+  if (const auto xml = read_file(xmlPath)) {
+    Diagnostics diagnostics;
+    auto data = parse_scene_xml(*xml, _paths.display(xmlPath), _sceneName, diagnostics, _components.get());
+    apply_scene_xml(std::move(data), std::move(diagnostics));
+  }
 }
 
 void Boot::load_scripts() {
@@ -43,7 +76,7 @@ bool Boot::load_scene(const std::string &name) {
     return false;
   }
   Diagnostics diagnostics;
-  auto data = parse_scene_xml(*xml, _paths.display(xmlPath), name, diagnostics);
+  auto data = parse_scene_xml(*xml, _paths.display(xmlPath), name, diagnostics, _components.get());
   _log.diagnostics(diagnostics);
   if (has_errors(diagnostics))
     return false;
@@ -76,7 +109,7 @@ void Boot::run_frame(const vm::FrameContext &ctx) {
   _frame = &ctx;
   _vm.run_frame(_program, _world, ctx, *this);
   apply_requests();
-  _world.integrate();
+  _contacts = scene::step_physics(_world);
   _frame = nullptr;
 }
 
@@ -252,7 +285,9 @@ void Boot::runtime_error(int line, const std::string &message) {
 
 std::vector<fs::path> Boot::watched_files() const {
   std::vector<fs::path> files = {_paths.scene_swap(_sceneName), _paths.library_swap(_sceneName),
-                                 _paths.scene_xml(_sceneName)};
+                                 _paths.scene_xml(_sceneName), _paths.components_xml()};
+  for (const auto &behavior : _paths.behavior_files())
+    files.push_back(behavior);
   for (const auto &script : _paths.script_files())
     files.push_back(script);
   return files;

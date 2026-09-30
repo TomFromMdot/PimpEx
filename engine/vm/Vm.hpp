@@ -40,8 +40,13 @@ class Vm {
   const FrameContext *_ctx = nullptr;
   scene::World *_world = nullptr;
   IVmHost *_host = nullptr;
+  std::string _self;  // SELF w PROC ... FOR
+  std::string _other; // OTHER – ostatni aktor znaleziony przez TOUCH
 
   void report(int line, const std::string &message);
+  // SELF/OTHER -> prawdziwa nazwa aktora (pusty tekst + błąd, gdy nie ma).
+  std::string actor(const std::string &name, int line);
+  bool touch(const std::string &a, const std::string &b, int line);
   double read(const Ref &ref, int line);
   double eval(const Value &value, int line);
   bool test(const Condition &cond, int line);
@@ -59,7 +64,14 @@ public:
   double random(double min, double max);
 };
 
+// Aktorzy specjalni, których nie ma w scene.xml, ale da się z nich czytać.
+bool is_builtin_actor(std::string_view name);
+
 // Odczyt pola z uwzględnieniem aktorów specjalnych (Screen, Mouse, Scene).
+// Nieustawiona zmienna ma wartość 0.
+std::optional<scene::FieldValue> read_value(const scene::World &world, const FrameContext &ctx,
+                                            const std::string &actor, const std::string &field,
+                                            std::string *error = nullptr);
 std::optional<double> read_field(const scene::World &world, const FrameContext &ctx,
                                  const std::string &actor, const std::string &field);
 

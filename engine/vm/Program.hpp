@@ -9,18 +9,20 @@
 // Każda PROC to lista instrukcji wykonywana przez VM co klatkę.
 namespace PimpEx::vm {
 
-// Odwołanie do pola aktora, np. `Player.x` albo `Game.score`.
+// Odwołanie do pola aktora: `Player.x`, `Game.score`, `Player.Health.hp`,
+// `SELF.x` (w PROC ... FOR). `field` to wszystko po pierwszej kropce.
 struct Ref {
   std::string actor;
   std::string field;
 };
 
-// Wartość liczbowa w instrukcji: liczba, pole aktora albo RANDOM a b.
+// Wartość w instrukcji: liczba, pole aktora, RANDOM a b albo "tekst" (tylko SET).
 struct Value {
-  enum class Kind { Number, Ref, Random };
+  enum class Kind { Number, Ref, Random, Text };
 
   Kind kind = Kind::Number;
   double number = 0.0;
+  std::string text;
   Ref ref;
   bool negate = false; // `-Ball.vx`
   double min = 0.0, max = 0.0;
@@ -34,17 +36,17 @@ struct Condition {
   Kind kind = Kind::KeyDown;
   bool negate = false;         // NOT ...
   Key key = Key::Space;        // KEY / PRESSED
-  std::string a, b;            // TOUCH a b, EXISTS a
+  std::string a, b;            // TOUCH a b, EXISTS a; b/a może być @tagiem
   Value left, right;           // porównanie; CHANCE używa `left` jako procentu
   CompareOp op = CompareOp::Equal;
 };
 
 enum class Op {
-  Move,       // MOVE aktor dx dy
+  Move,       // MOVE aktor dx dy [dz]
   Set,        // SET Aktor.pole wartość
   Add,        // ADD Aktor.pole wartość
   Mul,        // MUL Aktor.pole wartość
-  Spawn,      // SPAWN Archetyp [AS nazwa] [AT x y]
+  Spawn,      // SPAWN Archetyp [AS nazwa] [AT x y [z]]
   Destroy,    // DESTROY aktor
   Follow,     // FOLLOW aktor cel prędkość
   Text,       // TEXT aktor "tekst {pole}"
@@ -78,6 +80,9 @@ struct Proc {
   std::string name;
   ProcMode mode = ProcMode::Loop;
   int every = 1;
+  // PROC nazwa FOR Health / FOR @enemy: ciało wykonuje się dla każdego
+  // pasującego aktora, który jest wtedy dostępny jako SELF.
+  std::string forEach;
   int firstLine = 0; // linia z PROC
   int lastLine = 0;  // linia z END
   std::vector<Instr> body;

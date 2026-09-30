@@ -1,11 +1,13 @@
 #pragma once
 
+#include "scene/ComponentRegistry.hpp"
 #include "scene/SceneData.hpp"
 
 #include <entt/entt.hpp>
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -13,24 +15,44 @@
 
 namespace PimpEx::scene {
 
-// „Żywa” scena: aktorzy w rejestrze EnTT, dostępni po nazwie.
-// Tylko wątek główny dotyka World.
+// „Żywa” scena: aktorzy (GameObjecty) w rejestrze EnTT, dostępni po nazwie.
+// Pola czyta się i zapisuje ścieżkami: "x", "vx", "Rect.color", "Health.hp",
+// "score" (zmienna). Tylko wątek główny dotyka World.
 class World {
+  std::shared_ptr<const ComponentRegistry> _components;
   entt::registry _registry;
   std::map<std::string, entt::entity> _byName;
   std::map<std::string, ActorDef> _archetypes;
   std::map<std::string, int> _spawnCounters;
   std::optional<Rgba> _background;
+  SceneMode _mode = SceneMode::Mode2D;
 
   entt::entity create(const ActorDef &def, const std::string &name, bool fromSceneFile,
                       const std::string &archetype);
+  void apply_components(entt::entity e, const ActorDef &def);
+  void strip_components(entt::entity e);
 
 public:
+  // Pole znalezione po ścieżce.
+  struct FieldRef {
+    const ComponentDesc *component = nullptr; // null = zmienna z <Var>
+    const FieldDesc *field = nullptr;
+    std::string var;
+  };
+
+  World();
+  explicit World(std::shared_ptr<const ComponentRegistry> components);
+
+  // Rejestr komponentów (wbudowane + components.xml).
+  void set_components(std::shared_ptr<const ComponentRegistry> components);
+  const ComponentRegistry &components() const { return *_components; }
+
   // Buduje świat od zera na podstawie scene.xml.
   void load(const SceneData &data);
 
   // Hot-reload scene.xml. Z `keepState` aktorzy, którzy już istnieją,
-  // zachowują pozycję, prędkość i zmienne; zmienia się ich wygląd i rozmiar.
+  // zachowują pozycję, prędkość, zmienne i dane komponentów użytkownika;
+  // resztę (wygląd, rozmiar, nowe komponenty) biorą z pliku.
   // Aktorzy usunięci z pliku znikają, a stworzeni przez SPAWN zostają.
   void reload(const SceneData &data, bool keepState);
 
@@ -44,21 +66,45 @@ public:
   bool destroy(const std::string &name);
   bool exists(const std::string &name) const { return _byName.contains(name); }
   entt::entity find(const std::string &name) const;
+  std::string name_of(entt::entity e) const;
 
-  // Odczyt/zapis pól aktora: x, y, w, h, vx, vy, rotation, z, visible albo zmienne.
-  std::optional<double> get(const std::string &actor, const std::string &field) const;
-  bool set(const std::string &actor, const std::string &field, double value);
+  // --- pola -------------------------------------------------------------------------
+  // "x" / "vx" / "rotation" – skróty do Transform i Body; "Comp.pole";
+  // inna pojedyncza nazwa – zmienna. Zwraca nullopt i opis w `error`.
+  std::optional<FieldRef> resolve(std::string_view path, std::string *error = nullptr) const;
 
-  // Czy prostokąty dwóch aktorów na siebie nachodzą.
+  std::optional<FieldValue> get_field(const std::string &actor, std::string_view path,
+                                      std::string *error = nullptr) const;
+  // Wartość liczbowa (bool = 0/1). Tekst albo brak pola = nullopt.
+  std::optional<double> get(const std::string &actor, std::string_view path) const;
+
+  // Zwraca opis błędu albo nullopt. Brakujący komponent zostaje dodany.
+  std::optional<std::string> set_field(const std::string &actor, std::string_view path,
+                                       const FieldValue &value);
+  bool set(const std::string &actor, std::string_view path, double value) {
+    return !set_field(actor, path, value).has_value();
+  }
+
+  // --- komponenty i zapytania ---------------------------------------------------------
+  bool has_component(entt::entity e, std::string_view component) const;
+  std::optional<std::string> add_component(const std::string &actor, const std::string &component);
+  bool remove_component(const std::string &actor, const std::string &component);
+  std::vector<std::string> components_of(entt::entity e) const;
+
+  bool has_tag(entt::entity e, std::string_view tag) const;
+  // "Health" – aktorzy z komponentem, "@enemy" – z tagiem, "" – wszyscy.
+  bool matches(entt::entity e, std::string_view selector) const;
+  std::vector<std::string> query(std::string_view selector) const;
+
+  // Czy prostokąty (prostopadłościany) dwóch aktorów na siebie nachodzą.
   bool touching(const std::string &a, const std::string &b) const;
-
-  // Ruch: pozycja += prędkość (raz na klatkę).
-  void integrate();
+  bool touching(entt::entity a, entt::entity b) const;
 
   std::vector<std::string> names() const;
   std::size_t size() const { return _byName.size(); }
   bool has_archetype(const std::string &name) const { return _archetypes.contains(name); }
   const std::optional<Rgba> &background() const { return _background; }
+  SceneMode mode() const { return _mode; }
 
   entt::registry &registry() { return _registry; }
   const entt::registry &registry() const { return _registry; }

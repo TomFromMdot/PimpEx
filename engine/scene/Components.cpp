@@ -1,6 +1,7 @@
 #include "scene/Components.hpp"
 
 #include <array>
+#include <format>
 #include <utility>
 
 namespace PimpEx::scene {
@@ -77,6 +78,15 @@ std::optional<Rgba> parse_color(std::string_view text) {
   default:
     return std::nullopt;
   }
+}
+
+std::string color_to_string(const Rgba &color) {
+  for (const auto &[name, named] : NamedColors)
+    if (named == color)
+      return std::string(name);
+  if (color.a == 255)
+    return std::format("#{:02x}{:02x}{:02x}", color.r, color.g, color.b);
+  return std::format("#{:02x}{:02x}{:02x}{:02x}", color.r, color.g, color.b, color.a);
 }
 
 } // namespace PimpEx::scene

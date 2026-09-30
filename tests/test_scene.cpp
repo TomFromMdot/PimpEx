@@ -1,5 +1,6 @@
 #include "boot/ProjectCheck.hpp"
 #include "boot/XmlLoader.hpp"
+#include "scene/Physics.hpp"
 #include "scene/World.hpp"
 #include "vm/Parser.hpp"
 
@@ -49,14 +50,13 @@ TEST_CASE("scene.xml: aktorzy, archetypy i zmienne") {
   const auto &player = data.actors[0];
   CHECK(player.name == "Player");
   CHECK(player.line == 2);
-  CHECK(player.transform.x == 100);
-  CHECK(player.transform.w == 40);
-  CHECK(player.velocity.vx == 1);
-  REQUIRE(player.shape.has_value());
-  CHECK(player.shape->kind == Shape::Kind::Rect);
+  REQUIRE(player.components.size() == 3); // Transform, Body (z vx), Rect
+  CHECK(player.components[0].component == "Transform");
+  CHECK(player.components[1].component == "Body");
+  CHECK(player.components[2].component == "Rect");
+  CHECK(player.has("Rect"));
   CHECK(player.vars.values.at("lives") == 3);
-  REQUIRE(data.actors[1].label.has_value());
-  CHECK(data.actors[1].label->size == 30);
+  CHECK(data.actors[1].has("Text"));
   CHECK(data.archetypes.contains("Bullet"));
   CHECK(data.background.has_value());
 }
@@ -74,10 +74,10 @@ TEST_CASE("scene.xml: błędy z numerem linii") {
   for (const auto &d : diagnostics)
     text += d.format() + "\n";
   INFO(text);
-  CHECK(text.find("scene.xml:2: błąd: atrybut x=\"abc\" musi być liczbą") != std::string::npos);
+  CHECK(text.find("scene.xml:2: błąd: x=\"abc\" musi być liczbą") != std::string::npos);
   CHECK(text.find("scene.xml:3: błąd: aktor 'A' jest już zdefiniowany") != std::string::npos);
   CHECK(text.find("scene.xml:4: błąd: <Actor> musi mieć atrybut name") != std::string::npos);
-  CHECK(text.find("scene.xml:5: ostrzeżenie: nieznany element <Foo>") != std::string::npos);
+  CHECK(text.find("scene.xml:5: ostrzeżenie: nieznany komponent <Foo>") != std::string::npos);
   CHECK(text.find("scene.xml:5: błąd: 'B' używa tekstury 'nope'") != std::string::npos);
 }
 
@@ -127,7 +127,7 @@ TEST_CASE("World: pola, SPAWN, DESTROY, TOUCH i ruch") {
   CHECK(world.touching("Player", "Bullet_1"));
   CHECK_FALSE(world.touching("Player", "Bullet_2"));
 
-  world.integrate();
+  step_physics(world);
   CHECK(world.get("Player", "x") == 101);
   CHECK(world.get("Bullet_1", "y") == 195);
 
@@ -137,8 +137,9 @@ TEST_CASE("World: pola, SPAWN, DESTROY, TOUCH i ruch") {
 
   std::ostringstream dump;
   world.dump(dump);
-  CHECK(dump.str().find("Player x=101 y=200 w=40 h=20 vx=1 vy=0 lives=3 score=5") !=
-        std::string::npos);
+  INFO(dump.str());
+  CHECK(dump.str().find("Player x=101 y=200 w=40 h=20 Body(vx=1 grounded=0) Rect(color=#ff0000) "
+                        "lives=3 score=5") != std::string::npos);
 }
 
 TEST_CASE("World: hot-reload zachowuje stan") {

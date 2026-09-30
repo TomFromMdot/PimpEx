@@ -24,7 +24,10 @@ struct ProjectPaths {
   fs::path library_swap(const std::string &scene) const {
     return scene_dir(scene) / "library.swap";
   }
+  fs::path components_xml() const { return root / "components.xml"; }
   fs::path scripts_dir() const { return root / "scripts"; }
+  fs::path behaviors_dir() const { return scripts_dir() / "behaviors"; }
+  fs::path behavior_file(const std::string &name) const { return behaviors_dir() / (name + ".lua"); }
   fs::path runtime_dir() const { return root / ".pimpex"; }
   fs::path runtime_log() const { return runtime_dir() / "runtime.log"; }
   fs::path state_file() const { return runtime_dir() / "state.txt"; }
@@ -45,6 +48,17 @@ struct ProjectPaths {
     return names;
   }
 
+  std::vector<fs::path> behavior_files() const {
+    std::vector<fs::path> files;
+    std::error_code ec;
+    for (const auto &entry : fs::directory_iterator(behaviors_dir(), ec))
+      if (entry.is_regular_file() && entry.path().extension() == ".lua")
+        files.push_back(entry.path());
+    std::sort(files.begin(), files.end());
+    return files;
+  }
+
+  // Skrypty globalne (scripts/*.lua, bez podkatalogu behaviors/).
   std::vector<fs::path> script_files() const {
     std::vector<fs::path> files;
     std::error_code ec;

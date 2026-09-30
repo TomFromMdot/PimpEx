@@ -18,7 +18,7 @@
   </Actor>
 
   <!-- Napis z wynikiem. {Game.coins} zmienia się na żywo -->
-  <Actor name="Score" x="20" y="20" w="0" h="0" z="10">
+  <Actor name="Score" x="20" y="20" w="0" h="0" layer="10" space="screen">
     <Text value="Monety: {Game.coins}   (SPACJA = turbo)" size="24" color="white"/>
   </Actor>
 

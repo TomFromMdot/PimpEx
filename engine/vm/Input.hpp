@@ -18,6 +18,9 @@ public:
   virtual bool pressed(Key key) const = 0; // wciśnięty w tej klatce
   virtual float mouse_x() const = 0;
   virtual float mouse_y() const = 0;
+  // Ruch myszy od poprzedniej klatki (kamera fps).
+  virtual float mouse_dx() const { return 0; }
+  virtual float mouse_dy() const { return 0; }
 };
 
 // Input sterowany ręcznie – dla testów i trybu bez okna (--headless).

@@ -12,7 +12,7 @@ bool is_digit(char c) { return c >= '0' && c <= '9'; }
 // więc aktor może nazywać się np. „Żaba”.
 bool is_word_char(char c) {
   const auto u = static_cast<unsigned char>(c);
-  return std::isalnum(u) || c == '_' || c == '.' || c == '/' || u >= 0x80;
+  return std::isalnum(u) || c == '_' || c == '.' || c == '/' || c == '@' || u >= 0x80;
 }
 
 } // namespace

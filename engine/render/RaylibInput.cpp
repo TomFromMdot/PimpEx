@@ -41,6 +41,9 @@ void RaylibInput::poll() {
   const auto mouse = GetMousePosition();
   _mouseX = mouse.x;
   _mouseY = mouse.y;
+  const auto delta = GetMouseDelta();
+  _mouseDx = delta.x;
+  _mouseDy = delta.y;
 }
 
 } // namespace PimpEx::render

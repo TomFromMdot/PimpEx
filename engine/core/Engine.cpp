@@ -9,6 +9,7 @@
 
 #include <raylib.h>
 
+#include <atomic>
 #include <iostream>
 
 namespace PimpEx {
@@ -18,7 +19,7 @@ namespace fs = std::filesystem;
 
 // Plik przygotowany na wątku zasobów – gotowy do podmiany w klatce.
 struct FileUpdate {
-  enum class Kind { Swap, Library, SceneXml, Script };
+  enum class Kind { Swap, Library, SceneXml, Components, Script };
   Kind kind = Kind::Script;
   fs::path path;
   std::string text;
@@ -28,7 +29,8 @@ struct FileUpdate {
 };
 
 // Wątek zasobów: zamienia surowy tekst pliku na gotowe dane.
-std::optional<FileUpdate> prepare(const boot::ProjectPaths &paths, const fs::path &path,
+std::optional<FileUpdate> prepare(const boot::ProjectPaths &paths,
+                                  const scene::ComponentRegistry &components, const fs::path &path,
                                   std::string content) {
   FileUpdate update;
   update.path = path;
@@ -40,7 +42,9 @@ std::optional<FileUpdate> prepare(const boot::ProjectPaths &paths, const fs::pat
   } else if (filename == "scene.xml") {
     update.kind = FileUpdate::Kind::SceneXml;
     const auto sceneName = path.parent_path().filename().string();
-    update.scene = boot::parse_scene_xml(content, display, sceneName, update.diagnostics);
+    update.scene = boot::parse_scene_xml(content, display, sceneName, update.diagnostics, &components);
+  } else if (filename == "components.xml") {
+    update.kind = FileUpdate::Kind::Components;
   } else if (path.extension() == ".lua") {
     update.kind = FileUpdate::Kind::Script;
   } else {
@@ -53,7 +57,7 @@ std::optional<FileUpdate> prepare(const boot::ProjectPaths &paths, const fs::pat
 void apply(boot::Boot &boot, render::Renderer *renderer, FileUpdate update) {
   const auto &paths = boot.paths();
   // Zmiany z innej sceny (np. tuż po SCENE) pomijamy.
-  if (update.kind != FileUpdate::Kind::Script &&
+  if (update.kind != FileUpdate::Kind::Script && update.kind != FileUpdate::Kind::Components &&
       update.path.parent_path() != paths.scene_dir(boot.scene_name()))
     return;
   switch (update.kind) {
@@ -67,6 +71,11 @@ void apply(boot::Boot &boot, render::Renderer *renderer, FileUpdate update) {
     boot.apply_scene_xml(std::move(update.scene), std::move(update.diagnostics));
     if (renderer)
       renderer->unload_textures(); // <Resources> mogły się zmienić
+    break;
+  case FileUpdate::Kind::Components:
+    boot.apply_components_xml(update.text);
+    if (renderer)
+      renderer->unload_textures();
     break;
   case FileUpdate::Kind::Script:
     boot.apply_script(update.path, update.text);
@@ -96,8 +105,12 @@ int Engine::run() {
   const auto &config = boot.config();
 
   Mailbox<FileUpdate> mailbox;
+  // Wątek zasobów parsuje scene.xml z aktualnym rejestrem komponentów.
+  // Rejestr jest niezmienny, a wskaźnik podmieniamy atomowo.
+  std::atomic<std::shared_ptr<const scene::ComponentRegistry>> components{boot.components()};
   boot::FileWatcher watcher([&](const fs::path &path, std::string content) {
-    if (auto update = prepare(paths, path, std::move(content)))
+    const auto registry = components.load();
+    if (auto update = prepare(paths, *registry, path, std::move(content)))
       mailbox.post(std::move(*update));
   });
   if (_options.watch) {
@@ -130,6 +143,8 @@ int Engine::run() {
 
     for (auto &update : mailbox.drain())
       apply(boot, renderer.get(), std::move(update));
+    if (components.load() != boot.components())
+      components.store(boot.components());
 
     if (_options.headless)
       scriptedInput.update(frame);

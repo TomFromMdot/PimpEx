@@ -2,6 +2,7 @@
 
 #include "boot/ProjectPaths.hpp"
 #include "core/Log.hpp"
+#include "scene/Physics.hpp"
 #include "scene/SceneData.hpp"
 #include "scene/World.hpp"
 #include "script/LuaRuntime.hpp"
@@ -36,6 +37,7 @@ private:
   Log &_log;
   scene::ProjectConfig _config;
 
+  std::shared_ptr<const scene::ComponentRegistry> _components = scene::ComponentRegistry::with_builtins();
   std::string _sceneName;
   int _sceneGeneration = 0;
   scene::SceneData _sceneData;
@@ -53,6 +55,7 @@ private:
   std::unique_ptr<script::LuaRuntime> _lua;
   std::vector<Request> _requests;
   const vm::FrameContext *_frame = nullptr;
+  std::vector<scene::Contact> _contacts; // styki z ostatniej klatki fizyki
   SelfWriteCallback _onSelfWrite;
   bool _persistSwap = true; // false (pimpex play): zmiany .swap tylko w pamięci
 
@@ -70,6 +73,9 @@ public:
   bool start();
   bool load_scene(const std::string &name);
 
+  // Wczytuje components.xml (jeśli jest). false = błędy w pliku.
+  bool load_components(const std::string *text = nullptr);
+
   // Jedna klatka logiki: procedury, prośby o zmiany w .swap, ruch.
   void run_frame(const vm::FrameContext &ctx);
 
@@ -78,6 +84,8 @@ public:
   void apply_library(std::string text, vm::ParseResult parsed);
   void apply_scene_xml(scene::SceneData data, Diagnostics diagnostics);
   void apply_script(const fs::path &path, const std::string &source);
+  // components.xml zmienił się: nowy rejestr i ponowne wczytanie scene.xml.
+  void apply_components_xml(const std::string &text);
 
   void set_self_write_callback(SelfWriteCallback callback) { _onSelfWrite = std::move(callback); }
 
@@ -92,6 +100,9 @@ public:
 
   const ProjectPaths &paths() const { return _paths; }
   const scene::ProjectConfig &config() const { return _config; }
+  // Rejestr komponentów (wbudowane + components.xml). Niezmienny – przy
+  // zmianie components.xml powstaje nowy, więc można go czytać z innych wątków.
+  std::shared_ptr<const scene::ComponentRegistry> components() const { return _components; }
   const std::string &scene_name() const { return _sceneName; }
   int scene_generation() const { return _sceneGeneration; }
   const scene::SceneData &scene_data() const { return _sceneData; }

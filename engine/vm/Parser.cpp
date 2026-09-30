@@ -1,5 +1,6 @@
 #include "vm/Parser.hpp"
 #include "vm/Lexer.hpp"
+#include "core/Strings.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -14,46 +15,15 @@ struct LineError : std::runtime_error {
   using std::runtime_error::runtime_error;
 };
 
-std::string to_upper(std::string_view s) {
-  std::string out(s);
-  for (auto &c : out)
-    if (c >= 'a' && c <= 'z')
-      c = static_cast<char>(c - 'a' + 'A');
-  return out;
-}
-
-std::size_t edit_distance(std::string_view a, std::string_view b) {
-  std::vector<std::size_t> row(b.size() + 1);
-  for (std::size_t j = 0; j <= b.size(); ++j)
-    row[j] = j;
-  for (std::size_t i = 1; i <= a.size(); ++i) {
-    std::size_t prev = row[0];
-    row[0] = i;
-    for (std::size_t j = 1; j <= b.size(); ++j) {
-      const std::size_t cur = row[j];
-      row[j] = std::min({row[j] + 1, row[j - 1] + 1,
-                         prev + (a[i - 1] == b[j - 1] ? 0 : 1)});
-      prev = cur;
-    }
-  }
-  return row[b.size()];
-}
+std::string to_upper(std::string_view s) { return to_upper_ascii(s); }
 
 const std::vector<std::string_view> Instructions = {
     "MOVE", "SET",  "ADD", "MUL",  "SPAWN",    "DESTROY",     "FOLLOW",
     "TEXT", "LOG",  "CALL", "IF",  "PROC_ADD", "PROC_REMOVE", "SCENE"};
 
 std::string suggestion(std::string_view word) {
-  const auto upper = to_upper(word);
-  std::string_view best;
-  std::size_t bestDistance = 3; // podpowiadamy tylko bliskie literówki
-  for (auto name : Instructions) {
-    const auto d = edit_distance(upper, name);
-    if (d < bestDistance) {
-      bestDistance = d;
-      best = name;
-    }
-  }
+  const std::vector<std::string> names(Instructions.begin(), Instructions.end());
+  const auto best = closest_match(word, names); // tylko bliskie literówki
   return best.empty() ? "" : std::format(" Czy chodziło o {}?", best);
 }
 
@@ -93,8 +63,17 @@ public:
   // Nazwa aktora / PROC / sceny – bez kropki.
   std::string name(std::string_view what) {
     auto text = word(what);
-    if (text.find('.') != std::string::npos || text.find('/') != std::string::npos)
-      throw LineError(std::format("{} nie może zawierać '.' ani '/': '{}'", what, text));
+    if (text.find_first_of("./@") != std::string::npos)
+      throw LineError(std::format("{} nie może zawierać '.', '/' ani '@': '{}'", what, text));
+    return text;
+  }
+
+  // Aktor albo grupa: `Player`, `SELF`, `@coin` (tag), a w FOR także `Health` (komponent).
+  std::string selector(std::string_view what) {
+    auto text = word(what);
+    const auto body = text.starts_with('@') ? std::string_view(text).substr(1) : std::string_view(text);
+    if (body.empty() || body.find_first_of("./@") != std::string_view::npos)
+      throw LineError(std::format("{}: oczekiwano nazwy albo @tagu, a jest '{}'", what, text));
     return text;
   }
 
@@ -107,7 +86,7 @@ public:
 
   Ref ref(std::string_view what) {
     const auto text = word(what);
-    const auto dot = text.rfind('.');
+    const auto dot = text.find('.');
     if (dot == std::string::npos || dot == 0 || dot + 1 == text.size())
       throw LineError(std::format(
           "oczekiwano pola w formie Aktor.pole ({}), a jest '{}'", what, text));
@@ -197,11 +176,11 @@ Condition parse_condition(Cursor &c) {
     cond.key = parse_key(c);
   } else if (c.accept("TOUCH")) {
     cond.kind = Condition::Kind::Touch;
-    cond.a = c.name("pierwszy aktor w TOUCH");
-    cond.b = c.name("drugi aktor w TOUCH");
+    cond.a = c.selector("pierwszy aktor w TOUCH");
+    cond.b = c.selector("drugi aktor w TOUCH");
   } else if (c.accept("EXISTS")) {
     cond.kind = Condition::Kind::Exists;
-    cond.a = c.name("aktor w EXISTS");
+    cond.a = c.selector("aktor w EXISTS");
   } else if (c.accept("CHANCE")) {
     cond.kind = Condition::Kind::Chance;
     cond.left = c.value("procent w CHANCE");
@@ -247,17 +226,29 @@ Instr parse_statement(Cursor &c, int line) {
     instr.op = Op::Move;
     instr.target = c.name("aktor w MOVE");
     instr.values = {c.value("przesunięcie X"), c.value("przesunięcie Y")};
+    if (!c.done())
+      instr.values.push_back(c.value("przesunięcie Z"));
   } else if (keyword == "SET" || keyword == "ADD" || keyword == "MUL") {
     instr.op = keyword == "SET" ? Op::Set : keyword == "ADD" ? Op::Add : Op::Mul;
     instr.ref = c.ref("pole do zmiany");
-    instr.values = {c.value("wartość")};
+    if (keyword == "SET" && !c.done() && c.peek()->kind == Token::Kind::String) {
+      Value text;
+      text.kind = Value::Kind::Text;
+      text.text = c.next("tekst").text;
+      instr.values = {text};
+    } else {
+      instr.values = {c.value("wartość")};
+    }
   } else if (keyword == "SPAWN") {
     instr.op = Op::Spawn;
     instr.target = c.name("archetyp w SPAWN");
     if (c.accept("AS"))
       instr.other = c.name("nazwa nowego aktora po AS");
-    if (c.accept("AT"))
+    if (c.accept("AT")) {
       instr.values = {c.value("pozycja X"), c.value("pozycja Y")};
+      if (!c.done())
+        instr.values.push_back(c.value("pozycja Z"));
+    }
   } else if (keyword == "DESTROY") {
     instr.op = Op::Destroy;
     instr.target = c.name("aktor w DESTROY");
@@ -334,24 +325,34 @@ ParseResult parse_program(std::string_view source, const std::string &file) {
                 std::format("PROC {} nie ma END (następna PROC zaczyna się w linii {})",
                             current->name, lineNo));
           current->lastLine = lineNo - 1;
+          current = nullptr;
         }
         Proc proc;
         proc.name = c.name("nazwa PROC");
         proc.firstLine = lineNo;
-        if (c.accept("ONCE")) {
-          proc.mode = ProcMode::Once;
-        } else if (c.accept("EVERY")) {
-          proc.mode = ProcMode::Every;
-          const auto n = c.number("liczba klatek po EVERY");
-          if (n < 1 || n != std::floor(n))
-            throw LineError("EVERY wymaga dodatniej liczby całkowitej klatek");
-          proc.every = static_cast<int>(n);
-        }
-        c.expect_end();
         if (result.program.find(proc.name))
           error(lineNo, std::format("PROC {} jest już zdefiniowana", proc.name));
-        result.program.procs.push_back(std::move(proc));
+        // Od tej chwili PROC jest otwarta – nawet jeśli dalsza część nagłówka
+        // ma błąd, jej END nie będzie „END bez PROC”.
+        result.program.procs.push_back(proc);
         current = &result.program.procs.back();
+        while (!c.done()) {
+          if (current->mode == ProcMode::Loop && c.accept("ONCE")) {
+            current->mode = ProcMode::Once;
+          } else if (current->mode == ProcMode::Loop && c.accept("EVERY")) {
+            current->mode = ProcMode::Every;
+            const auto n = c.number("liczba klatek po EVERY");
+            if (n < 1 || n != std::floor(n))
+              throw LineError("EVERY wymaga dodatniej liczby całkowitej klatek");
+            current->every = static_cast<int>(n);
+          } else if (current->forEach.empty() && c.accept("FOR")) {
+            current->forEach = c.selector("komponent albo @tag po FOR");
+          } else {
+            throw LineError(std::format("nieznane słowo '{}' po nazwie PROC (dozwolone: ONCE, "
+                                        "EVERY n, FOR Komponent, FOR @tag)",
+                                        c.peek()->text));
+          }
+        }
         continue;
       }
 

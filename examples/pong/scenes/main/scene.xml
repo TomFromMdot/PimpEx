@@ -1,7 +1,7 @@
 <!-- Pong: lewa paletka W/S, prawa paletka strzałki. Do 5 punktów. -->
 <Scene background="#0b0b14">
 
-  <Actor name="Linia" x="400" y="300" w="4" h="600" z="-1">
+  <Actor name="Linia" x="400" y="300" w="4" h="600" layer="-1">
     <Rect color="#2a2a3a"/>
   </Actor>
 
@@ -23,11 +23,11 @@
     <Var name="prawy" value="0"/>
   </Actor>
 
-  <Actor name="Wynik" x="340" y="20" w="0" h="0" z="10">
+  <Actor name="Wynik" x="340" y="20" w="0" h="0" layer="10" space="screen">
     <Text value="{Game.lewy}      {Game.prawy}" size="40" color="white"/>
   </Actor>
 
-  <Actor name="Pomoc" x="200" y="570" w="0" h="0" z="10">
+  <Actor name="Pomoc" x="200" y="570" w="0" h="0" layer="10" space="screen">
     <Text value="C = gra z komputerem   V = dwoje graczy" size="16" color="gray"/>
   </Actor>
 

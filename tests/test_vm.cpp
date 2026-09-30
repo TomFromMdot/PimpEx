@@ -171,10 +171,10 @@ TEST_CASE("VM: TEXT i format_text") {
 END)");
   f.step();
   const auto e = f.world.find("Game");
-  const auto &label = f.world.registry().get<scene::Label>(e);
+  const auto &label = f.world.registry().get<scene::Text>(e);
   ManualInput input;
   FrameContext ctx{input, 800, 600, 0};
-  CHECK(format_text(f.world, ctx, label.text, "Game") == "Wynik: 7.50 / 3 / ?");
+  CHECK(format_text(f.world, ctx, label.value, "Game") == "Wynik: 7.50 / 3 / ?");
 }
 
 TEST_CASE("VM: RANDOM i CHANCE są w zakresie") {
@@ -190,4 +190,74 @@ END)");
   const double hits = f.get("Game", "hits");
   CHECK(hits > 50);
   CHECK(hits < 150);
+}
+
+TEST_CASE("VM: PROC FOR – systemy na komponentach i tagach, SELF i OTHER") {
+  Diagnostics diagnostics;
+  auto registry = scene::ComponentRegistry::with_builtins();
+  registry->load_custom(R"(<Components><Component name="Health">
+  <Field name="hp" default="3"/></Component></Components>)",
+                        "components.xml", diagnostics);
+  scene::World world(registry);
+  world.load(boot::parse_scene_xml(R"(<Scene>
+  <Actor name="Player" x="0" y="0" w="10" h="10" tags="hero"><Health hp="5"/></Actor>
+  <Actor name="Orc1" x="100" y="0" w="10" h="10" tags="enemy"><Health/></Actor>
+  <Actor name="Orc2" x="5" y="0" w="10" h="10" tags="enemy"><Health hp="1"/></Actor>
+  <Actor name="Coin" x="0" y="5" w="4" h="4" tags="coin"/>
+</Scene>)",
+                                   "scene.xml", "main", diagnostics, registry.get()));
+  REQUIRE(diagnostics.empty());
+
+  auto parsed = parse_program(R"(PROC regeneracja FOR Health EVERY 2
+  ADD SELF.Health.hp 1
+END
+PROC wrogowie FOR @enemy
+  MOVE SELF -1 0
+  IF TOUCH SELF @hero : ADD OTHER.Health.hp -1
+  IF SELF.Health.hp <= 0 : DESTROY SELF
+END
+PROC zbieranie
+  IF TOUCH Player @coin : SET Player.Text.value "zebrano"
+  IF TOUCH Player @coin : DESTROY OTHER
+  IF NOT EXISTS @coin : SET Player.label "?"
+END
+)",
+                               "scene.swap");
+  std::string text;
+  for (const auto &d : parsed.diagnostics)
+    text += d.format() + "\n";
+  INFO(text);
+  REQUIRE(parsed.ok());
+  CHECK(parsed.program.procs[0].forEach == "Health");
+  CHECK(parsed.program.procs[0].mode == ProcMode::Every);
+  CHECK(parsed.program.procs[1].forEach == "@enemy");
+
+  ManualInput input;
+  FakeHost host;
+  Vm vm(1);
+  for (long frame = 0; frame < 2; ++frame) {
+    FrameContext ctx{input, 800, 600, frame};
+    vm.run_frame(parsed.program, world, ctx, host);
+  }
+  // Klatka 0: regeneracja (+1 wszystkim), Orc2 dotyka gracza (-1 graczowi).
+  // Klatka 1: Orc2 znowu dotyka gracza. Orc1 idzie w lewo.
+  CHECK(world.get("Orc1", "x") == 98);
+  CHECK(world.get("Player", "Health.hp") == 4); // 5 + 1 - 1 - 1
+  CHECK_FALSE(world.exists("Coin"));
+  REQUIRE(host.errors.size() == 1); // SET Player.label "?" – zmienna tylko liczbowa
+  CHECK(host.errors[0].find("tylko liczby") != std::string::npos);
+  CHECK(std::get<std::string>(*world.get_field("Player", "Text.value")) == "zebrano");
+}
+
+TEST_CASE("VM: SELF poza FOR i MOVE w 3D") {
+  Fixture f;
+  f.load(R"(PROC a
+  MOVE SELF 1 1
+  MOVE Player 1 2 3
+END)");
+  f.step();
+  CHECK(f.get("Player", "x") == 101);
+  CHECK(f.get("Player", "z") == 3);
+  REQUIRE(f.host.errors.size() == 1);
+  CHECK(f.host.errors[0] == "2: SELF działa tylko w PROC ... FOR");
 }

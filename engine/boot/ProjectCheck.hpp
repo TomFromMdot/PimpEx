@@ -2,6 +2,7 @@
 
 #include "boot/ProjectPaths.hpp"
 #include "core/Diagnostic.hpp"
+#include "scene/ComponentRegistry.hpp"
 #include "scene/SceneData.hpp"
 #include "vm/Program.hpp"
 
@@ -21,6 +22,7 @@ struct ProgramCheckInput {
   const std::vector<std::string> *sceneNames = nullptr; // do sprawdzenia SCENE
   const std::set<std::string> *luaFunctions = nullptr;  // do sprawdzenia CALL
   std::string file;
+  const scene::ComponentRegistry *components = nullptr; // null = tylko wbudowane
 };
 
 // Sprawdza, czy program odwołuje się do istniejących aktorów, archetypów,
@@ -32,6 +34,7 @@ struct CheckSummary {
   int procs = 0;
   int actors = 0;
   int scripts = 0;
+  int components = 0; // komponenty użytkownika z components.xml
 };
 
 // Pełna walidacja projektu bez uruchamiania gry (`pimpex check`).

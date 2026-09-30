@@ -6,6 +6,7 @@
 #include <charconv>
 #include <format>
 #include <initializer_list>
+#include <span>
 
 namespace PimpEx::boot {
 namespace {
@@ -98,67 +99,155 @@ public:
   }
 };
 
-ActorDef parse_actor(XmlContext &ctx, pugi::xml_node node, const char *what) {
+// Atrybuty <Actor>, które są skrótami pól Transform i Body.
+constexpr std::string_view TransformAttributes[] = {"x", "y", "z", "w", "h", "d", "rx", "ry", "rz",
+                                                    "scale", "layer", "visible", "space"};
+constexpr std::string_view BodyAttributes[] = {"vx", "vy", "vz", "gravity"};
+
+bool contains(std::span<const std::string_view> list, std::string_view value) {
+  return std::find(list.begin(), list.end(), value) != list.end();
+}
+
+// Wartości pól komponentu z atrybutów elementu XML (np. <Rect color="red"/>).
+void read_component_fields(XmlContext &ctx, pugi::xml_node node, const ComponentDesc &desc,
+                           ComponentInit &init, std::span<const std::string_view> skip = {}) {
+  for (auto attr : node.attributes()) {
+    const std::string_view name = attr.name();
+    if (contains(skip, name))
+      continue;
+    const auto *field = desc.field(name);
+    if (!field) {
+      std::vector<std::string> names;
+      for (const auto &f : desc.fields)
+        names.push_back(f.name);
+      const auto hint = closest_name(name, names);
+      ctx.warning(node, std::format("<{}> nie ma pola '{}'{} – silnik je pominie", node.name(), name,
+                                    hint.empty() ? "" : std::format(" (czy chodziło o {}?)", hint)));
+      continue;
+    }
+    if (field->readOnly) {
+      ctx.warning(node, std::format("pole {}.{} ustawia silnik – wartość z pliku zostanie pominięta",
+                                    desc.name, name));
+      continue;
+    }
+    std::string message;
+    if (auto value = parse_field_text(*field, attr.value(), message))
+      init.values.emplace_back(field->name, std::move(*value));
+    else
+      ctx.error(node, message);
+  }
+}
+
+ActorDef parse_actor(XmlContext &ctx, pugi::xml_node node, const char *what,
+                     const ComponentRegistry &registry, SceneMode mode) {
   ActorDef def;
   def.name = node.attribute("name").value();
   def.line = ctx.line_of(node);
   if (def.name.empty())
     ctx.error(node, std::format("<{}> musi mieć atrybut name", what));
-  else if (def.name.find_first_of(". /:\"#") != std::string::npos)
-    ctx.error(node, std::format("nazwa '{}' nie może zawierać spacji ani znaków . / : \" #",
+  else if (def.name.find_first_of(". /:\"#@") != std::string::npos)
+    ctx.error(node, std::format("nazwa '{}' nie może zawierać spacji ani znaków . / : \" # @",
                                 def.name));
 
-  ctx.check_attributes(node, {"name", "x", "y", "w", "h", "vx", "vy", "rotation", "z", "visible"});
-  ctx.read_float(node, "x", def.transform.x);
-  ctx.read_float(node, "y", def.transform.y);
-  ctx.read_float(node, "w", def.transform.w);
-  ctx.read_float(node, "h", def.transform.h);
-  ctx.read_float(node, "rotation", def.transform.rotation);
-  ctx.read_int(node, "z", def.transform.z);
-  ctx.read_bool(node, "visible", def.transform.visible);
-  ctx.read_float(node, "vx", def.velocity.vx);
-  ctx.read_float(node, "vy", def.velocity.vy);
+  // Transform zawsze pierwszy. W 3D domyślny rozmiar to 1 × 1 × 1.
+  ComponentInit transform{"Transform", {}, def.line};
+  if (mode == SceneMode::Mode3D)
+    transform.values = {{"w", 1.0}, {"h", 1.0}, {"d", 1.0}};
+  ComponentInit body{"Body", {}, def.line};
+
+  for (auto attr : node.attributes()) {
+    const std::string_view name = attr.name();
+    if (name == "name")
+      continue;
+    if (name == "tags") {
+      std::string_view list = attr.value();
+      while (!list.empty()) {
+        const auto comma = list.find(',');
+        auto tag = list.substr(0, comma);
+        while (!tag.empty() && tag.front() == ' ') tag.remove_prefix(1);
+        while (!tag.empty() && tag.back() == ' ') tag.remove_suffix(1);
+        if (!tag.empty())
+          def.tags.emplace_back(tag);
+        list = comma == std::string_view::npos ? std::string_view{} : list.substr(comma + 1);
+      }
+      continue;
+    }
+    const bool isBody = contains(BodyAttributes, name);
+    const bool isTransform = contains(TransformAttributes, name) || name == "rotation";
+    if (!isBody && !isTransform) {
+      std::vector<std::string> known = {"name", "tags", "rotation"};
+      for (auto a : TransformAttributes) known.emplace_back(a);
+      for (auto a : BodyAttributes) known.emplace_back(a);
+      const auto hint = closest_name(name, known);
+      ctx.warning(node, std::format("<{}> nie ma atrybutu '{}'{} – silnik go pominie", what, name,
+                                    hint.empty() ? "" : std::format(" (czy chodziło o {}?)", hint)));
+      continue;
+    }
+    const auto &desc = *registry.find(isBody ? "Body" : "Transform");
+    const auto *field = desc.field(name == "rotation" ? "rz" : name);
+    std::string message;
+    if (auto value = parse_field_text(*field, attr.value(), message))
+      (isBody ? body : transform).values.emplace_back(field->name, std::move(*value));
+    else
+      ctx.error(node, message);
+  }
+  def.components.push_back(std::move(transform));
+  if (!body.values.empty())
+    def.components.push_back(std::move(body));
 
   for (auto child : node.children()) {
     if (child.type() != pugi::node_element)
       continue;
     const std::string_view tag = child.name();
-    if (tag == "Rect" || tag == "Circle") {
-      Shape shape;
-      shape.kind = tag == "Rect" ? Shape::Kind::Rect : Shape::Kind::Circle;
-      ctx.check_attributes(child, {"color"});
-      ctx.read_color(child, "color", shape.color);
-      def.shape = shape;
-    } else if (tag == "Sprite") {
-      Sprite sprite;
-      ctx.check_attributes(child, {"texture", "tint"});
-      sprite.texture = child.attribute("texture").value();
-      if (sprite.texture.empty())
-        ctx.error(child, "<Sprite> musi mieć atrybut texture (id z <Resources>)");
-      ctx.read_color(child, "tint", sprite.tint);
-      def.sprite = sprite;
-    } else if (tag == "Text") {
-      Label label;
-      ctx.check_attributes(child, {"value", "size", "color"});
-      label.text = child.attribute("value").value();
-      ctx.read_int(child, "size", label.size);
-      ctx.read_color(child, "color", label.color);
-      def.label = label;
-    } else if (tag == "Var") {
+
+    if (tag == "Var") {
       ctx.check_attributes(child, {"name", "value"});
       const std::string name = child.attribute("name").value();
-      if (name.empty()) {
-        ctx.error(child, "<Var> musi mieć atrybut name");
+      if (name.empty() || name.find('.') != std::string::npos) {
+        ctx.error(child, "<Var> musi mieć atrybut name (bez kropek)");
         continue;
       }
       float value = 0;
       ctx.read_float(child, "value", value);
       def.vars.values[name] = value;
-    } else {
-      ctx.warning(child, std::format("nieznany element <{}> w <{}> (dostępne: Rect, Circle, "
-                                     "Sprite, Text, Var)",
-                                     tag, what));
+      continue;
     }
+
+    if (tag == "Behavior") {
+      BehaviorRef behavior;
+      behavior.name = child.attribute("name").value();
+      if (behavior.name.empty()) {
+        ctx.error(child, "<Behavior> musi mieć atrybut name (plik scripts/behaviors/<name>.lua)");
+        continue;
+      }
+      for (auto attr : child.attributes())
+        if (std::string_view(attr.name()) != "name")
+          behavior.params[attr.name()] = attr.value();
+      def.behaviors.push_back(std::move(behavior));
+      continue;
+    }
+
+    const auto *desc = registry.find(tag);
+    if (!desc) {
+      auto names = registry.names();
+      names.insert(names.end(), {"Var", "Behavior"});
+      const auto hint = closest_name(tag, names);
+      ctx.warning(child, std::format("nieznany komponent <{}>{} – zdefiniuj go w components.xml "
+                                     "albo zobacz docs/components.md",
+                                     tag, hint.empty() ? "" : std::format(" (czy chodziło o {}?)", hint)));
+      continue;
+    }
+
+    // <Transform>/<Body> jako element dopisują się do już istniejących.
+    ComponentInit *target = nullptr;
+    for (auto &c : def.components)
+      if (c.component == desc->name)
+        target = &c;
+    if (!target) {
+      def.components.push_back({desc->name, {}, ctx.line_of(child)});
+      target = &def.components.back();
+    }
+    read_component_fields(ctx, child, *desc, *target);
   }
   return def;
 }
@@ -211,7 +300,11 @@ ProjectConfig parse_project_xml(std::string_view content, const std::string &fil
 }
 
 SceneData parse_scene_xml(std::string_view content, const std::string &file,
-                          const std::string &sceneName, Diagnostics &diagnostics) {
+                          const std::string &sceneName, Diagnostics &diagnostics,
+                          const ComponentRegistry *components) {
+  static const auto builtins = ComponentRegistry::with_builtins();
+  const auto &registry = components ? *components : *builtins;
+
   SceneData data;
   data.name = sceneName;
   XmlContext ctx(content, file, diagnostics);
@@ -224,15 +317,20 @@ SceneData parse_scene_xml(std::string_view content, const std::string &file,
     diagnostics.push_back({Diagnostic::Severity::Error, file, 1, "brakuje elementu <Scene>"});
     return data;
   }
-  ctx.check_attributes(root, {"background"});
+  ctx.check_attributes(root, {"background", "mode"});
   if (root.attribute("background")) {
     Rgba color;
     ctx.read_color(root, "background", color);
     data.background = color;
   }
+  const std::string_view mode = root.attribute("mode").as_string("2d");
+  if (mode == "3d")
+    data.mode = SceneMode::Mode3D;
+  else if (mode != "2d")
+    ctx.error(root, std::format("mode=\"{}\" – dozwolone: 2d, 3d", mode));
 
   auto addActor = [&](pugi::xml_node node) {
-    auto def = parse_actor(ctx, node, "Actor");
+    auto def = parse_actor(ctx, node, "Actor", registry, data.mode);
     const bool duplicate = std::any_of(data.actors.begin(), data.actors.end(),
                                        [&](const ActorDef &a) { return a.name == def.name; });
     if (duplicate)
@@ -241,7 +339,7 @@ SceneData parse_scene_xml(std::string_view content, const std::string &file,
       data.actors.push_back(std::move(def));
   };
   auto addArchetype = [&](pugi::xml_node node) {
-    auto def = parse_actor(ctx, node, "Archetype");
+    auto def = parse_actor(ctx, node, "Archetype", registry, data.mode);
     if (data.archetypes.contains(def.name))
       ctx.error(node, std::format("archetyp '{}' jest już zdefiniowany", def.name));
     else if (!def.name.empty())
@@ -257,27 +355,30 @@ SceneData parse_scene_xml(std::string_view content, const std::string &file,
     } else if (tag == "Archetype") {
       addArchetype(child);
     } else if (tag == "Actors" || tag == "Archetypes") {
-      for (auto inner : child.children())
-        if (inner.type() == pugi::node_element) {
-          if (std::string_view(inner.name()) == (tag == "Actors" ? "Actor" : "Archetype"))
-            tag == "Actors" ? addActor(inner) : addArchetype(inner);
-          else
-            ctx.warning(inner, std::format("nieznany element <{}> w <{}>", inner.name(), tag));
-        }
+      const std::string_view inner = tag == "Actors" ? "Actor" : "Archetype";
+      for (auto node : child.children()) {
+        if (node.type() != pugi::node_element)
+          continue;
+        if (std::string_view(node.name()) == inner)
+          inner == "Actor" ? addActor(node) : addArchetype(node);
+        else
+          ctx.warning(node, std::format("nieznany element <{}> w <{}>", node.name(), tag));
+      }
     } else if (tag == "Resources") {
       for (auto res : child.children()) {
         if (res.type() != pugi::node_element)
           continue;
-        if (std::string_view(res.name()) != "Texture") {
-          ctx.warning(res, std::format("nieznany zasób <{}> (dostępne: Texture)", res.name()));
+        const std::string_view kind = res.name();
+        if (kind != "Texture" && kind != "Model") {
+          ctx.warning(res, std::format("nieznany zasób <{}> (dostępne: Texture, Model)", kind));
           continue;
         }
         ctx.check_attributes(res, {"id", "path"});
-        TextureResource texture{res.attribute("id").value(), res.attribute("path").value()};
-        if (texture.id.empty() || texture.path.empty())
-          ctx.error(res, "<Texture> musi mieć atrybuty id i path");
+        Resource resource{res.attribute("id").value(), res.attribute("path").value()};
+        if (resource.id.empty() || resource.path.empty())
+          ctx.error(res, std::format("<{}> musi mieć atrybuty id i path", kind));
         else
-          data.textures[texture.id] = texture;
+          (kind == "Texture" ? data.textures : data.models)[resource.id] = resource;
       }
     } else {
       ctx.warning(child, std::format("nieznany element <{}> w <Scene> (dostępne: Actor, "
@@ -286,16 +387,27 @@ SceneData parse_scene_xml(std::string_view content, const std::string &file,
     }
   }
 
-  auto checkSprite = [&](const ActorDef &def) {
-    if (def.sprite && !data.textures.contains(def.sprite->texture))
-      diagnostics.push_back({Diagnostic::Severity::Error, file, def.line,
-                             std::format("'{}' używa tekstury '{}', której nie ma w <Resources>",
-                                         def.name, def.sprite->texture)});
+  // Sprite i Model muszą wskazywać zasoby z <Resources>.
+  auto checkResources = [&](const ActorDef &def) {
+    for (const auto &init : def.components)
+      for (const auto &[field, value] : init.values) {
+        const auto *id = std::get_if<std::string>(&value);
+        if (!id)
+          continue;
+        if (init.component == "Sprite" && field == "texture" && !data.textures.contains(*id))
+          diagnostics.push_back({Diagnostic::Severity::Error, file, init.line,
+                                 std::format("'{}' używa tekstury '{}', której nie ma w <Resources>",
+                                             def.name, *id)});
+        if (init.component == "Model" && field == "model" && !data.models.contains(*id))
+          diagnostics.push_back({Diagnostic::Severity::Error, file, init.line,
+                                 std::format("'{}' używa modelu '{}', którego nie ma w <Resources>",
+                                             def.name, *id)});
+      }
   };
   for (const auto &def : data.actors)
-    checkSprite(def);
+    checkResources(def);
   for (const auto &[name, def] : data.archetypes)
-    checkSprite(def);
+    checkResources(def);
   return data;
 }
 

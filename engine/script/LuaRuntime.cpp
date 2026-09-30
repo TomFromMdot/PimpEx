@@ -43,22 +43,39 @@ struct LuaRuntime::Impl {
 
   void register_api() {
     lua.set_function("get", [this](const std::string &actor, const std::string &field) -> sol::object {
-      const auto value = vm::read_field(host.lua_world(), frame(), actor, field);
+      const auto value = vm::read_value(host.lua_world(), frame(), actor, field);
       if (!value)
         return sol::lua_nil;
+      if (const auto *text = std::get_if<std::string>(&*value))
+        return sol::make_object(lua, *text);
       // Pełne liczby jako całkowite: "Wynik: " .. 3 daje "3", a nie "3.0".
-      if (*value == static_cast<double>(static_cast<long long>(*value)))
-        return sol::make_object(lua, static_cast<long long>(*value));
-      return sol::make_object(lua, *value);
+      const double number = std::get<double>(*value);
+      if (number == static_cast<double>(static_cast<long long>(number)))
+        return sol::make_object(lua, static_cast<long long>(number));
+      return sol::make_object(lua, number);
     });
-    lua.set_function("set", [this](const std::string &actor, const std::string &field,
-                                   double value) { return host.lua_world().set(actor, field, value); });
-    lua.set_function("move", [this](const std::string &actor, double dx, double dy) {
+    lua.set_function("set", [this](const std::string &actor, const std::string &field, sol::object value) {
+      scene::FieldValue v;
+      if (value.get_type() == sol::type::number)
+        v = value.as<double>();
+      else if (value.get_type() == sol::type::boolean)
+        v = value.as<bool>() ? 1.0 : 0.0;
+      else if (value.get_type() == sol::type::string)
+        v = value.as<std::string>();
+      else
+        throw sol::error("set: wartość musi być liczbą, tekstem albo true/false");
+      if (auto error = host.lua_world().set_field(actor, field, v))
+        throw sol::error("set: " + *error);
+      return true;
+    });
+    lua.set_function("move", [this](const std::string &actor, double dx, double dy, sol::optional<double> dz) {
       auto &w = host.lua_world();
       if (!w.exists(actor))
         return false;
       w.set(actor, "x", *w.get(actor, "x") + dx);
       w.set(actor, "y", *w.get(actor, "y") + dy);
+      if (dz)
+        w.set(actor, "z", *w.get(actor, "z") + *dz);
       return true;
     });
     lua.set_function("exists", [this](const std::string &actor) {
@@ -68,36 +85,42 @@ struct LuaRuntime::Impl {
       return host.lua_world().touching(a, b);
     });
     lua.set_function("spawn", [this](const std::string &archetype, sol::optional<std::string> name,
-                                     sol::optional<double> x, sol::optional<double> y)
-                                  -> std::optional<std::string> {
+                                     sol::optional<double> x, sol::optional<double> y,
+                                     sol::optional<double> z) -> std::optional<std::string> {
       std::optional<std::pair<float, float>> position;
       if (x && y)
         position = std::pair{static_cast<float>(*x), static_cast<float>(*y)};
-      return host.lua_world().spawn(archetype, name.value_or(""), position);
+      auto &w = host.lua_world();
+      auto created = w.spawn(archetype, name.value_or(""), position);
+      if (created && z)
+        w.set(*created, "z", *z);
+      return created;
     });
     lua.set_function("destroy", [this](const std::string &actor) {
       return host.lua_world().destroy(actor);
     });
     lua.set_function("text", [this](const std::string &actor, const std::string &value) {
+      return !host.lua_world().set_field(actor, "Text.value", value).has_value();
+    });
+    // Komponenty i zapytania (ECS).
+    lua.set_function("actors", [this](sol::optional<std::string> selector) {
+      return sol::as_table(host.lua_world().query(selector.value_or("")));
+    });
+    lua.set_function("has", [this](const std::string &actor, const std::string &component) {
       auto &w = host.lua_world();
-      const auto e = w.find(actor);
-      if (e == entt::null)
-        return false;
-      w.registry().get_or_emplace<scene::Label>(e).text = value;
+      return w.has_component(w.find(actor), component);
+    });
+    lua.set_function("add", [this](const std::string &actor, const std::string &component) {
+      if (auto error = host.lua_world().add_component(actor, component))
+        throw sol::error("add: " + *error);
       return true;
     });
-    lua.set_function("actors", [this](sol::optional<std::string> archetype) {
-      std::vector<std::string> names;
+    lua.set_function("remove", [this](const std::string &actor, const std::string &component) {
+      return host.lua_world().remove_component(actor, component);
+    });
+    lua.set_function("has_tag", [this](const std::string &actor, const std::string &tag) {
       auto &w = host.lua_world();
-      for (const auto &name : w.names()) {
-        if (archetype) {
-          const auto &origin = w.registry().get<scene::Origin>(w.find(name));
-          if (origin.archetype != *archetype)
-            continue;
-        }
-        names.push_back(name);
-      }
-      return sol::as_table(names);
+      return w.has_tag(w.find(actor), tag);
     });
     lua.set_function("key", [this](const std::string &name) {
       const auto key = vm::key_from_name(name);

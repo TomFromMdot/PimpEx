@@ -132,3 +132,36 @@ TEST_CASE("parser: niezamknięty cudzysłów") {
   REQUIRE(r.diagnostics.size() == 1);
   CHECK(r.diagnostics[0].line == 2);
 }
+
+TEST_CASE("parser: FOR, @tagi, pola komponentów i tekst w SET") {
+  const auto r = parse_program(R"(PROC s FOR @enemy EVERY 10
+  IF TOUCH SELF @coin : SET SELF.Health.hp 3
+  SET Player.Text.value "Hej {Game.score}"
+  SPAWN Box AT 1 2 3
+END
+PROC t ONCE FOR Health
+END
+PROC u FOR
+END
+PROC v FOR a.b
+END
+PROC w NOW
+END)",
+                               "t");
+  INFO(errors_of(r));
+  REQUIRE(r.diagnostics.size() == 3);
+  CHECK(r.diagnostics[0].line == 8);
+  CHECK(r.diagnostics[1].line == 10);
+  CHECK(r.diagnostics[2].message.find("nieznane słowo 'NOW'") != std::string::npos);
+  const auto &s = r.program.procs[0];
+  CHECK(s.forEach == "@enemy");
+  CHECK(s.every == 10);
+  CHECK(s.body[0].guard[0].b == "@coin");
+  CHECK(s.body[0].ref.actor == "SELF");
+  CHECK(s.body[0].ref.field == "Health.hp");
+  CHECK(s.body[1].values[0].kind == Value::Kind::Text);
+  CHECK(s.body[1].values[0].text == "Hej {Game.score}");
+  CHECK(s.body[2].values.size() == 3);
+  CHECK(r.program.procs[1].mode == ProcMode::Once);
+  CHECK(r.program.procs[1].forEach == "Health");
+}
