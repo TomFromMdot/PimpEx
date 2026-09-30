@@ -190,7 +190,7 @@ std::vector<std::string> World::names() const {
   return out;
 }
 
-void World::dump(std::ostream &out) const {
+void World::dump(std::ostream &out, const TextFormatter &formatText) const {
   for (const auto &[name, e] : _byName) {
     const auto &t = _registry.get<Transform>(e);
     const auto &v = _registry.get<Velocity>(e);
@@ -205,7 +205,7 @@ void World::dump(std::ostream &out) const {
     for (const auto &[key, value] : _registry.get<Vars>(e).values)
       out << ' ' << key << '=' << format_number(value);
     if (const auto *label = _registry.try_get<Label>(e))
-      out << " text=\"" << label->text << '"';
+      out << " text=\"" << (formatText ? formatText(label->text, name) : label->text) << '"';
     const auto &origin = _registry.get<Origin>(e);
     if (!origin.archetype.empty())
       out << " archetype=" << origin.archetype;

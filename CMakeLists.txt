@@ -19,6 +19,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 find_package(raylib CONFIG REQUIRED)
+# raylib z vcpkg korzysta z zewnętrznego GLFW i nie linkuje go sam.
+find_package(glfw3 CONFIG REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(Threads REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 find_package(EnTT CONFIG REQUIRED)
 find_package(CLI11 CONFIG REQUIRED)
@@ -52,6 +56,9 @@ add_library(pimpex_engine STATIC ${PIMPEX_ENGINE_SOURCES} "${PIMPEX_EMBEDDED_CPP
 target_include_directories(pimpex_engine PUBLIC "${CMAKE_SOURCE_DIR}/engine" ${LUA_INCLUDE_DIR})
 target_link_libraries(pimpex_engine PUBLIC
   raylib
+  glfw
+  OpenGL::GL
+  Threads::Threads
   pugixml::pugixml
   EnTT::EnTT
   CLI11::CLI11

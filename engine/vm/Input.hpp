@@ -3,6 +3,9 @@
 #include "vm/Keys.hpp"
 
 #include <array>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace PimpEx::vm {
 
@@ -35,6 +38,21 @@ public:
   bool pressed(Key key) const override { return _pressed[static_cast<std::size_t>(key)]; }
   float mouse_x() const override { return _mouseX; }
   float mouse_y() const override { return _mouseY; }
+};
+
+// Zaplanowane wciśnięcia klawiszy dla trybu --headless, np. "RIGHT:0-60 SPACE:10".
+// KLAWISZ:od-do trzyma klawisz w klatkach od..do, KLAWISZ:n wciska go na jedną klatkę.
+class ScriptedInput : public ManualInput {
+  struct Press {
+    Key key;
+    long from, to;
+  };
+  std::vector<Press> _presses;
+
+public:
+  // Zwraca opis błędu albo pusty tekst.
+  std::string parse(std::string_view spec);
+  void update(long frame);
 };
 
 } // namespace PimpEx::vm

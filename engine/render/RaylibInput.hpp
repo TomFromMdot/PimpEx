@@ -1,0 +1,22 @@
+#pragma once
+
+#include "vm/Input.hpp"
+
+namespace PimpEx::render {
+
+// Stan klawiatury i myszki odczytany z raylib raz na klatkę.
+class RaylibInput : public vm::IInput {
+  std::array<bool, vm::KeyCount> _down{};
+  std::array<bool, vm::KeyCount> _pressed{};
+  float _mouseX = 0, _mouseY = 0;
+
+public:
+  void poll();
+
+  bool down(vm::Key key) const override { return _down[static_cast<std::size_t>(key)]; }
+  bool pressed(vm::Key key) const override { return _pressed[static_cast<std::size_t>(key)]; }
+  float mouse_x() const override { return _mouseX; }
+  float mouse_y() const override { return _mouseY; }
+};
+
+} // namespace PimpEx::render

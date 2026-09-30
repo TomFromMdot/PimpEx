@@ -4,6 +4,7 @@
 
 #include <entt/entt.hpp>
 
+#include <functional>
 #include <map>
 #include <optional>
 #include <ostream>
@@ -62,8 +63,11 @@ public:
   entt::registry &registry() { return _registry; }
   const entt::registry &registry() const { return _registry; }
 
+  // Zamienia szablon napisu ({Aktor.pole}) na tekst – podaje go VM.
+  using TextFormatter = std::function<std::string(const std::string &text, const std::string &self)>;
+
   // Tekstowy zrzut stanu – czytelny dla człowieka i agenta AI.
-  void dump(std::ostream &out) const;
+  void dump(std::ostream &out, const TextFormatter &formatText = {}) const;
 };
 
 } // namespace PimpEx::scene
