@@ -1,78 +1,132 @@
-# PimpEx - The Game Engine
+# PimpEx – The Game Engine
 
-> **PimpEx** to silnik gier zaprojektowany z myślą o najmłodszym pokoleniu twórców. Naszym głównym celem jest dostarczenie narzędzia, którego API oraz architektura będą w pełni zrozumiałe nawet dla najmniej doświadczonych programistów.
+> **PimpEx** to silnik gier dla najmłodszego pokolenia twórców. Cała gra to
+> pliki tekstowe. Nie ma edytora GUI: to, co dzieje się „pod maską”, widać
+> w plikach i można to zmieniać w trakcie gry.
 
-Domyślnie projekt wykorzystuje polskie komentarze, aby obniżyć próg wejścia dla lokalnych początkujących (w przyszłości planowane jest tłumaczenie na język angielski).
+- **Twórca:** Tommy · **Start projektu:** 26.03.2026 · **Status:** wczesny rozwój (0.1)
 
----
+```
+pimpex init moja_gra     # nowy projekt z gotową mini-grą
+pimpex dev moja_gra      # gra w oknie + hot-reload: zapisz plik → zmiana od razu
+```
 
-## 📊 Informacje o projekcie
+## Jak to działa
 
-- **Nazwa projektu:** PimpEx
-- **Data utworzenia:** 26.03.2026
-- **Twórca:** Tommy
-- **Status:** Wczesny rozwój / Architektura
+Gra składa się z trzech warstw:
 
----
+| Warstwa         | Plik                         | Co opisuje                                              |
+|-----------------|------------------------------|---------------------------------------------------------|
+| **Model**       | `scenes/<scena>/scene.xml`   | aktorzy: pozycja, rozmiar, wygląd, zmienne; archetypy   |
+| **Proces sceny**| `scenes/<scena>/scene.swap`  | procedury (`PROC`) wykonywane w każdej klatce, bez końca |
+| **Logika Lua**  | `scripts/*.lua`              | bardziej złożone rzeczy, wołane z `.swap` przez `CALL`  |
 
-## 🎯 Główny cel (The Goat)
+```
+# scene.swap
+PROC ruch_gracza
+  IF KEY LEFT  : MOVE Player -4 0
+  IF KEY RIGHT : MOVE Player 4 0
+END
 
-Dostarczenie silnika do produkcji gier, który umożliwia stworzenie pełnoprawnej gry bez ścisłego wymogu posiadania wbudowanego GUI edytora.
+PROC zbieranie
+  IF TOUCH Player Coin : ADD Game.coins 1
+  IF TOUCH Player Coin : CALL coin_collected
+END
+```
 
-**Jak to możliwe?**
-Wyobraź sobie grę stworzoną na systemie operacyjnym, który nie wymaga zaawansowanej grafiki. Kluczem jest "Otwartość" i odpowiednia architektura. PimpEx pozwala na dokładną manipulację stanem silnika i gry poprzez pliki i skrypty, ucząc użytkowników, co tak naprawdę dzieje się "pod maską", a nie tylko jak klikać trójkąty w okienku edytora.
+### Scena to nieskończony proces opcodów
 
----
+Plik `scene.swap` to program pętli sceny, który działa przez cały czas gry.
+Procedury można do niego **wklejać i z niego wycinać w trakcie gry**:
 
-## 🏗️ Architektura i Warstwy
+- człowiek albo agent AI dopisuje `PROC ... END` i zapisuje plik, a silnik
+  podmienia program między klatkami;
+- `PROC nazwa ONCE` wykonuje się raz, a potem silnik sam usuwa ją z pliku;
+- `PROC_ADD nazwa` (albo `swap.add()` w Lua) wkleja gotową procedurę
+  z `library.swap`, a `PROC_REMOVE` ją wycina.
 
-Aby uprościć proces tworzenia gier (wzorując się nieco na podejściu znanym z gier mobilnych), projekt dzieli warstwy produktu na trzy główne filary. Daje to prosty w implementacji i zrozumieniu mechanizm produkcyjny.
+Wszystkimi tymi zmianami zarządza **Boot**. Trzyma w pamięci dane sceny
+(świat EnTT, program, bibliotekę, stan Lua) i jako jedyny zapisuje `.swap`:
+atomowo i bez ruszania komentarzy ani reszty pliku. Jeśli w pliku jest błąd,
+gra działa dalej na poprzedniej wersji, a błąd z numerem linii trafia do
+`.pimpex/runtime.log`.
 
-### 1. Model (Actor)
+### Dwa wątki
 
-- **Actor** to podstawowy archetyp w naszym silniku.
-- Dane aktora są ładowane z modelu przechowywanego w plikach projektu.
-- Model zawiera informacje o tym, z jakich **Komponentów** składa się dany archetyp oraz jakie wartości mają zostać ustawione na start.
-- W ten sam sposób można zapisać wartości z powrotem do pliku.
-- **Hot-reloading:** Silnik daje możliwość przeładowania tych plików w locie, inicjując wartości na nowo (lub nie, w zależności od preferencji użytkownika).
+```
+wątek zasobów:  FileWatcher → parsowanie (.swap / XML / Lua) → Mailbox
+wątek główny:   Mailbox → Boot (podmiana danych) → VM (PROC) → ruch → render (raylib)
+```
 
-### 2. Logika (Skrypty Lua)
+Dane zawsze podmieniają się **między klatkami**, więc w trakcie klatki nic
+nie zmienia się pod nogami.
 
-- Całkowicie oddzielamy logikę zachowań aktorów od jądra silnika, przenosząc ją do języka **Lua**.
-- Model w silniku definiuje komponent `Scriptable`, który działa jak hiperłącze do skryptu będącego częścią projektu gry. Dzięki temu modyfikacja zachowań obiektów jest szybka i bezbolesna.
+## Komendy
 
-### 3. Kontroler (Silnik C++)
+| Komenda                                   | Co robi                                                   |
+|-------------------------------------------|-----------------------------------------------------------|
+| `pimpex init <nazwa> [--dir d]`           | nowy projekt z szablonu (gra „Zbieracz monet”)            |
+| `pimpex check [projekt]`                  | sprawdza XML, `.swap` i Lua, błędy jako `plik:linia: opis`|
+| `pimpex dev [projekt]`                    | gra z hot-reloadem                                        |
+| `pimpex play [projekt]`                   | sama gra, zmiany `.swap` tylko w pamięci                  |
+| `pimpex build [projekt] [--out dist]`     | paczka: silnik + gra + `graj.sh`                          |
 
-- Składa się z plików takich jak `Controller.cpp` i `Controller.h`.
-- To tutaj znajduje się twarda logika naszej sceny, zachowań silnika oraz zarządzania pamięcią.
+Opcje `dev`/`play` dla testów i agentów AI:
 
----
+- `--headless --frames N` – sama logika, bez okna
+- `--input "RIGHT:0-60 SPACE:10"` – zaplanowane klawisze (z `--headless`)
+- `--screenshot shot.png` – zrzut ostatniej klatki (z oknem i `--frames`)
 
-## 🛠️ Założenia techniczne i wyzwania
+Działająca gra zapisuje stan w `.pimpex/state.txt`: aktorów, ich pola,
+wyliczone napisy i listę procedur.
 
-- **Zrozumiałość dla dzieci:** Chcemy, aby dziecko analizujące przykładowy projekt było w stanie domyślić się mechaniki działania gry, poprawnie ją zinterpretować i z powodzeniem modyfikować.
-- **Solidna Architektura:** Projekt kładzie ogromny nacisk na poprawne relacje obiektów (zasady SOLID i rygor architektoniczny).
-- **Zarządzanie Pamięcią i Wydajność:** Priorytetem (i największym wyzwaniem) jest ciągła optymalizacja pod kątem sprzętowym i pamięciowym, aby silnik działał płynnie i stabilnie, niezależnie od poziomu doświadczenia użytkownika końcowego.
+## Agenci AI
 
-## Wielowątkowość i przepływ danych
+PimpEx nie ma wbudowanego modelu. Jest za to zbudowany tak, żeby agent
+(Claude Code, Codex, Cursor…) mógł od razu pisać gry. Każdy projekt z
+`pimpex init` zawiera:
 
-- PimpEx stawia na płynność i natychmiastową iterację (Hot-reloading).
+- `AGENTS.md` (i `CLAUDE.md`) – mapę projektu, pętlę pracy i zasady;
+- `docs/` – dokładną specyfikację `.swap`, XML i API Lua;
+- pętlę sprawdzania: `pimpex check` → `pimpex play --headless --input …` →
+  `.pimpex/state.txt` i `runtime.log` → opcjonalnie `--screenshot`.
 
-**1. Wątek Główny (Prezentacja i logika)**
+Spróbuj: `pimpex init gra && cd gra && claude "dodaj przeciwnika, który goni gracza"`.
 
-- Odpowiada za pętlę gry, odświeżenie logiki lua, renderowanie grafiki i odtwarzanie audio.
+## Dokumentacja
 
-**2.Wątek zasobów (Storage i Resource Monitor)**
+- [docs/opcodes.md](docs/opcodes.md) – język `.swap`
+- [docs/scene-xml.md](docs/scene-xml.md) – `pimpex.xml` i `scene.xml`
+- [docs/lua-api.md](docs/lua-api.md) – API skryptów Lua
+- [examples/pong](examples/pong) – Pong: dwie sceny, komputer wklejany z biblioteki
 
-- Jego głównym zadaniem jest nasłuchiwanie zmian w systemie plików.
+## Budowanie silnika
 
-- Gdy użytkownik zapisze zmiany zostaje to wychwycone przez FileWatcher a następne procesy zaczynają czytać i przekształcać dane w informację.
+Wymagania: CMake ≥ 3.28, Ninja, kompilator z C++23 (GCC 14+ / Clang 18+),
+[vcpkg](https://vcpkg.io) (w `$VCPKG_ROOT` albo w `~/vcpkg`).
 
-- Informuje główny wątek o dostępnych nowych danych do podmiany.
+```
+cmake --preset linux-debug
+cmake --build build
+ctest --test-dir build --output-on-failure
+./build/pimpex dev examples/pong
+```
 
-**Zarządzanie stanem poprzez korutuny**
+Zależności (vcpkg): raylib, EnTT, pugixml, Lua + sol2, CLI11, doctest.
 
-- Umieszczenie nowego wskaźnika w _promise_type_ wzbudza uśpioną korutynę, która natychmiastowo wysyła sygnał do
-  wątku głównego z informacją o nowych danych dostępnych dla silnika.
+## Struktura repozytorium
 
-- Procedura pierwszego wątku odpowiadająca za podmianę wskaźników wykonywana jest zawsze po klatce albo przed klatką tak aby było bezpiecznie.
+```
+engine/core     Engine (pętla), Log, Mailbox, Diagnostic
+engine/boot     Boot, ładowanie XML, SwapFile, FileWatcher, pimpex check
+engine/vm       Lexer, Parser, Program, VM, klawisze i input
+engine/scene    komponenty i World (EnTT)
+engine/script   Lua (sol2): runtime i sprawdzanie skryptów
+engine/render   raylib: Renderer, RaylibInput
+engine/cli      komendy CLI (wzorzec Command) + wbudowany szablon
+apps/pimpex     main()
+templates/      szablon projektu dla `pimpex init`
+docs/           specyfikacje (kopiowane też do każdego projektu)
+examples/       przykładowe gry
+tests/          testy doctest + testy end-to-end w ctest
+```

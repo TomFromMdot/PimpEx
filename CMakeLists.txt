@@ -75,5 +75,16 @@ enable_testing()
 file(GLOB PIMPEX_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/tests/*.cpp")
 add_executable(pimpex_tests ${PIMPEX_TEST_SOURCES})
 target_link_libraries(pimpex_tests PRIVATE pimpex_engine doctest::doctest)
-target_compile_definitions(pimpex_tests PRIVATE PIMPEX_TEST_DATA="${CMAKE_SOURCE_DIR}/tests/data")
 add_test(NAME pimpex_tests COMMAND pimpex_tests)
+
+# Testy end-to-end: szablon z `pimpex init` i przykłady muszą przechodzić
+# `pimpex check` i działać bez okna.
+add_test(NAME template_init_check
+  COMMAND sh -c "rm -rf template_test && $<TARGET_FILE:pimpex> init template_test >/dev/null && $<TARGET_FILE:pimpex> check template_test && $<TARGET_FILE:pimpex> play template_test --headless --frames 300 --input 'LEFT:0-60 SPACE:10' --quiet"
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+file(GLOB PIMPEX_EXAMPLES LIST_DIRECTORIES true "${CMAKE_SOURCE_DIR}/examples/*")
+foreach(EXAMPLE ${PIMPEX_EXAMPLES})
+  get_filename_component(EXAMPLE_NAME "${EXAMPLE}" NAME)
+  add_test(NAME example_${EXAMPLE_NAME}
+    COMMAND sh -c "$<TARGET_FILE:pimpex> check '${EXAMPLE}' && $<TARGET_FILE:pimpex> play '${EXAMPLE}' --headless --frames 600 --input 'C:0' --quiet")
+endforeach()

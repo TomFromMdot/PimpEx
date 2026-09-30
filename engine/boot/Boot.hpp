@@ -54,6 +54,7 @@ private:
   std::vector<Request> _requests;
   const vm::FrameContext *_frame = nullptr;
   SelfWriteCallback _onSelfWrite;
+  bool _persistSwap = true; // false (pimpex play): zmiany .swap tylko w pamięci
 
   std::string swap_display() const { return _paths.display(_paths.scene_swap(_sceneName)); }
   void apply_requests();
@@ -79,6 +80,9 @@ public:
   void apply_script(const fs::path &path, const std::string &source);
 
   void set_self_write_callback(SelfWriteCallback callback) { _onSelfWrite = std::move(callback); }
+
+  // Tryb gry (play): Boot nie zapisuje zmian w scene.swap na dysk.
+  void set_persist_swap(bool persist) { _persistSwap = persist; }
 
   // Pliki, które watcher ma obserwować dla bieżącej sceny.
   std::vector<fs::path> watched_files() const;

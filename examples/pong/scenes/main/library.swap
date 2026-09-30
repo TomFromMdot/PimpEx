@@ -1,0 +1,7 @@
+# Procedury na żądanie – wklejane do scene.swap w trakcie gry.
+
+# Komputer steruje prawą paletką: goni piłkę, ale jest trochę wolniejszy.
+PROC komputer
+  IF Pilka.y < Prawa.y AND Pilka.vx > 0 : MOVE Prawa 0 -5
+  IF Pilka.y > Prawa.y AND Pilka.vx > 0 : MOVE Prawa 0 5
+END

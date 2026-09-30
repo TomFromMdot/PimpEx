@@ -88,6 +88,7 @@ int Engine::run() {
   log.open(paths.runtime_log());
 
   boot::Boot boot(paths, log);
+  boot.set_persist_swap(_options.watch);
   if (!boot.start()) {
     log.error("Nie udało się uruchomić gry. Popraw błędy i spróbuj ponownie (pimpex check).");
     return 1;

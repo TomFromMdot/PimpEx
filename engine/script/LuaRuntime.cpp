@@ -42,9 +42,14 @@ struct LuaRuntime::Impl {
   }
 
   void register_api() {
-    lua.set_function("get", [this](const std::string &actor, const std::string &field)
-                                -> std::optional<double> {
-      return vm::read_field(host.lua_world(), frame(), actor, field);
+    lua.set_function("get", [this](const std::string &actor, const std::string &field) -> sol::object {
+      const auto value = vm::read_field(host.lua_world(), frame(), actor, field);
+      if (!value)
+        return sol::lua_nil;
+      // Pełne liczby jako całkowite: "Wynik: " .. 3 daje "3", a nie "3.0".
+      if (*value == static_cast<double>(static_cast<long long>(*value)))
+        return sol::make_object(lua, static_cast<long long>(*value));
+      return sol::make_object(lua, *value);
     });
     lua.set_function("set", [this](const std::string &actor, const std::string &field,
                                    double value) { return host.lua_world().set(actor, field, value); });

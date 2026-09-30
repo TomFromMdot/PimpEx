@@ -107,7 +107,7 @@ bool Boot::commit_swap(std::string text, const std::string &reason) {
   // naszego własnego zapisu za zmianę od użytkownika.
   if (_onSelfWrite)
     _onSelfWrite(path, content_hash(text));
-  if (!write_file_atomic(path, text))
+  if (_persistSwap && !write_file_atomic(path, text))
     _log.error(std::format("Nie mogę zapisać {} – zmiana działa tylko w pamięci.", swap_display()));
   _swapText = std::move(text);
   _program = std::move(parsed.program);

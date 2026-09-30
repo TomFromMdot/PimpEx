@@ -1,0 +1,42 @@
+# Pong – logika sceny. Każda PROC działa co klatkę.
+
+PROC paletki
+  IF KEY W    : MOVE Lewa 0 -7
+  IF KEY S    : MOVE Lewa 0 7
+  IF KEY UP   : MOVE Prawa 0 -7
+  IF KEY DOWN : MOVE Prawa 0 7
+  IF Lewa.y < 50   : SET Lewa.y 50
+  IF Lewa.y > 550  : SET Lewa.y 550
+  IF Prawa.y < 50  : SET Prawa.y 50
+  IF Prawa.y > 550 : SET Prawa.y 550
+END
+
+# Odbicia od górnej i dolnej ściany
+PROC sciany
+  IF Pilka.y < 8 AND Pilka.vy < 0   : MUL Pilka.vy -1
+  IF Pilka.y > 592 AND Pilka.vy > 0 : MUL Pilka.vy -1
+END
+
+# Odbicia od paletek – za każdym razem piłka trochę przyspiesza
+PROC odbicia
+  IF TOUCH Pilka Lewa AND Pilka.vx < 0  : MUL Pilka.vx -1.05
+  IF TOUCH Pilka Lewa                   : SET Pilka.vy RANDOM -5 5
+  IF TOUCH Pilka Prawa AND Pilka.vx > 0 : MUL Pilka.vx -1.05
+  IF TOUCH Pilka Prawa                  : SET Pilka.vy RANDOM -5 5
+END
+
+# Punkt: piłka wypadła za paletkę
+PROC punkty
+  IF Pilka.x < 0   : ADD Game.prawy 1
+  IF Pilka.x < 0   : CALL serwis 1
+  IF Pilka.x > 800 : ADD Game.lewy 1
+  IF Pilka.x > 800 : CALL serwis -1
+  IF Game.lewy >= 5  : SCENE koniec
+  IF Game.prawy >= 5 : SCENE koniec
+END
+
+# C wkleja komputer z library.swap, V go usuwa
+PROC tryb_gry
+  IF PRESSED C : PROC_ADD komputer
+  IF PRESSED V : PROC_REMOVE komputer
+END

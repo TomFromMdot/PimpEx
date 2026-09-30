@@ -1,4 +1,5 @@
 #include "cli/Command.hpp"
+#include "cli/commands/BuildCommand.hpp"
 #include "cli/commands/CheckCommand.hpp"
 #include "cli/commands/InitCommand.hpp"
 #include "cli/commands/RunCommand.hpp"
@@ -13,5 +14,6 @@ int main(int argc, char **argv) {
   commands.add(std::make_unique<PimpEx::cli::CheckCommand>());
   commands.add(std::make_unique<PimpEx::cli::RunCommand>(true));
   commands.add(std::make_unique<PimpEx::cli::RunCommand>(false));
+  commands.add(std::make_unique<PimpEx::cli::BuildCommand>());
   return commands.run(app, argc, argv);
 }

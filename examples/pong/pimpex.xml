@@ -1,0 +1,4 @@
+<Project name="pong">
+  <Window title="PimpEx Pong" width="800" height="600" fps="60" background="#0b0b14"/>
+  <StartScene name="main"/>
+</Project>
