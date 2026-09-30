@@ -1,20 +1,11 @@
 #include "scene/World.hpp"
+#include "core/Format.hpp"
 
 #include <cmath>
 #include <format>
 #include <set>
 
 namespace PimpEx::scene {
-namespace {
-
-std::string format_number(double v) {
-  if (v == static_cast<long long>(v))
-    return std::format("{}", static_cast<long long>(v));
-  return std::format("{:.2f}", v);
-}
-
-} // namespace
-
 entt::entity World::create(const ActorDef &def, const std::string &name,
                            bool fromSceneFile, const std::string &archetype) {
   const auto e = _registry.create();
