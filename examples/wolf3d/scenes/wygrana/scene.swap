@@ -1,0 +1,3 @@
+PROC menu
+  IF PRESSED ENTER : SCENE poziom1
+END

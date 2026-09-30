@@ -104,6 +104,38 @@ w docs/components.md.
 `niebieski`, `żółty`, `pomarańczowy`, `fioletowy`, `różowy`, `szary`,
 `brązowy`, `złoty`.
 
+## Mapa ASCII: `<Tilemap>`
+
+Poziom z kratek (ściany, drzwi, przeciwnicy) można narysować znakami.
+Każdy znak mapy to aktor z archetypu albo pozycja istniejącego aktora:
+
+```xml
+<Archetype name="Wall" y="1" w="2" h="2" d="2"><Cube color="gray"/><Collider/></Archetype>
+<Archetype name="Coin" y="0.5" tags="coin"><Sphere color="gold"/></Archetype>
+<Actor name="Player" y="0.6"><Collider/></Actor>
+
+<Tilemap cell="2">
+  <Legend char="#" archetype="Wall"/>
+  <Legend char="$" archetype="Coin"/>
+  <Legend char="P" actor="Player"/>
+  <Map>
+    ##########
+    #P....$..#
+    ##########
+  </Map>
+</Tilemap>
+```
+
+- `cell` to rozmiar kratki (domyślnie 1 w 3D, 32 w 2D). `x`, `y`, `z` to
+  przesunięcie całej mapy.
+- W 3D mapa leży na podłodze: kolumna to oś `x`, wiersz to oś `z`, a `y`
+  bierze się z archetypu. W 2D kolumna to `x`, wiersz to `y`.
+- `.` i spacja to puste pola. Wspólne wcięcie wierszy jest pomijane.
+- Aktorzy z mapy dostają nazwy `Archetyp_kolumna_wiersz`, np. `Wall_3_5`,
+  i tagi z archetypu, więc łatwo obsłużyć ich przez `@tag`.
+- Kafle bez ruchu i zachowań (np. ściany) `state.txt` i API tylko liczą,
+  żeby setki ścian nie zasłaniały reszty.
+
 ## Sceny 3D
 
 ```xml
@@ -123,5 +155,7 @@ w docs/components.md.
 - Kamera: `fixed` (z pozycji aktora-kamery), `follow` (za plecami celu),
   `orbit` (krąży wokół celu), `fps` (oczy celu). Bez kamery scena powoli
   obraca się wokół środka.
-- Bez żadnego `<Light>` świeci domyślne „słońce”.
+- Bez żadnego `<Light>` świeci domyślne „słońce”. Światło `kind="ambient"`
+  ustawia jasność otoczenia (domyślnie 0.35), a `directional` świeci od
+  swojej pozycji w stronę punktu (0, 0, 0).
 - Napisy (`Text`) na aktorach 3D rysują się nad nimi, a `space="screen"` to HUD.

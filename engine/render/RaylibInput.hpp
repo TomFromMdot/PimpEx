@@ -9,6 +9,7 @@ class RaylibInput : public vm::IInput {
   std::array<bool, vm::KeyCount> _down{};
   std::array<bool, vm::KeyCount> _pressed{};
   float _mouseX = 0, _mouseY = 0, _mouseDx = 0, _mouseDy = 0;
+  bool _hasLastMouse = false;
 
 public:
   void poll();

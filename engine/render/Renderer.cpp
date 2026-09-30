@@ -212,11 +212,21 @@ struct Renderer::Impl {
 
   // --- światło -------------------------------------------------------------------------
 
-  void update_lights(const World &world, const Camera3D &cam, const Rgba &background) {
+  void update_lights(const World &world, const Camera3D &cam) {
     int index = 0;
+    bool customAmbient = false;
+    float ambient[4] = {0, 0, 0, 1};
     for (auto [e, light, t] : world.registry().view<Light, Transform>().each()) {
+      if (light.kind == "ambient") {
+        // Światła otoczenia się sumują i nie zajmują miejsca wśród 4 świateł.
+        customAmbient = true;
+        ambient[0] += light.color.r / 255.f * light.intensity;
+        ambient[1] += light.color.g / 255.f * light.intensity;
+        ambient[2] += light.color.b / 255.f * light.intensity;
+        continue;
+      }
       if (index >= MaxLights)
-        break;
+        continue;
       const int enabled = 1;
       const int type = light.kind == "directional" ? 0 : 1;
       const float position[3] = {t.x, t.y, t.z};
@@ -245,8 +255,10 @@ struct Renderer::Impl {
       const int disabled = 0;
       SetShaderValue(lighting, lightLocs[i].enabled, &disabled, SHADER_UNIFORM_INT);
     }
-    (void)background;
-    const float ambient[4] = {0.35f, 0.35f, 0.38f, 1};
+    if (!customAmbient) {
+      ambient[0] = ambient[1] = 0.35f;
+      ambient[2] = 0.38f;
+    }
     SetShaderValue(lighting, ambientLoc, ambient, SHADER_UNIFORM_VEC4);
     const float view[3] = {cam.position.x, cam.position.y, cam.position.z};
     SetShaderValue(lighting, viewPosLoc, view, SHADER_UNIFORM_VEC3);
@@ -360,7 +372,7 @@ void Renderer::draw(const World &world, const SceneData &data, const ProjectConf
       fps ? DisableCursor() : EnableCursor();
       _impl->cursorLocked = fps;
     }
-    _impl->update_lights(world, cam, background);
+    _impl->update_lights(world, cam);
     BeginMode3D(cam);
     for (const auto &item : worldItems)
       _impl->draw_3d(world, data, item.entity, registry.get<Transform>(item.entity));

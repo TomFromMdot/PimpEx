@@ -294,8 +294,10 @@ std::shared_ptr<ComponentRegistry> ComponentRegistry::with_builtins() {
                     .build());
   registry->add(Binder<Light>("Light", "kamera i światło",
                               "Światło w scenie 3D (maks. 4). Pozycja z Transform.")
-                    .field("kind", &Light::kind, "point = żarówka, directional = słońce",
-                           {"point", "directional"})
+                    .field("kind", &Light::kind,
+                           "point = żarówka, directional = słońce (świeci od swojej pozycji do (0, 0, 0)), "
+                           "ambient = światło otoczenia (bez kierunku)",
+                           {"point", "directional", "ambient"})
                     .field("color", &Light::color, "kolor światła")
                     .field("intensity", &Light::intensity, "jasność")
                     .build());

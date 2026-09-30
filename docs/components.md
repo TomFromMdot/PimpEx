@@ -182,6 +182,6 @@ Kamera. Pozycja z Transform aktora. Pierwsza aktywna kamera w scenie jest używa
 
 | Pole | Typ | Domyślnie | Opis |
 |------|-----|-----------|------|
-| `kind` | point \| directional | `point` | point = żarówka, directional = słońce |
+| `kind` | point \| directional \| ambient | `point` | point = żarówka, directional = słońce (świeci od swojej pozycji do (0, 0, 0)), ambient = światło otoczenia (bez kierunku) |
 | `color` | kolor | `white` | kolor światła |
 | `intensity` | liczba | `1` | jasność |

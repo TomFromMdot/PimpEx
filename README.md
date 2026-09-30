@@ -128,6 +128,7 @@ Spróbuj: `pimpex init gra --template arena3d && cd gra && claude "dodaj trzecie
 - [docs/behaviors.md](docs/behaviors.md) – zachowania i systemy
 - [docs/api.md](docs/api.md) – API na żywo i serwer MCP
 - [examples/pong](examples/pong) – Pong: dwie sceny, komputer wklejany z biblioteki
+- [examples/wolf3d](examples/wolf3d) – Wolf 3D: mapa ASCII, strażnicy z wzrokiem (raycast), drzwi, znajdźki
 
 ## Budowanie silnika
 

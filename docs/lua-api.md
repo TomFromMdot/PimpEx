@@ -52,6 +52,9 @@ Pozostałe przychodzą jako tekst.
 | `remove(aktor, komponent)`            | usuwa komponent                                              |
 | `has_tag(aktor, tag)`                 | `true`, jeśli aktor ma tag                                   |
 | `system(selektor, funkcja)`           | rejestruje system: `funkcja(e)` co klatkę dla każdego pasującego aktora (docs/behaviors.md) |
+| `raycast(x, y, z, dx, dy, dz, max, [pomiń])` | promień: nazwa pierwszego aktora z solidnym `Collider` i odległość (albo `nil`); `pomiń` – np. strzelający |
+| `distance(a, b)`                      | odległość między środkami aktorów                            |
+| `is3d()`                              | `true` w scenie `mode="3d"`                                  |
 
 Pola są takie same jak w `.swap`: skróty (`x`, `y`, `z`, `vx`, `rotation`…),
 `Komponent.pole` (docs/components.md) i własne zmienne. Zachowania aktorów

@@ -66,7 +66,14 @@ return {
 - Metody: `self:get("Health.hp")`, `self:set("Rect.color", "red")`,
   `self:move(dx, dy, dz)`, `self:destroy()`, `self:exists()`,
   `self:has("Collider")`, `self:has_tag("enemy")`, `self:touching("Wall")`,
-  `self:text("Napis")`.
+  `self:text("Napis")`, `self:distance("Player")`.
+- Wzrok (promienie, zatrzymują je aktorzy z solidnym `Collider`):
+  - `self:forward()` – kierunek patrzenia (w 3D z `ry`, 0 = w stronę -z;
+    w 2D z `rotation`, 0 = w prawo);
+  - `self:look(max)` – co jest przed aktorem: nazwa i odległość albo `nil`
+    (np. trafienie przy strzale);
+  - `self:sees("Player", max)` – czy nic solidnego nie zasłania celu;
+  - `self:face("Player")` – obraca aktora przodem do celu.
 
 Aktor może mieć kilka `<Behavior>`. Po zapisaniu pliku zachowania silnik
 podmienia funkcje, a `self` (np. `self.dir`) zostaje. `on_start` nie

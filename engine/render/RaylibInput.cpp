@@ -2,6 +2,8 @@
 
 #include <raylib.h>
 
+#include <cmath>
+
 namespace PimpEx::render {
 namespace {
 
@@ -38,12 +40,20 @@ void RaylibInput::poll() {
   _down[shift] = _down[shift] || IsKeyDown(KEY_RIGHT_SHIFT);
   _pressed[shift] = _pressed[shift] || IsKeyPressed(KEY_RIGHT_SHIFT);
 
+  // Ruch myszy liczymy sami jako różnicę pozycji między klatkami. GetMouseDelta
+  // przy zablokowanym kursorze (kamera fps) zakłada, że kursor wraca na środek
+  // ekranu – pod WSLg tak nie jest i gracz kręciłby się bez końca.
   const auto mouse = GetMousePosition();
+  if (_hasLastMouse) {
+    _mouseDx = mouse.x - _mouseX;
+    _mouseDy = mouse.y - _mouseY;
+    // Skok kursora (blokowanie, powrót do okna) to nie ruch gracza.
+    if (std::abs(_mouseDx) > 200 || std::abs(_mouseDy) > 200)
+      _mouseDx = _mouseDy = 0;
+  }
+  _hasLastMouse = IsWindowFocused();
   _mouseX = mouse.x;
   _mouseY = mouse.y;
-  const auto delta = GetMouseDelta();
-  _mouseDx = delta.x;
-  _mouseDy = delta.y;
 }
 
 } // namespace PimpEx::render

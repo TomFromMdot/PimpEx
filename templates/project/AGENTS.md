@@ -57,6 +57,9 @@ Gdy działa `pimpex dev .`, zapisane pliki trafiają do gry w locie, a narzędzi
 - Aktor = `<Actor name="..." x y w h tags="...">` + komponenty w środku
   (`<Rect>`, `<Collider>`, `<Camera>`, `<Behavior>`…). Pola `Transform`
   i `Body` (`x`, `vx`, `gravity`…) pisz na `<Actor>`.
+- Poziomy z kratek (labirynty, platformy) rysuj mapą ASCII `<Tilemap>`
+  z legendą znak → archetyp (docs/scene-xml.md). Nie wypisuj setek `<Actor>`.
+- Wzrok i strzały: `self:look()`, `self:sees()`, `raycast()` (docs/behaviors.md).
 - Dane gry trzymaj w komponentach z `components.xml` albo w `<Var>` (liczby),
   np. na niewidocznym aktorze `Game`.
 - Grupy aktorów oznaczaj tagami i obsługuj systemem:

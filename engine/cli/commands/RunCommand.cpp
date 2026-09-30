@@ -27,6 +27,8 @@ CLI::App *RunCommand::setup(CLI::App &app) {
     sub->add_flag("--api", _options.api, "Włącz API na żywo (JSON-RPC, .pimpex/api.json)");
   sub->add_option("--api-port", _options.apiPort, "Port API (domyślnie losowy wolny)");
   sub->add_flag("--quiet", _options.quiet, "Dziennik tylko do .pimpex/runtime.log");
+  sub->add_option("--runtime-dir", _options.runtimeDir,
+                  "Katalog na runtime.log i state.txt zamiast .pimpex/ (np. dla testów)");
   return sub;
 }
 

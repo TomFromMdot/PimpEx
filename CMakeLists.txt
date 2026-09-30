@@ -108,9 +108,12 @@ add_test(NAME components_doc_in_sync
   COMMAND sh -c "$<TARGET_FILE:pimpex> components --markdown | diff -u '${CMAKE_SOURCE_DIR}/docs/components.md' -")
 add_test(NAME scene_templates
   COMMAND sh "${CMAKE_SOURCE_DIR}/tests/e2e/templates.sh" $<TARGET_FILE:pimpex> "${CMAKE_BINARY_DIR}")
+add_test(NAME wolf3d_gameplay
+  COMMAND sh "${CMAKE_SOURCE_DIR}/tests/e2e/wolf3d.sh" $<TARGET_FILE:pimpex>
+    "${CMAKE_SOURCE_DIR}/examples/wolf3d" "${CMAKE_BINARY_DIR}")
 file(GLOB PIMPEX_EXAMPLES LIST_DIRECTORIES true "${CMAKE_SOURCE_DIR}/examples/*")
 foreach(EXAMPLE ${PIMPEX_EXAMPLES})
   get_filename_component(EXAMPLE_NAME "${EXAMPLE}" NAME)
   add_test(NAME example_${EXAMPLE_NAME}
-    COMMAND sh -c "$<TARGET_FILE:pimpex> check '${EXAMPLE}' && $<TARGET_FILE:pimpex> play '${EXAMPLE}' --headless --frames 600 --input 'C:0' --quiet")
+    COMMAND sh -c "$<TARGET_FILE:pimpex> check '${EXAMPLE}' && $<TARGET_FILE:pimpex> play '${EXAMPLE}' --headless --frames 600 --input 'C:0' --quiet --runtime-dir '${CMAKE_BINARY_DIR}/example_${EXAMPLE_NAME}'")
 endforeach()
