@@ -15,6 +15,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Nie używamy modułów C++20 – bez tego clangd gubi się na flagach GCC.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 find_package(raylib CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
