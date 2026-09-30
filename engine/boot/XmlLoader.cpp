@@ -6,6 +6,8 @@
 #include <charconv>
 #include <format>
 #include <initializer_list>
+#include <map>
+#include <set>
 #include <span>
 
 namespace PimpEx::boot {
@@ -27,6 +29,9 @@ public:
     const auto end = std::min(offset, _content.size());
     return 1 + static_cast<int>(std::count(_content.begin(), _content.begin() + end, '\n'));
   }
+
+  Diagnostics &diagnostics() { return _diagnostics; }
+  const std::string &file() const { return _file; }
 
   void error(pugi::xml_node node, std::string message) {
     _diagnostics.push_back({Diagnostic::Severity::Error, _file, line_of(node), std::move(message)});
@@ -299,6 +304,149 @@ ProjectConfig parse_project_xml(std::string_view content, const std::string &fil
   return config;
 }
 
+namespace {
+
+// <Tilemap cell="2"> <Legend char="#" archetype="Wall"/> <Map>...</Map> </Tilemap>
+// Każdy znak mapy to aktor z archetypu (Wall_3_5) albo pozycja istniejącego
+// aktora (legend actor="Player"). W 3D mapa leży na płaszczyźnie x/z, w 2D x/y.
+void expand_tilemap(XmlContext &ctx, pugi::xml_node node, SceneData &data) {
+  const bool is3d = data.mode == SceneMode::Mode3D;
+  ctx.check_attributes(node, {"cell", "x", "y", "z"});
+  float cell = is3d ? 1.0f : 32.0f, ox = 0, oy = 0, oz = 0;
+  ctx.read_float(node, "cell", cell);
+  ctx.read_float(node, "x", ox);
+  ctx.read_float(node, "y", oy);
+  ctx.read_float(node, "z", oz);
+
+  struct Entry {
+    std::string archetype, actor;
+  };
+  std::map<char, Entry> legend;
+  pugi::xml_node mapNode;
+  for (auto child : node.children()) {
+    if (child.type() != pugi::node_element)
+      continue;
+    const std::string_view tag = child.name();
+    if (tag == "Map") {
+      mapNode = child;
+      continue;
+    }
+    if (tag != "Legend") {
+      ctx.warning(child, std::format("nieznany element <{}> w <Tilemap> (dostępne: Legend, Map)", tag));
+      continue;
+    }
+    ctx.check_attributes(child, {"char", "archetype", "actor"});
+    const std::string symbol = child.attribute("char").value();
+    Entry entry{child.attribute("archetype").value(), child.attribute("actor").value()};
+    if (symbol.size() != 1 || symbol == "." || symbol == " ") {
+      ctx.error(child, "<Legend char=\"...\"> to jeden znak (oprócz '.' i spacji – to puste pola)");
+      continue;
+    }
+    if (entry.archetype.empty() == entry.actor.empty()) {
+      ctx.error(child, "<Legend> potrzebuje archetype=\"...\" albo actor=\"...\"");
+      continue;
+    }
+    if (!entry.archetype.empty() && !data.archetypes.contains(entry.archetype)) {
+      std::vector<std::string> names;
+      for (const auto &[name, def] : data.archetypes)
+        names.push_back(name);
+      const auto hint = closest_name(entry.archetype, names);
+      ctx.error(child, std::format("nie ma archetypu '{}'{}", entry.archetype,
+                                   hint.empty() ? "" : std::format(" (czy chodziło o {}?)", hint)));
+      continue;
+    }
+    if (!entry.actor.empty() &&
+        std::none_of(data.actors.begin(), data.actors.end(), [&](const ActorDef &a) { return a.name == entry.actor; })) {
+      ctx.error(child, std::format("nie ma aktora '{}' (zdefiniuj go w <Actor>)", entry.actor));
+      continue;
+    }
+    if (legend.contains(symbol[0]))
+      ctx.error(child, std::format("znak '{}' jest już w legendzie", symbol));
+    legend[symbol[0]] = entry;
+  }
+  if (!mapNode) {
+    ctx.error(node, "<Tilemap> potrzebuje <Map> z mapą znaków");
+    return;
+  }
+
+  // Wiersze mapy z numerami linii w pliku; wspólne wcięcie usuwamy.
+  const std::string_view text = mapNode.child_value();
+  const int firstLine = ctx.line_of(mapNode);
+  std::vector<std::pair<int, std::string_view>> rows;
+  std::size_t start = 0;
+  for (int index = 0; start <= text.size(); ++index) {
+    auto end = text.find('\n', start);
+    if (end == std::string_view::npos)
+      end = text.size();
+    auto row = text.substr(start, end - start);
+    if (!row.empty() && row.back() == '\r')
+      row.remove_suffix(1);
+    rows.emplace_back(firstLine + index, row);
+    start = end + 1;
+  }
+  auto blank = [](std::string_view s) { return s.find_first_not_of(" \t") == std::string_view::npos; };
+  while (!rows.empty() && blank(rows.front().second))
+    rows.erase(rows.begin());
+  while (!rows.empty() && blank(rows.back().second))
+    rows.pop_back();
+  std::size_t indent = std::string_view::npos;
+  for (const auto &[line, row] : rows)
+    if (!blank(row))
+      indent = std::min(indent, row.find_first_not_of(" \t"));
+
+  std::set<char> reported;
+  std::set<std::string> placed;
+  for (std::size_t r = 0; r < rows.size(); ++r) {
+    const auto &[line, fullRow] = rows[r];
+    const auto row = fullRow.size() > indent ? fullRow.substr(indent) : std::string_view{};
+    for (std::size_t c = 0; c < row.size(); ++c) {
+      const char symbol = row[c];
+      if (symbol == '.' || symbol == ' ' || symbol == '\t')
+        continue;
+      const auto found = legend.find(symbol);
+      if (found == legend.end()) {
+        if (reported.insert(symbol).second)
+          ctx.diagnostics().push_back({Diagnostic::Severity::Error, ctx.file(), line,
+                                       std::format("znak '{}' na mapie nie ma wpisu w <Legend>", symbol)});
+        continue;
+      }
+      const float px = ox + static_cast<float>(c) * cell;
+      const float pRow = (is3d ? oz : oy) + static_cast<float>(r) * cell;
+      const std::pair<std::string, FieldValue> position[] = {{"x", px}, {is3d ? "z" : "y", pRow}};
+
+      if (!found->second.actor.empty()) {
+        const auto &name = found->second.actor;
+        if (!placed.insert(name).second) {
+          ctx.diagnostics().push_back({Diagnostic::Severity::Error, ctx.file(), line,
+                                       std::format("aktor '{}' jest na mapie więcej niż raz", name)});
+          continue;
+        }
+        auto &def = *std::find_if(data.actors.begin(), data.actors.end(),
+                                  [&](const ActorDef &a) { return a.name == name; });
+        def.components.front().values.insert(def.components.front().values.end(), std::begin(position),
+                                             std::end(position));
+        continue;
+      }
+
+      ActorDef def = data.archetypes.at(found->second.archetype);
+      def.name = std::format("{}_{}_{}", found->second.archetype, c, r);
+      def.archetype = found->second.archetype;
+      def.fromTilemap = true;
+      def.line = line;
+      def.components.front().values.insert(def.components.front().values.end(), std::begin(position),
+                                           std::end(position));
+      if (std::any_of(data.actors.begin(), data.actors.end(), [&](const ActorDef &a) { return a.name == def.name; })) {
+        ctx.diagnostics().push_back({Diagnostic::Severity::Error, ctx.file(), line,
+                                     std::format("aktor '{}' z mapy już istnieje", def.name)});
+        continue;
+      }
+      data.actors.push_back(std::move(def));
+    }
+  }
+}
+
+} // namespace
+
 SceneData parse_scene_xml(std::string_view content, const std::string &file,
                           const std::string &sceneName, Diagnostics &diagnostics,
                           const ComponentRegistry *components) {
@@ -346,12 +494,15 @@ SceneData parse_scene_xml(std::string_view content, const std::string &file,
       data.archetypes.emplace(def.name, std::move(def));
   };
 
+  std::vector<pugi::xml_node> tilemaps; // rozwijane na końcu – gdy znamy wszystkie archetypy
   for (auto child : root.children()) {
     if (child.type() != pugi::node_element)
       continue;
     const std::string_view tag = child.name();
     if (tag == "Actor") {
       addActor(child);
+    } else if (tag == "Tilemap") {
+      tilemaps.push_back(child);
     } else if (tag == "Archetype") {
       addArchetype(child);
     } else if (tag == "Actors" || tag == "Archetypes") {
@@ -382,10 +533,12 @@ SceneData parse_scene_xml(std::string_view content, const std::string &file,
       }
     } else {
       ctx.warning(child, std::format("nieznany element <{}> w <Scene> (dostępne: Actor, "
-                                     "Archetype, Resources)",
+                                     "Archetype, Tilemap, Resources)",
                                      tag));
     }
   }
+  for (const auto &tilemap : tilemaps)
+    expand_tilemap(ctx, tilemap, data);
 
   // Sprite i Model muszą wskazywać zasoby z <Resources>.
   auto checkResources = [&](const ActorDef &def) {

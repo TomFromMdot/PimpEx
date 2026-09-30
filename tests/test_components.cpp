@@ -191,3 +191,97 @@ TEST_CASE("fizyka: grawitacja, lądowanie na solidzie i styki z triggerem") {
   CHECK(world3d.get("Ball", "y") == doctest::Approx(0.5));
   CHECK(world3d.get("Ball", "grounded") == 1);
 }
+
+TEST_CASE("Tilemap: mapa ASCII tworzy aktorów z archetypów i ustawia istniejących") {
+  Diagnostics diagnostics;
+  const auto data = boot::parse_scene_xml(R"(<Scene mode="3d">
+  <Archetype name="Wall" y="1" w="2" h="2" d="2"><Cube color="gray"/><Collider/></Archetype>
+  <Archetype name="Coin" y="0.5" tags="coin"><Sphere color="gold"/></Archetype>
+  <Actor name="Player" y="0.6"><Collider/></Actor>
+  <Tilemap cell="2" x="10">
+    <Legend char="#" archetype="Wall"/>
+    <Legend char="$" archetype="Coin"/>
+    <Legend char="P" actor="Player"/>
+    <Map>
+      ####
+      #P.$
+      ####
+    </Map>
+  </Tilemap>
+</Scene>)",
+                                          "scene.xml", "main", diagnostics);
+  std::string text;
+  for (const auto &d : diagnostics)
+    text += d.format() + "\n";
+  INFO(text);
+  REQUIRE(diagnostics.empty());
+  CHECK(data.actors.size() == 1 + 9 + 1); // Player + 9 ścian + moneta
+
+  World world;
+  world.load(data);
+  CHECK(world.get("Player", "x") == 12); // 10 + 1 * 2
+  CHECK(world.get("Player", "z") == 2);  // wiersz 1
+  CHECK(world.get("Player", "y") == doctest::Approx(0.6));
+  CHECK(world.get("Wall_0_0", "x") == 10);
+  CHECK(world.get("Wall_3_2", "z") == 4);
+  CHECK(world.get("Wall_3_2", "y") == 1); // y z archetypu
+  CHECK(world.get("Coin_3_1", "x") == 16);
+  CHECK(world.has_tag(world.find("Coin_3_1"), "coin"));
+  CHECK(world.is_static_tile(world.find("Wall_0_0")));
+  CHECK_FALSE(world.is_static_tile(world.find("Player")));
+
+  std::ostringstream dump;
+  world.dump(dump);
+  INFO(dump.str());
+  CHECK(dump.str().find("Wall_0_0") == std::string::npos); // ściany tylko policzone
+  CHECK(dump.str().find("mapa (statyczne kafle, pominięte): Coin=1 Wall=9") != std::string::npos);
+}
+
+TEST_CASE("Tilemap: błędy z numerami linii") {
+  Diagnostics diagnostics;
+  boot::parse_scene_xml(R"(<Scene>
+  <Archetype name="Wall"/>
+  <Tilemap>
+    <Legend char="#" archetype="Wal"/>
+    <Legend char="P" actor="Nobody"/>
+    <Legend char="ab" archetype="Wall"/>
+    <Map>
+..
+.X.
+    </Map>
+  </Tilemap>
+</Scene>)",
+                        "scene.xml", "main", diagnostics);
+  std::string text;
+  for (const auto &d : diagnostics)
+    text += d.format() + "\n";
+  INFO(text);
+  CHECK(text.find("scene.xml:4: błąd: nie ma archetypu 'Wal' (czy chodziło o Wall?)") != std::string::npos);
+  CHECK(text.find("scene.xml:5: błąd: nie ma aktora 'Nobody'") != std::string::npos);
+  CHECK(text.find("scene.xml:6: błąd: <Legend char") != std::string::npos);
+  CHECK(text.find("scene.xml:9: błąd: znak 'X' na mapie nie ma wpisu w <Legend>") != std::string::npos);
+}
+
+TEST_CASE("raycast: pierwszy solidny Collider na drodze promienia") {
+  Diagnostics diagnostics;
+  World world;
+  world.load(boot::parse_scene_xml(R"(<Scene mode="3d">
+  <Actor name="Eye" y="1"><Collider/></Actor>
+  <Actor name="Guard" z="-5" y="1"><Collider/></Actor>
+  <Actor name="Wall" z="-3" y="1" w="4" h="2" d="0.5"><Collider/></Actor>
+  <Actor name="Ghost" z="-2" y="1"><Collider kind="trigger"/></Actor>
+</Scene>)",
+                                   "scene.xml", "main", diagnostics));
+  REQUIRE(diagnostics.empty());
+  const auto eye = world.find("Eye");
+  auto hit = world.raycast(0, 1, 0, 0, 0, -1, 100, eye);
+  REQUIRE(hit);
+  CHECK(world.name_of(hit->entity) == "Wall"); // trigger (Ghost) nie zatrzymuje
+  CHECK(hit->distance == doctest::Approx(2.75));
+  CHECK_FALSE(world.raycast(0, 1, 0, 0, 0, -1, 2, eye)); // za krótko
+  CHECK_FALSE(world.raycast(0, 1, 0, 1, 0, 0, 100, eye)); // w bok – nic
+  world.destroy("Wall");
+  hit = world.raycast(0, 1, 0, 0, 0, -1, 100, eye);
+  REQUIRE(hit);
+  CHECK(world.name_of(hit->entity) == "Guard");
+}

@@ -297,3 +297,43 @@ return {
   step(1);
   CHECK(get("Game", "destroyed") == 1);
 }
+
+TEST_CASE("Lua: self:sees, self:look, self:face i distance") {
+  BootFixture f("sees");
+  f.project.write("scripts/behaviors/watcher.lua", R"(
+return {
+  on_update = function(self)
+    set("Game", "sees", self:sees("Player") and 1 or 0)
+    local hit, dist = self:look(50)
+    set("Game", "look_" .. (hit or "nic"), dist or 0)
+    self:face("Player")
+    set("Game", "dist", distance(self.name, "Player"))
+  end,
+}
+)");
+  f.project.write("scenes/main/scene.xml", R"(<Scene mode="3d">
+  <Actor name="Guard" y="1"><Collider/><Behavior name="watcher"/></Actor>
+  <Actor name="Player" x="10" y="1"><Collider/></Actor>
+  <Actor name="Wall" z="-4" y="1" w="4" h="2" d="1"><Collider/></Actor>
+  <Actor name="Game" w="0" h="0"/>
+</Scene>)");
+  f.project.write("scenes/main/scene.swap", "PROC a\nEND\n");
+  Log log;
+  log.set_quiet(true);
+  Boot boot(f.project.paths(), log, 1);
+  REQUIRE(boot.start());
+  vm::ManualInput input;
+  const vm::FrameContext ctx{input, 800, 600, 0};
+  boot.run_frame(ctx);
+  auto get = [&](const char *a, const char *field) { return boot.world().get(a, field).value_or(-999); };
+  CHECK(get("Game", "sees") == 1);
+  CHECK(get("Game", "look_Wall") == doctest::Approx(3.5)); // ry=0 patrzy w -z
+  CHECK(get("Guard", "ry") == doctest::Approx(-90));       // obrócony do gracza (+x)
+  CHECK(get("Game", "dist") == doctest::Approx(10));
+
+  // Ściana między strażnikiem a graczem – już nie widzi.
+  boot.world().set("Wall", "x", 5);
+  boot.world().set("Wall", "z", 0);
+  boot.run_frame(ctx);
+  CHECK(get("Game", "sees") == 0);
+}

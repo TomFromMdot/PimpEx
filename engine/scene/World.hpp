@@ -100,6 +100,19 @@ public:
   bool touching(const std::string &a, const std::string &b) const;
   bool touching(entt::entity a, entt::entity b) const;
 
+  // Kafel z <Tilemap> bez ruchu i zachowań (np. ściana). W zrzucie stanu
+  // i w API jest tylko liczony, żeby setki ścian nie zasłaniały reszty.
+  bool is_static_tile(entt::entity e) const;
+
+  // Promień od (x, y, z) w kierunku (dx, dy, dz): pierwszy aktor z solidnym
+  // Colliderem w odległości do `maxDistance`. `ignore` – np. sam strzelający.
+  struct RayHit {
+    entt::entity entity = entt::null;
+    float distance = 0;
+  };
+  std::optional<RayHit> raycast(float x, float y, float z, float dx, float dy, float dz, float maxDistance,
+                                entt::entity ignore = entt::null) const;
+
   std::vector<std::string> names() const;
   std::size_t size() const { return _byName.size(); }
   bool has_archetype(const std::string &name) const { return _archetypes.contains(name); }

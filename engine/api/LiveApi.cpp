@@ -188,15 +188,24 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
   if (method == "state.get") {
     const auto selector = str(params, "selector", false);
     const bool brief = params.value("brief", false);
+    // Statyczne kafle mapy (ściany) tylko liczymy – chyba że ktoś o nie prosi.
+    const bool withStatic = params.value("static", false) || !selector.empty();
     json actors = json::array();
-    for (const auto &name : world.query(selector))
+    int staticTiles = 0;
+    for (const auto &name : world.query(selector)) {
+      if (!withStatic && world.is_static_tile(world.find(name))) {
+        ++staticTiles;
+        continue;
+      }
       actors.push_back(actor_json(world, name, ctx, brief));
+    }
     return {{"scene", boot.scene_name()},
             {"mode", world.mode() == scene::SceneMode::Mode3D ? "3d" : "2d"},
             {"frame", control.frame},
             {"paused", control.paused},
             {"procs", program_json(boot.program())},
-            {"actors", actors}};
+            {"actors", actors},
+            {"static_tiles", staticTiles}};
   }
   if (method == "actors.list")
     return world.query(str(params, "selector", false));

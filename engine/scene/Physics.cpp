@@ -1,5 +1,6 @@
 #include "scene/Physics.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace PimpEx::scene {
@@ -65,10 +66,15 @@ std::vector<Contact> step_physics(World &world) {
   std::vector<entt::entity> colliders;
   for (auto [e, collider] : registry.view<Collider>().each())
     colliders.push_back(e);
-  for (std::size_t i = 0; i < colliders.size(); ++i) {
-    const auto &ta = registry.get<Transform>(colliders[i]);
+  // Para dwóch nieruchomych aktorów (np. sąsiednie ściany mapy) nikogo nie
+  // interesuje – liczymy tylko pary, w których co najmniej jeden może się
+  // ruszać (ma Body albo zachowanie Lua). Ruchome są na początku listy,
+  // więc para ruchomy–ruchomy liczy się raz.
+  auto dynamic = [&](entt::entity e) { return registry.any_of<Body, Behaviors>(e); };
+  std::stable_partition(colliders.begin(), colliders.end(), dynamic);
+  for (std::size_t i = 0; i < colliders.size() && dynamic(colliders[i]); ++i) {
     // Margines 0.01 – aktor stojący dokładnie na podłodze też ją „dotyka”.
-    Transform grown = ta;
+    Transform grown = registry.get<Transform>(colliders[i]);
     grown.w += 0.02f;
     grown.h += 0.02f;
     grown.d += 0.02f;

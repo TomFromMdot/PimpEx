@@ -55,6 +55,7 @@ struct Tags {
 struct Origin {
   bool fromSceneFile = false;
   std::string archetype;
+  bool fromTilemap = false; // kafel z <Tilemap> (np. ściana)
 };
 
 // Dane komponentów zdefiniowanych przez użytkownika w components.xml.

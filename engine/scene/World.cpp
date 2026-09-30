@@ -61,7 +61,7 @@ entt::entity World::create(const ActorDef &def, const std::string &name, bool fr
                            const std::string &archetype) {
   const auto e = _registry.create();
   _registry.emplace<Name>(e, name);
-  _registry.emplace<Origin>(e, fromSceneFile, archetype);
+  _registry.emplace<Origin>(e, fromSceneFile, archetype, def.fromTilemap);
   apply_components(e, def);
   _byName[name] = e;
   return e;
@@ -81,7 +81,7 @@ void World::load(const SceneData &data) {
   _background = data.background;
   _mode = data.mode;
   for (const auto &def : data.actors)
-    create(def, def.name, true, "");
+    create(def, def.name, true, def.archetype);
 }
 
 void World::reload(const SceneData &data, bool keepState) {
@@ -98,7 +98,7 @@ void World::reload(const SceneData &data, bool keepState) {
     inFile.insert(def.name);
     const auto it = _byName.find(def.name);
     if (it == _byName.end()) {
-      create(def, def.name, true, "");
+      create(def, def.name, true, def.archetype);
       continue;
     }
     const auto e = it->second;
@@ -360,6 +360,47 @@ bool World::touching(const std::string &a, const std::string &b) const {
   return touching(find(a), find(b));
 }
 
+bool World::is_static_tile(entt::entity e) const {
+  const auto *origin = _registry.try_get<Origin>(e);
+  return origin && origin->fromTilemap && !_registry.all_of<Body>(e) && !_registry.all_of<Behaviors>(e);
+}
+
+std::optional<World::RayHit> World::raycast(float x, float y, float z, float dx, float dy, float dz,
+                                            float maxDistance, entt::entity ignore) const {
+  const float length = std::sqrt(dx * dx + dy * dy + dz * dz);
+  if (length < 1e-6f)
+    return std::nullopt;
+  const float dir[3] = {dx / length, dy / length, dz / length};
+  const float origin[3] = {x, y, z};
+
+  std::optional<RayHit> best;
+  for (auto [e, collider, t] : _registry.view<Collider, Transform>().each()) {
+    if (e == ignore || collider.kind != "solid")
+      continue;
+    // Test „slab”: przecięcie promienia z prostopadłościanem aktora.
+    const float center[3] = {t.x, t.y, t.z};
+    const float half[3] = {t.w / 2, t.h / 2, t.d / 2};
+    float tNear = 0, tFar = maxDistance;
+    bool miss = false;
+    for (int axis = 0; axis < 3 && !miss; ++axis) {
+      const float lo = center[axis] - half[axis], hi = center[axis] + half[axis];
+      if (std::abs(dir[axis]) < 1e-9f) {
+        miss = origin[axis] < lo || origin[axis] > hi;
+        continue;
+      }
+      float t1 = (lo - origin[axis]) / dir[axis], t2 = (hi - origin[axis]) / dir[axis];
+      if (t1 > t2)
+        std::swap(t1, t2);
+      tNear = std::max(tNear, t1);
+      tFar = std::min(tFar, t2);
+      miss = tNear > tFar;
+    }
+    if (!miss && (!best || tNear < best->distance))
+      best = RayHit{e, tNear};
+  }
+  return best;
+}
+
 std::vector<std::string> World::names() const {
   std::vector<std::string> out;
   out.reserve(_byName.size());
@@ -370,7 +411,12 @@ std::vector<std::string> World::names() const {
 
 void World::dump(std::ostream &out, const TextFormatter &formatText) const {
   const bool is3d = _mode == SceneMode::Mode3D;
+  std::map<std::string, int> staticTiles; // archetyp -> ile kafli
   for (const auto &[name, e] : _byName) {
+    if (is_static_tile(e)) {
+      ++staticTiles[_registry.get<Origin>(e).archetype];
+      continue;
+    }
     const auto &t = _registry.get<Transform>(e);
     out << name << " x=" << format_number(t.x) << " y=" << format_number(t.y);
     if (is3d || t.z != 0)
@@ -421,6 +467,12 @@ void World::dump(std::ostream &out, const TextFormatter &formatText) const {
     const auto &origin = _registry.get<Origin>(e);
     if (!origin.archetype.empty())
       out << " archetype=" << origin.archetype;
+    out << '\n';
+  }
+  if (!staticTiles.empty()) {
+    out << "mapa (statyczne kafle, pominięte):";
+    for (const auto &[archetype, count] : staticTiles)
+      out << ' ' << archetype << '=' << count;
     out << '\n';
   }
 }

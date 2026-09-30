@@ -26,6 +26,8 @@ struct ActorDef {
   std::vector<ComponentInit> components; // zawsze zaczyna się od Transform
   Vars vars;
   std::vector<BehaviorRef> behaviors;
+  std::string archetype;    // aktor z <Tilemap>: z jakiego archetypu powstał
+  bool fromTilemap = false;
 
   bool has(std::string_view component) const {
     for (const auto &c : components)

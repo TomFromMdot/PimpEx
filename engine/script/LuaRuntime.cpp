@@ -5,7 +5,9 @@
 #include <sol/sol.hpp>
 
 #include <charconv>
+#include <cmath>
 #include <format>
+#include <tuple>
 #include <map>
 #include <set>
 
@@ -38,6 +40,36 @@ function Self:has(c) return has(self.name, c) end
 function Self:has_tag(t) return has_tag(self.name, t) end
 function Self:touching(o) return touching(self.name, o) end
 function Self:text(t) return text(self.name, t) end
+function Self:distance(o) return distance(self.name, o) end
+-- Kierunek patrzenia: w 3D z obrotu ry (0 = w stronę -z), w 2D z rotation (0 = w prawo).
+function Self:forward()
+  if is3d() then
+    local yaw = math.rad(self.ry)
+    return -math.sin(yaw), 0, -math.cos(yaw)
+  end
+  local a = math.rad(self.rotation)
+  return math.cos(a), math.sin(a), 0
+end
+-- Co widzę przed sobą (do max)? Zwraca nazwę aktora z solidnym Colliderem i odległość.
+function Self:look(max)
+  local dx, dy, dz = self:forward()
+  return raycast(self.x, self.y, self.z, dx, dy, dz, max or 1000, self.name)
+end
+-- Czy widzę aktora `target` (nic solidnego pomiędzy)?
+function Self:sees(target, max)
+  if not exists(target) then return false end
+  local dx, dy, dz = get(target, "x") - self.x, get(target, "y") - self.y, get(target, "z") - self.z
+  local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+  if max and dist > max then return false end
+  local hit = raycast(self.x, self.y, self.z, dx, dy, dz, dist + 1, self.name)
+  return hit == target
+end
+-- Obraca się przodem do aktora `target`.
+function Self:face(target)
+  if not exists(target) then return end
+  local dx, dy, dz = get(target, "x") - self.x, get(target, "y") - self.y, get(target, "z") - self.z
+  if is3d() then self.ry = math.deg(math.atan(-dx, -dz)) else self.rotation = math.deg(math.atan(dy, dx)) end
+end
 local meta = {
   __index = function(t, k)
     if Self[k] then return Self[k] end
@@ -220,6 +252,28 @@ struct LuaRuntime::Impl {
       auto &w = host.lua_world();
       return w.has_tag(w.find(actor), tag);
     });
+    // Promień: pierwszy aktor z solidnym Colliderem. Zwraca nazwę i odległość albo nil.
+    lua.set_function("raycast", [this](double x, double y, double z, double dx, double dy, double dz,
+                                       double maxDistance, sol::optional<std::string> ignore,
+                                       sol::this_state state) -> std::tuple<sol::object, sol::object> {
+      auto &w = host.lua_world();
+      const auto hit = w.raycast(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z),
+                                 static_cast<float>(dx), static_cast<float>(dy), static_cast<float>(dz),
+                                 static_cast<float>(maxDistance), ignore ? w.find(*ignore) : entt::null);
+      if (!hit)
+        return {sol::lua_nil, sol::lua_nil};
+      return {sol::make_object(state, w.name_of(hit->entity)), sol::make_object(state, hit->distance)};
+    });
+    lua.set_function("distance", [this](const std::string &a, const std::string &b) -> std::optional<double> {
+      auto &w = host.lua_world();
+      if (!w.exists(a) || !w.exists(b))
+        return std::nullopt;
+      const double dx = *w.get(a, "x") - *w.get(b, "x");
+      const double dy = *w.get(a, "y") - *w.get(b, "y");
+      const double dz = *w.get(a, "z") - *w.get(b, "z");
+      return std::sqrt(dx * dx + dy * dy + dz * dz);
+    });
+    lua.set_function("is3d", [this]() { return host.lua_world().mode() == scene::SceneMode::Mode3D; });
     lua.set_function("key", [this](const std::string &name) {
       const auto key = vm::key_from_name(name);
       return key && frame().input.down(*key);
