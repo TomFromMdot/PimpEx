@@ -115,7 +115,7 @@ std::string base64(const unsigned char *data, std::size_t size) {
 } // namespace
 
 int Engine::run() {
-  const boot::ProjectPaths paths{fs::absolute(_root).lexically_normal()};
+  const boot::ProjectPaths paths{fs::absolute(_root).lexically_normal(), _options.runtimeDir};
   vm::ScriptedInput scriptedInput;
   if (const auto error = scriptedInput.parse(_options.input); !error.empty()) {
     std::cerr << "--input: " << error << '\n';

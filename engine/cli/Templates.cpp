@@ -22,11 +22,20 @@ std::string replace_all(std::string_view text, std::string_view from, std::strin
   }
 }
 
+// Pełna ścieżka do binarki silnika – trafia do .mcp.json, żeby agent
+// uruchomił właściwy `pimpex` nawet bez niego w PATH.
+std::string engine_executable() {
+  std::error_code ec;
+  const auto self = fs::read_symlink("/proc/self/exe", ec);
+  return ec ? std::string("pimpex") : self.string();
+}
+
 struct Variables {
   std::string project;
   std::string scene;
   std::string apply(std::string_view text) const {
-    return replace_all(replace_all(text, "{{NAME}}", project), "{{SCENE}}", scene);
+    return replace_all(replace_all(replace_all(text, "{{NAME}}", project), "{{SCENE}}", scene), "{{PIMPEX}}",
+                       engine_executable());
   }
 };
 

@@ -134,3 +134,12 @@ TEST_CASE("API: input.press, pauza i krok, Lua, sceny, check") {
   CHECK(f.call("components.list").size() == 14); // wbudowane
   CHECK_THROWS_AS(f.call("screenshot"), api::ApiError); // bez okna
 }
+
+TEST_CASE("API: swap.paste odrzuca kod z błędnymi odwołaniami") {
+  ApiFixture f;
+  CHECK_THROWS_WITH_AS(f.call("swap.paste", {{"source", "PROC x ONCE\n  SPAWN Nope\nEND"}}),
+                       doctest::Contains("swap.paste:2: błąd: nie ma archetypu 'Nope'"), api::ApiError);
+  const auto ok = f.call("swap.paste", {{"source", "PROC y ONCE\n  MOVE Ghost 1 1\nEND"}});
+  REQUIRE(ok["warnings"].size() == 1); // Ghost nie istnieje – tylko ostrzeżenie
+  CHECK(ok["warnings"][0]["severity"] == "warning");
+}

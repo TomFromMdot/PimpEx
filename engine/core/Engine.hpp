@@ -16,6 +16,7 @@ struct EngineOptions {
   std::string scene;      // scena startowa zamiast <StartScene> z pimpex.xml
   bool api = false;       // API na żywo (JSON-RPC na 127.0.0.1, .pimpex/api.json)
   int apiPort = 0;        // 0 = losowy wolny port
+  std::filesystem::path runtimeDir; // zamiast .pimpex/ (runtime.log, state.txt)
 };
 
 // Pętla gry:

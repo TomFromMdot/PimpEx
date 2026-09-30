@@ -265,9 +265,21 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
       throw ApiError(AppError, "kod musi zawierać poprawne PROC ... END: " +
                                    (parsed.diagnostics.empty() ? std::string("brak PROC")
                                                                : parsed.diagnostics.front().format()));
+    // Sprawdzamy odwołania (aktorzy, archetypy, komponenty) względem działającej sceny.
+    Diagnostics diagnostics;
+    const auto sceneNames = boot.paths().scene_names();
+    boot::check_program_references({parsed.program, boot.scene_data(), &boot.library(), &sceneNames,
+                                    nullptr, "swap.paste", boot.components().get()},
+                                   diagnostics);
+    if (has_errors(diagnostics)) {
+      std::string text;
+      for (const auto &d : diagnostics)
+        text += "\n" + d.format();
+      throw ApiError(AppError, "kod nie został wklejony:" + text);
+    }
     boot.request_proc_paste(source);
     boot.apply_requests();
-    return {{"procs", program_json(boot.program())}};
+    return {{"procs", program_json(boot.program())}, {"warnings", diagnostics_json(diagnostics)}};
   }
   if (method == "swap.add" || method == "swap.remove") {
     const auto name = str(params, "name");

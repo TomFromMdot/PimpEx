@@ -25,6 +25,21 @@ ctest --test-dir build --output-on-failure
   działać bez okna.
 - Tylko `boot::Boot` zapisuje `scene.swap`, zawsze przez `write_file_atomic`
   i po `expect()` na watcherze.
+- Nowy komponent wbudowany: struktura w `scene/Components.hpp` + deskryptor
+  (`Binder`) w `ComponentRegistry::with_builtins()`. Loader, `.swap`, Lua,
+  API i dump działają same. Potem rysowanie (`render/`) albo logika
+  (`scene/Physics.cpp`), regeneracja `docs/components.md`
+  (`pimpex components --markdown > docs/components.md`, pilnuje tego ctest)
+  i testy w `tests/test_components.cpp`.
+- Nowa metoda API: `api/LiveApi.cpp` (`dispatch` + tabela `Methods`),
+  `docs/api.md`, test w `tests/test_api.cpp`. Jeśli ma być dostępna dla
+  agentów, także narzędzie w `api/McpServer.cpp` (`tools_list` +
+  `call_tool`) i `tests/test_mcp.cpp`.
+- Serwer MCP pisze protokół na stdout. Wszystko inne musi iść na stderr
+  (`McpServer::run` przekierowuje fd 1).
+- Nowy szablon sceny: `templates/scenes/<nazwa>/{about.txt,scene/,project/}`
+  oraz wpis w `tests/e2e/templates.sh`. Zachowania trzymamy w
+  `templates/behaviors/`.
 - Nowy opcode wymaga zmian w wielu miejscach naraz: `vm/Program.hpp`
   (Op), `vm/Parser.cpp` (składnia + lista `Instructions`), `vm/Vm.cpp`
   (wykonanie), `boot/ProjectCheck.cpp` (sprawdzanie odwołań),

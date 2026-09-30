@@ -15,6 +15,11 @@ namespace fs = std::filesystem;
 // Układ plików projektu gry – jedno miejsce, które zna wszystkie ścieżki.
 struct ProjectPaths {
   fs::path root;
+  fs::path runtimeOverride; // inny katalog na runtime.log/state.txt (np. przebiegi z MCP)
+
+  ProjectPaths() = default;
+  explicit ProjectPaths(fs::path projectRoot, fs::path runtime = {})
+      : root(std::move(projectRoot)), runtimeOverride(std::move(runtime)) {}
 
   fs::path project_xml() const { return root / "pimpex.xml"; }
   fs::path scenes_dir() const { return root / "scenes"; }
@@ -28,7 +33,7 @@ struct ProjectPaths {
   fs::path scripts_dir() const { return root / "scripts"; }
   fs::path behaviors_dir() const { return scripts_dir() / "behaviors"; }
   fs::path behavior_file(const std::string &name) const { return behaviors_dir() / (name + ".lua"); }
-  fs::path runtime_dir() const { return root / ".pimpex"; }
+  fs::path runtime_dir() const { return runtimeOverride.empty() ? root / ".pimpex" : runtimeOverride; }
   fs::path runtime_log() const { return runtime_dir() / "runtime.log"; }
   fs::path state_file() const { return runtime_dir() / "state.txt"; }
 

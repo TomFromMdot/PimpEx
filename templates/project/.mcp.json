@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pimpex": {
+      "command": "{{PIMPEX}}",
+      "args": ["mcp", "."]
+    }
+  }
+}
