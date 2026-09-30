@@ -1,13 +1,13 @@
 {
+  "name": "pimpex",
+  "version-string": "0.1.0",
   "dependencies": [
-    "entt",
-    "glad",
-    "glfw3",
-    "glm",
-    "pugixml",
-    "spdlog",
-    "tinyxml2",
     "cli11",
-    "raylib"
+    "doctest",
+    "entt",
+    "lua",
+    "pugixml",
+    "raylib",
+    "sol2"
   ]
 }

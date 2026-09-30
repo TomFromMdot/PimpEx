@@ -1,7 +1,6 @@
 build/
-CMakePresets.json 
-example_files/
+build-*/
 compile_commands.json
 .cache/
 Testing/
-
+.pimpex/

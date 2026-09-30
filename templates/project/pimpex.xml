@@ -1,0 +1,4 @@
+<Project name="{{NAME}}">
+  <Window title="{{NAME}}" width="800" height="600" fps="60" background="#101018"/>
+  <StartScene name="main"/>
+</Project>
