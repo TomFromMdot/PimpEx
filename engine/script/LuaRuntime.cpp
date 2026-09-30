@@ -5,6 +5,9 @@
 #include <sol/sol.hpp>
 
 #include <charconv>
+#include <format>
+#include <map>
+#include <set>
 
 namespace PimpEx::script {
 namespace {
@@ -19,9 +22,104 @@ sol::object to_lua_argument(sol::state &lua, const std::string &text) {
 
 } // namespace
 
+// Metody i pola `self` w zachowaniach. self.x czyta pole aktora, self.x = 5
+// je ustawia; inne klucze (self.timer, parametry z XML) to zwykłe dane Lua.
+constexpr const char *SelfPrelude = R"(
+local fields = { x=true, y=true, z=true, w=true, h=true, d=true, rx=true, ry=true, rz=true,
+  rotation=true, scale=true, layer=true, visible=true, vx=true, vy=true, vz=true,
+  gravity=true, grounded=true }
+local Self = {}
+function Self:get(f) return get(self.name, f) end
+function Self:set(f, v) return set(self.name, f, v) end
+function Self:move(dx, dy, dz) return move(self.name, dx, dy, dz) end
+function Self:destroy() return destroy(self.name) end
+function Self:exists() return exists(self.name) end
+function Self:has(c) return has(self.name, c) end
+function Self:has_tag(t) return has_tag(self.name, t) end
+function Self:touching(o) return touching(self.name, o) end
+function Self:text(t) return text(self.name, t) end
+local meta = {
+  __index = function(t, k)
+    if Self[k] then return Self[k] end
+    if fields[k] then return get(rawget(t, "name"), k) end
+    return nil
+  end,
+  __newindex = function(t, k, v)
+    if fields[k] then set(rawget(t, "name"), k, v) else rawset(t, k, v) end
+  end,
+  __tostring = function(t) return rawget(t, "name") end,
+}
+function __pimpex_new_self(name, params)
+  local self = {}
+  for k, v in pairs(params) do self[k] = v end
+  self.name = name
+  return setmetatable(self, meta)
+end
+)";
+
+sol::object param_to_lua(sol::state &lua, const std::string &text) {
+  if (text == "true")
+    return sol::make_object(lua, true);
+  if (text == "false")
+    return sol::make_object(lua, false);
+  return to_lua_argument(lua, text);
+}
+
 struct LuaRuntime::Impl {
   ILuaHost &host;
   sol::state lua;
+
+  // Zachowania: nazwa -> tabela z pliku; aktor -> jego instancje `self`.
+  struct Instance {
+    std::string behavior;
+    sol::table self;
+  };
+  struct Tracked {
+    std::string name;
+    std::vector<std::string> behaviorNames;
+    std::vector<Instance> list;
+  };
+  std::map<std::string, sol::table> behaviors;
+  std::map<entt::entity, Tracked> instances;
+
+  // Systemy z system(selektor, funkcja) – zapamiętane z plikiem, który je dodał.
+  struct System {
+    std::string script;
+    std::string selector;
+    sol::protected_function fn;
+  };
+  std::vector<System> systems;
+  std::string loadingScript;
+  std::set<std::string> reported; // ten sam błąd Lua tylko raz
+
+  void report(const std::string &message, const std::string &fallbackFile) {
+    if (reported.insert(message).second)
+      host.lua_error(lua_error_to_diagnostic(message, fallbackFile));
+  }
+
+  // Woła behavior.fn(self, args...), jeśli zachowanie ma taką funkcję.
+  template <typename... Args> void invoke(const Instance &instance, const char *fn, Args &&...args) {
+    const auto it = behaviors.find(instance.behavior);
+    if (it == behaviors.end())
+      return;
+    sol::object value = it->second[fn];
+    if (value.get_type() != sol::type::function)
+      return;
+    sol::protected_function function = value;
+    auto result = function(instance.self, std::forward<Args>(args)...);
+    if (!result.valid()) {
+      sol::error err = result;
+      report(err.what(), "scripts/behaviors/" + instance.behavior + ".lua");
+    }
+  }
+
+  sol::table new_self(const std::string &name, const std::map<std::string, std::string> &params) {
+    sol::table table = lua.create_table();
+    for (const auto &[key, value] : params)
+      table[key] = param_to_lua(lua, value);
+    sol::protected_function make = lua["__pimpex_new_self"];
+    return make(name, table).get<sol::table>();
+  }
 
   explicit Impl(ILuaHost &h) : host(h) {
     lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table,
@@ -146,12 +244,18 @@ struct LuaRuntime::Impl {
       host.log(text);
     });
 
+    lua.set_function("system", [this](const std::string &selector, sol::protected_function fn) {
+      systems.push_back({loadingScript, selector, std::move(fn)});
+    });
+
     auto swap = lua.create_named_table("swap");
     swap.set_function("add", [this](const std::string &name) { host.request_proc_add(name, 0); });
     swap.set_function("remove",
                       [this](const std::string &name) { host.request_proc_remove(name, 0); });
     swap.set_function("paste", [this](const std::string &source) { host.request_proc_paste(source); });
     swap.set_function("has", [this](const std::string &name) { return host.lua_has_proc(name); });
+
+    lua.safe_script(SelfPrelude, "@pimpex_prelude");
   }
 };
 
@@ -160,7 +264,12 @@ LuaRuntime::~LuaRuntime() = default;
 
 std::optional<Diagnostic> LuaRuntime::load_script(const std::string &displayName,
                                                   std::string_view source) {
+  // Systemy z tego pliku rejestrują się od nowa.
+  std::erase_if(_impl->systems, [&](const Impl::System &s) { return s.script == displayName; });
+  _impl->reported.clear();
+  _impl->loadingScript = displayName;
   auto result = _impl->lua.safe_script(source, sol::script_pass_on_error, "@" + displayName);
+  _impl->loadingScript.clear();
   if (result.valid())
     return std::nullopt;
   sol::error err = result;
@@ -185,6 +294,129 @@ std::optional<Diagnostic> LuaRuntime::call(const std::string &name,
     return std::nullopt;
   sol::error err = result;
   return lua_error_to_diagnostic(err.what(), "scripts");
+}
+
+std::optional<Diagnostic> LuaRuntime::load_behavior(const std::string &name,
+                                                    const std::string &displayName,
+                                                    std::string_view source) {
+  auto &lua = _impl->lua;
+  auto loaded = lua.load(source, "@" + displayName);
+  if (!loaded.valid()) {
+    sol::error err = loaded;
+    return lua_error_to_diagnostic(err.what(), displayName);
+  }
+  sol::protected_function chunk = loaded;
+  auto result = chunk();
+  if (!result.valid()) {
+    sol::error err = result;
+    return lua_error_to_diagnostic(err.what(), displayName);
+  }
+  sol::object value = result;
+  if (value.get_type() != sol::type::table)
+    return Diagnostic{Diagnostic::Severity::Error, displayName, 0,
+                      "zachowanie musi kończyć się `return { on_start = ..., on_update = ... }`"};
+  _impl->behaviors[name] = value.as<sol::table>();
+  _impl->reported.clear();
+  return std::nullopt;
+}
+
+bool LuaRuntime::has_behavior(const std::string &name) const { return _impl->behaviors.contains(name); }
+
+void LuaRuntime::reset_instances() { _impl->instances.clear(); }
+
+void LuaRuntime::update(scene::World &world) {
+  auto &impl = *_impl;
+  auto &registry = world.registry();
+
+  // 1. Aktorzy zniszczeni albo bez <Behavior>: on_destroy i koniec.
+  for (auto it = impl.instances.begin(); it != impl.instances.end();) {
+    const auto e = it->first;
+    const bool alive = registry.valid(e) && registry.all_of<scene::Behaviors>(e) &&
+                       registry.get<scene::Name>(e).value == it->second.name;
+    if (alive) {
+      ++it;
+      continue;
+    }
+    auto tracked = std::move(it->second);
+    it = impl.instances.erase(it);
+    for (const auto &instance : tracked.list)
+      impl.invoke(instance, "on_destroy");
+  }
+
+  // 2. Nowi aktorzy (albo zmieniona lista zachowań po hot-reloadzie): on_start.
+  std::vector<entt::entity> withBehaviors;
+  for (auto [e, behaviors] : registry.view<scene::Behaviors>().each())
+    withBehaviors.push_back(e);
+  for (const auto e : withBehaviors) {
+    if (!registry.valid(e))
+      continue;
+    const auto &refs = registry.get<scene::Behaviors>(e).list;
+    std::vector<std::string> names;
+    for (const auto &ref : refs)
+      names.push_back(ref.name);
+    auto found = impl.instances.find(e);
+    if (found != impl.instances.end() && found->second.behaviorNames == names)
+      continue;
+
+    Impl::Tracked tracked{registry.get<scene::Name>(e).value, names, {}};
+    for (const auto &ref : refs) {
+      if (!impl.behaviors.contains(ref.name)) {
+        impl.report(std::format("{}: nie ma zachowania '{}' (plik scripts/behaviors/{}.lua)",
+                                tracked.name, ref.name, ref.name),
+                    "scene.xml");
+        continue;
+      }
+      tracked.list.push_back({ref.name, impl.new_self(tracked.name, ref.params)});
+    }
+    auto list = tracked.list;
+    impl.instances[e] = std::move(tracked);
+    for (const auto &instance : list) {
+      if (!registry.valid(e))
+        break;
+      impl.invoke(instance, "on_start");
+    }
+  }
+
+  // 3. on_update – na kopii, bo zachowania mogą niszczyć i tworzyć aktorów.
+  std::vector<std::pair<entt::entity, Impl::Instance>> snapshot;
+  for (const auto &[e, tracked] : impl.instances)
+    for (const auto &instance : tracked.list)
+      snapshot.emplace_back(e, instance);
+  for (const auto &[e, instance] : snapshot)
+    if (registry.valid(e))
+      impl.invoke(instance, "on_update");
+
+  // 4. Systemy: funkcja dla każdego aktora z komponentem / tagiem.
+  const auto systems = impl.systems;
+  for (const auto &system : systems)
+    for (const auto &name : world.query(system.selector)) {
+      if (!world.exists(name))
+        continue;
+      auto result = system.fn(impl.new_self(name, {}));
+      if (!result.valid()) {
+        sol::error err = result;
+        impl.report(err.what(), system.script);
+      }
+    }
+}
+
+void LuaRuntime::dispatch_contacts(scene::World &world,
+                                   const std::vector<std::pair<std::string, std::string>> &contacts) {
+  auto &impl = *_impl;
+  auto touch = [&](const std::string &who, const std::string &other) {
+    const auto e = world.find(who);
+    const auto it = impl.instances.find(e);
+    if (e == entt::null || it == impl.instances.end())
+      return;
+    const auto list = it->second.list;
+    for (const auto &instance : list)
+      if (world.exists(who) && world.exists(other))
+        impl.invoke(instance, "on_touch", other);
+  };
+  for (const auto &[a, b] : contacts) {
+    touch(a, b);
+    touch(b, a);
+  }
 }
 
 } // namespace PimpEx::script

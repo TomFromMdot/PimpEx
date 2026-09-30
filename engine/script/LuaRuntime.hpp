@@ -24,6 +24,7 @@ public:
   virtual void request_proc_paste(const std::string &source) = 0;
   virtual void request_scene(const std::string &name, int line) = 0;
   virtual void log(const std::string &message) = 0;
+  virtual void lua_error(const Diagnostic &error) = 0;
 };
 
 // Jeden stan Lua na cały projekt. Zmienne globalne przetrwają
@@ -44,6 +45,23 @@ public:
   // Wywołuje funkcję globalną. Argumenty wyglądające jak liczby są liczbami.
   // Zwraca opis błędu albo nullopt.
   std::optional<Diagnostic> call(const std::string &name, const std::vector<std::string> &args);
+
+  // --- zachowania (scripts/behaviors/<name>.lua) ----------------------------------
+  // Plik zwraca tabelę z on_start/on_update/on_touch/on_destroy. Ponowne
+  // wczytanie podmienia funkcje, a istniejące `self` zostają.
+  std::optional<Diagnostic> load_behavior(const std::string &name, const std::string &displayName,
+                                          std::string_view source);
+  bool has_behavior(const std::string &name) const;
+
+  // Raz na klatkę: tworzy `self` dla nowych aktorów z <Behavior> (on_start),
+  // woła on_destroy dla zniszczonych, potem on_update i systemy z system().
+  void update(scene::World &world);
+
+  // on_touch(self, other) dla aktorów z zachowaniami, którzy się stykają.
+  void dispatch_contacts(scene::World &world, const std::vector<std::pair<std::string, std::string>> &contacts);
+
+  // Zmiana sceny: wszystkie `self` znikają (bez on_destroy).
+  void reset_instances();
 };
 
 } // namespace PimpEx::script

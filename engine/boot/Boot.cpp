@@ -66,6 +66,9 @@ void Boot::load_scripts() {
   for (const auto &file : _paths.script_files())
     if (const auto source = read_file(file))
       apply_script(file, *source);
+  for (const auto &file : _paths.behavior_files())
+    if (const auto source = read_file(file))
+      apply_script(file, *source);
 }
 
 bool Boot::load_scene(const std::string &name) {
@@ -85,6 +88,7 @@ bool Boot::load_scene(const std::string &name) {
   ++_sceneGeneration;
   _sceneData = std::move(data);
   _world.load(_sceneData);
+  _lua->reset_instances();
   _requests.clear();
 
   _libraryText.clear();
@@ -108,8 +112,15 @@ bool Boot::load_scene(const std::string &name) {
 void Boot::run_frame(const vm::FrameContext &ctx) {
   _frame = &ctx;
   _vm.run_frame(_program, _world, ctx, *this);
-  apply_requests();
+  _lua->update(_world); // zachowania (on_start/on_update/on_destroy) i systemy
+
   _contacts = scene::step_physics(_world);
+  std::vector<std::pair<std::string, std::string>> touching;
+  for (const auto &contact : _contacts)
+    touching.emplace_back(_world.name_of(contact.a), _world.name_of(contact.b));
+  _lua->dispatch_contacts(_world, touching);
+
+  apply_requests(); // na końcu: zmiany .swap i scena z VM, Lua i on_touch
   _frame = nullptr;
 }
 
@@ -262,7 +273,10 @@ void Boot::apply_scene_xml(scene::SceneData data, Diagnostics diagnostics) {
 }
 
 void Boot::apply_script(const fs::path &path, const std::string &source) {
-  if (auto error = _lua->load_script(_paths.display(path), source))
+  const bool behavior = path.parent_path() == _paths.behaviors_dir();
+  auto error = behavior ? _lua->load_behavior(path.stem().string(), _paths.display(path), source)
+                        : _lua->load_script(_paths.display(path), source);
+  if (error)
     _log.diagnostic(*error);
 }
 

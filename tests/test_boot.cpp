@@ -221,3 +221,79 @@ END
   CHECK(state.find("Player x=120 y=100") != std::string::npos);
   CHECK(state.find("jumps=2") != std::string::npos);
 }
+
+TEST_CASE("Boot: zachowania Lua (on_start/on_update/on_touch/on_destroy), systemy i hot-reload") {
+  BootFixture f("behaviors");
+  f.project.write("components.xml", R"(<Components><Component name="Health">
+  <Field name="hp" default="1"/></Component></Components>)");
+  f.project.write("scripts/behaviors/patrol.lua", R"(
+return {
+  on_start = function(self)
+    self.dir = 1
+    set("Game", "starts", (get("Game", "starts") or 0) + 1)
+  end,
+  on_update = function(self)
+    self:move(self.speed * self.dir, 0)
+    if self.x >= 130 then self.dir = -1 end
+  end,
+  on_touch = function(self, other)
+    set("Game", "touched_" .. other, 1)
+  end,
+  on_destroy = function(self)
+    set("Game", "destroyed", 1)
+  end,
+}
+)");
+  f.project.write("scripts/systems.lua", R"(
+system("Health", function(e) e:set("Health.hp", e:get("Health.hp") + 1) end)
+system("@hero", function(e) e.y = e.y + 1 end)
+)");
+  f.project.write("scenes/main/scene.xml", R"(<Scene>
+  <Actor name="Enemy" x="100" y="100" w="10" h="10">
+    <Collider kind="trigger"/>
+    <Behavior name="patrol" speed="2"/>
+  </Actor>
+  <Actor name="Wall" x="140" y="100" w="10" h="10"><Collider/></Actor>
+  <Actor name="Player" y="0" tags="hero"><Health/></Actor>
+  <Actor name="Game" w="0" h="0"/>
+</Scene>)");
+  f.project.write("scenes/main/scene.swap", "PROC a\nEND\n");
+  // Nowy Boot, żeby wczytał components.xml i skrypty z dysku.
+  Log log;
+  log.set_quiet(true);
+  Boot boot(f.project.paths(), log, 1);
+  REQUIRE(boot.start());
+  vm::ManualInput input;
+  auto step = [&](int n) {
+    for (int i = 0; i < n; ++i) {
+      static long frame = 0;
+      const vm::FrameContext ctx{input, 800, 600, frame++};
+      boot.run_frame(ctx);
+    }
+  };
+  auto get = [&](const char *a, const char *field) { return boot.world().get(a, field).value_or(-999); };
+
+  step(1);
+  CHECK(get("Game", "starts") == 1);
+  CHECK(get("Enemy", "x") == 102);
+  CHECK(get("Player", "Health.hp") == 2);
+  CHECK(get("Player", "y") == 1);
+  step(14); // 102 -> 130 i zawraca (dir = -1)
+  CHECK(get("Enemy", "x") == 130);
+  CHECK(get("Game", "touched_Wall") == 1); // trigger dotknął ściany (135..145 vs 125..135)
+  CHECK(get("Game", "starts") == 1);       // on_start tylko raz
+
+  // Hot-reload zachowania: nowe funkcje, stary stan `self` (dir = -1).
+  boot.apply_script(f.project.root / "scripts/behaviors/patrol.lua", R"(
+return {
+  on_update = function(self) self:move(10 * self.dir, 0) end,
+  on_destroy = function(self) set("Game", "destroyed", 1) end,
+}
+)");
+  step(1);
+  CHECK(get("Enemy", "x") == 120);
+
+  boot.world().destroy("Enemy");
+  step(1);
+  CHECK(get("Game", "destroyed") == 1);
+}

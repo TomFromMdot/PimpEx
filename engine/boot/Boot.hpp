@@ -118,6 +118,7 @@ public:
   void request_scene(const std::string &name, int line) override;
   void log(const std::string &message) override;
   void runtime_error(int line, const std::string &message) override;
+  void lua_error(const Diagnostic &error) override { _log.diagnostic(error); }
 
   scene::World &lua_world() override { return _world; }
   const vm::FrameContext *lua_frame() override { return _frame; }

@@ -11,6 +11,7 @@ namespace PimpEx::script {
 struct LuaCheckResult {
   bool ok = true;                  // wszystkie skrypty się wczytały
   std::set<std::string> functions; // globalne funkcje zdefiniowane w scripts/*.lua
+  std::set<std::string> behaviors; // poprawne zachowania ze scripts/behaviors/
 };
 
 // Wczytuje skrypty w osobnym, pustym stanie Lua: sprawdza składnię
