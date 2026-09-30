@@ -62,6 +62,14 @@ public:
 
   // Zmiana sceny: wszystkie `self` znikają (bez on_destroy).
   void reset_instances();
+
+  // Wykonuje dowolny kod Lua w stanie gry (API: lua.eval). Zwraca wynik
+  // jako tekst (wartości oddzielone tabulatorem) albo błąd.
+  struct EvalResult {
+    bool ok = true;
+    std::string output;
+  };
+  EvalResult eval(std::string_view code);
 };
 
 } // namespace PimpEx::script

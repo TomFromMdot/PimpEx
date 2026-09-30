@@ -3,10 +3,12 @@
   "version-string": "0.1.0",
   "dependencies": [
     "cli11",
+    "cpp-httplib",
     "doctest",
     "entt",
     "glfw3",
     "lua",
+    "nlohmann-json",
     "pugixml",
     "raylib",
     "sol2"

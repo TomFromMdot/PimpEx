@@ -15,7 +15,10 @@ class RunCommand : public ICommand {
   EngineOptions _options;
 
 public:
-  explicit RunCommand(bool dev) : _dev(dev) { _options.watch = dev; }
+  explicit RunCommand(bool dev) : _dev(dev) {
+    _options.watch = dev;
+    _options.api = dev;
+  }
 
   CLI::App *setup(CLI::App &app) override;
   int run() override;

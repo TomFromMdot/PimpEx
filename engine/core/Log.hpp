@@ -3,12 +3,14 @@
 #include "core/Diagnostic.hpp"
 
 #include <chrono>
+#include <deque>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include <string>
+#include <vector>
 
 namespace PimpEx {
 
@@ -19,6 +21,8 @@ class Log {
   std::mutex _mutex;
   std::ofstream _file;
   bool _quiet = false;
+  std::deque<std::string> _recent; // ostatnie linie – dla API (log.tail)
+  static constexpr std::size_t RecentLimit = 500;
 
   void write(std::string_view level, const std::string &message, bool toStderr) {
     const auto now = std::chrono::floor<std::chrono::seconds>(
@@ -29,6 +33,9 @@ class Log {
       (toStderr ? std::cerr : std::cout) << line << '\n' << std::flush;
     if (_file.is_open())
       _file << line << '\n' << std::flush;
+    _recent.push_back(line);
+    if (_recent.size() > RecentLimit)
+      _recent.pop_front();
   }
 
 public:
@@ -42,6 +49,13 @@ public:
 
   // Bez wypisywania na konsolę (tylko plik) – dla testów.
   void set_quiet(bool quiet) { _quiet = quiet; }
+
+  // Ostatnie `count` linii dziennika.
+  std::vector<std::string> tail(std::size_t count) {
+    std::lock_guard lock(_mutex);
+    const auto start = _recent.size() > count ? _recent.size() - count : 0;
+    return {_recent.begin() + static_cast<std::ptrdiff_t>(start), _recent.end()};
+  }
 
   void info(const std::string &message) { write("", message, false); }
   void error(const std::string &message) { write("BŁĄD: ", message, true); }

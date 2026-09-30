@@ -219,7 +219,7 @@ void Boot::apply_requests() {
         if (const auto *existing = vm::parse_program(text, "").program.find(proc.name))
           text = remove_proc(text, *existing); // wklejona wersja zastępuje starą
       commit_swap(append_proc(text, request.value),
-                  std::format("boot: wklejono kod z Lua do {}", swap_display()));
+                  std::format("boot: wklejono kod (swap.paste) do {}", swap_display()));
       break;
     }
     case Request::Kind::Scene:

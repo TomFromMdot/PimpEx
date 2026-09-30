@@ -419,4 +419,34 @@ void LuaRuntime::dispatch_contacts(scene::World &world,
   }
 }
 
+LuaRuntime::EvalResult LuaRuntime::eval(std::string_view code) {
+  auto &lua = _impl->lua;
+  // Najpierw jako wyrażenie ("return ..."), żeby `get("Player", "x")` zwróciło wartość.
+  auto loaded = lua.load("return " + std::string(code), "@lua.eval");
+  if (!loaded.valid())
+    loaded = lua.load(code, "@lua.eval");
+  if (!loaded.valid()) {
+    sol::error err = loaded;
+    return {false, err.what()};
+  }
+  sol::protected_function chunk = loaded;
+  auto result = chunk();
+  if (!result.valid()) {
+    sol::error err = result;
+    return {false, err.what()};
+  }
+  std::string output;
+  sol::protected_function tostring = lua["tostring"];
+  for (int i = 0; i < result.return_count(); ++i) {
+    sol::object value = result.get<sol::object>(i);
+    if (i)
+      output += '\t';
+    if (value.get_type() == sol::type::number)
+      output += format_number(value.as<double>());
+    else
+      output += tostring(value).get<std::string>();
+  }
+  return {true, output};
+}
+
 } // namespace PimpEx::script

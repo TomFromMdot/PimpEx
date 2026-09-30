@@ -21,13 +21,19 @@ CLI::App *RunCommand::setup(CLI::App &app) {
                   "Z --headless: zaplanowane klawisze, np. \"RIGHT:0-60 SPACE:10\"");
   sub->add_option("--screenshot", _options.screenshot,
                   "Zapisz zrzut ekranu ostatniej klatki do pliku .png (wymaga --frames)");
+  if (_dev)
+    sub->add_flag("!--no-api", _options.api, "Bez API na żywo dla agentów");
+  else
+    sub->add_flag("--api", _options.api, "Włącz API na żywo (JSON-RPC, .pimpex/api.json)");
+  sub->add_option("--api-port", _options.apiPort, "Port API (domyślnie losowy wolny)");
   sub->add_flag("--quiet", _options.quiet, "Dziennik tylko do .pimpex/runtime.log");
   return sub;
 }
 
 int RunCommand::run() {
-  if (_options.headless && _options.frames <= 0) {
-    std::println(std::cerr, "--headless wymaga --frames N (inaczej gra nigdy się nie skończy).");
+  if (_options.headless && _options.frames <= 0 && !_options.api) {
+    std::println(std::cerr, "--headless wymaga --frames N albo API (pimpex dev --headless działa do "
+                            "game.quit / Ctrl+C).");
     return 1;
   }
   if (!_options.input.empty() && !_options.headless) {

@@ -2,6 +2,7 @@
 
 #include "vm/Keys.hpp"
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <string_view>
@@ -41,6 +42,40 @@ public:
   bool pressed(Key key) const override { return _pressed[static_cast<std::size_t>(key)]; }
   float mouse_x() const override { return _mouseX; }
   float mouse_y() const override { return _mouseY; }
+};
+
+// Klawisze wciśnięte „z zewnątrz” (API input.press) nałożone na prawdziwy input.
+class OverlayInput : public IInput {
+  const IInput *_base = nullptr;
+  std::array<long, KeyCount> _downUntil{}; // klatka, do której klawisz jest trzymany
+  std::array<long, KeyCount> _pressedAt{};
+  long _frame = 0;
+
+public:
+  OverlayInput() {
+    _downUntil.fill(-1);
+    _pressedAt.fill(-1);
+  }
+  void set_base(const IInput *base) { _base = base; }
+  void set_frame(long frame) { _frame = frame; }
+  // Trzyma klawisz przez `frames` klatek, zaczynając od następnej.
+  void press(Key key, long frames) {
+    const auto i = static_cast<std::size_t>(key);
+    _pressedAt[i] = _frame;
+    _downUntil[i] = _frame + std::max(1L, frames) - 1;
+  }
+  bool down(Key key) const override {
+    const auto i = static_cast<std::size_t>(key);
+    return (_base && _base->down(key)) || _frame <= _downUntil[i];
+  }
+  bool pressed(Key key) const override {
+    const auto i = static_cast<std::size_t>(key);
+    return (_base && _base->pressed(key)) || _frame == _pressedAt[i];
+  }
+  float mouse_x() const override { return _base ? _base->mouse_x() : 0; }
+  float mouse_y() const override { return _base ? _base->mouse_y() : 0; }
+  float mouse_dx() const override { return _base ? _base->mouse_dx() : 0; }
+  float mouse_dy() const override { return _base ? _base->mouse_dy() : 0; }
 };
 
 // Zaplanowane wciśnięcia klawiszy dla trybu --headless, np. "RIGHT:0-60 SPACE:10".

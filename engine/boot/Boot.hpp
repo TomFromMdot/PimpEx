@@ -60,7 +60,6 @@ private:
   bool _persistSwap = true; // false (pimpex play): zmiany .swap tylko w pamięci
 
   std::string swap_display() const { return _paths.display(_paths.scene_swap(_sceneName)); }
-  void apply_requests();
   void remove_in_memory(const std::string &name);
   bool commit_swap(std::string text, const std::string &reason);
   void load_scripts();
@@ -78,6 +77,13 @@ public:
 
   // Jedna klatka logiki: procedury, prośby o zmiany w .swap, ruch.
   void run_frame(const vm::FrameContext &ctx);
+
+  // Wykonuje zamówione zmiany (.swap, scena) od razu – np. z API, gdy gra stoi.
+  void apply_requests();
+
+  script::LuaRuntime &lua() { return *_lua; }
+  const std::string &swap_text() const { return _swapText; }
+  const vm::Program &library() const { return _library; }
 
   // --- hot-reload (dane przygotowane na wątku zasobów) ----------------------
   void apply_swap(std::string text, vm::ParseResult parsed);

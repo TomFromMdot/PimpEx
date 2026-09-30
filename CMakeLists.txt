@@ -29,6 +29,8 @@ find_package(CLI11 CONFIG REQUIRED)
 find_package(sol2 CONFIG REQUIRED)
 find_package(Lua REQUIRED)
 find_package(doctest CONFIG REQUIRED)
+find_package(httplib CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 # --- Szablony projektu i scen wbudowane w binarkę (pimpex init / scene new) --
 file(GLOB_RECURSE PIMPEX_TEMPLATE_FILES CONFIGURE_DEPENDS
@@ -81,6 +83,8 @@ target_link_libraries(pimpex_engine PUBLIC
   CLI11::CLI11
   sol2::sol2
   ${LUA_LIBRARIES}
+  httplib::httplib
+  nlohmann_json::nlohmann_json
 )
 target_compile_options(pimpex_engine PRIVATE -Wall -Wextra)
 

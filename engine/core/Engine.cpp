@@ -1,4 +1,5 @@
 #include "core/Engine.hpp"
+#include "api/LiveApi.hpp"
 #include "boot/Boot.hpp"
 #include "boot/FileWatcher.hpp"
 #include "boot/XmlLoader.hpp"
@@ -10,6 +11,9 @@
 #include <raylib.h>
 
 #include <atomic>
+#include <chrono>
+#include <csignal>
+#include <thread>
 #include <iostream>
 
 namespace PimpEx {
@@ -83,6 +87,31 @@ void apply(boot::Boot &boot, render::Renderer *renderer, FileUpdate update) {
   }
 }
 
+// Ctrl+C / kill: kończymy pętlę porządnie (zapis state.txt, usunięcie api.json).
+struct StopSignal {
+  static inline std::atomic<bool> flag{false};
+  static void handler(int) { flag = true; }
+  static void install() {
+    std::signal(SIGINT, handler);
+    std::signal(SIGTERM, handler);
+  }
+  static bool requested() { return flag.load(); }
+};
+
+std::string base64(const unsigned char *data, std::size_t size) {
+  static constexpr char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string out;
+  out.reserve((size + 2) / 3 * 4);
+  for (std::size_t i = 0; i < size; i += 3) {
+    const unsigned value = data[i] << 16 | (i + 1 < size ? data[i + 1] << 8 : 0) | (i + 2 < size ? data[i + 2] : 0);
+    out += table[(value >> 18) & 63];
+    out += table[(value >> 12) & 63];
+    out += i + 1 < size ? table[(value >> 6) & 63] : '=';
+    out += i + 2 < size ? table[value & 63] : '=';
+  }
+  return out;
+}
+
 } // namespace
 
 int Engine::run() {
@@ -127,15 +156,34 @@ int Engine::run() {
     SetTraceLogLevel(LOG_WARNING);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(config.width, config.height, config.title.c_str());
+    SetExitKey(KEY_NULL); // ESC to zwykły klawisz w grze; okno zamyka się krzyżykiem
     SetTargetFPS(config.fps);
     renderer = std::make_unique<render::Renderer>(paths.root);
   }
-  const vm::IInput &input = _options.headless ? static_cast<const vm::IInput &>(scriptedInput)
-                                              : static_cast<const vm::IInput &>(raylibInput);
+  // Prawdziwy input + klawisze wciśnięte przez API (input.press).
+  vm::OverlayInput input;
+  input.set_base(_options.headless ? static_cast<const vm::IInput *>(&scriptedInput)
+                                   : static_cast<const vm::IInput *>(&raylibInput));
 
+  // API na żywo dla agentów (pimpex dev): JSON-RPC na 127.0.0.1.
+  api::ApiMailbox apiMailbox;
+  api::GameControl control;
+  control.input = &input;
+  control.canScreenshot = !_options.headless;
+  api::LiveServer server(apiMailbox, paths.runtime_dir() / "api.json");
+  if (_options.api) {
+    if (const int port = server.start(paths.root.string(), _options.apiPort))
+      log.info(std::format("API na żywo: http://127.0.0.1:{} (token w .pimpex/api.json)", port));
+    else
+      log.error("Nie udało się uruchomić API na żywo.");
+  }
+
+  StopSignal::install();
   long frame = 0;
   int sceneGeneration = boot.scene_generation();
-  while (true) {
+  const auto frameTime = std::chrono::microseconds(1'000'000 / std::max(1, config.fps));
+  auto nextTick = std::chrono::steady_clock::now();
+  while (!StopSignal::requested() && !control.quit) {
     if (!_options.headless && WindowShouldClose())
       break;
     if (_options.frames > 0 && frame >= _options.frames)
@@ -146,6 +194,21 @@ int Engine::run() {
     if (components.load() != boot.components())
       components.store(boot.components());
 
+    // Żądania API wykonujemy między klatkami, na wątku głównym.
+    control.frame = frame;
+    input.set_frame(frame);
+    for (auto &request : apiMailbox.drain()) {
+      try {
+        auto result = api::dispatch(request, boot, control, log);
+        if (!result.is_null() || request->method != "screenshot")
+          request->reply.set_value({{"result", result}});
+      } catch (const api::ApiError &e) {
+        request->reply.set_value({{"error", {{"code", e.code}, {"message", e.what()}}}});
+      } catch (const std::exception &e) {
+        request->reply.set_value({{"error", {{"code", -32603}, {"message", e.what()}}}});
+      }
+    }
+
     if (_options.headless)
       scriptedInput.update(frame);
     else
@@ -154,7 +217,12 @@ int Engine::run() {
     const int width = _options.headless ? config.width : GetScreenWidth();
     const int height = _options.headless ? config.height : GetScreenHeight();
     const vm::FrameContext ctx{input, width, height, frame};
-    boot.run_frame(ctx);
+    const bool runLogic = !control.paused || control.stepFrames > 0;
+    if (runLogic) {
+      if (control.paused)
+        --control.stepFrames;
+      boot.run_frame(ctx);
+    }
 
     if (boot.scene_generation() != sceneGeneration) {
       sceneGeneration = boot.scene_generation();
@@ -166,21 +234,45 @@ int Engine::run() {
 
     if (renderer) {
       renderer->draw(boot.world(), boot.scene_data(), config, ctx);
-      if (!_options.screenshot.empty() && frame + 1 == _options.frames) {
+      const bool lastFrame = frame + 1 == _options.frames;
+      if ((!_options.screenshot.empty() && lastFrame && runLogic) || !control.screenshots.empty()) {
         Image image = LoadImageFromScreen();
-        if (ExportImage(image, _options.screenshot.c_str()))
-          log.info("Zrzut ekranu: " + _options.screenshot);
-        else
-          log.error("Nie mogę zapisać zrzutu ekranu " + _options.screenshot);
+        if (!_options.screenshot.empty() && lastFrame) {
+          if (ExportImage(image, _options.screenshot.c_str()))
+            log.info("Zrzut ekranu: " + _options.screenshot);
+          else
+            log.error("Nie mogę zapisać zrzutu ekranu " + _options.screenshot);
+        }
+        if (!control.screenshots.empty()) {
+          int size = 0;
+          unsigned char *png = ExportImageToMemory(image, ".png", &size);
+          const api::json result = {{"width", image.width},
+                                    {"height", image.height},
+                                    {"mime", "image/png"},
+                                    {"png_base64", base64(png, static_cast<std::size_t>(size))}};
+          MemFree(png);
+          for (auto &request : control.screenshots)
+            request->reply.set_value({{"result", result}});
+          control.screenshots.clear();
+        }
         UnloadImage(image);
       }
+    } else if (_options.api) {
+      // Bez okna nikt nie ogranicza tempa – przy API gra chodzi w swoim fps.
+      nextTick += frameTime;
+      std::this_thread::sleep_until(nextTick);
+      if (std::chrono::steady_clock::now() - nextTick > std::chrono::seconds(1))
+        nextTick = std::chrono::steady_clock::now();
     }
 
-    if (_options.stateEvery > 0 && frame % _options.stateEvery == 0)
-      boot.write_state(frame);
-    ++frame;
+    if (runLogic) {
+      if (_options.stateEvery > 0 && frame % _options.stateEvery == 0)
+        boot.write_state(frame);
+      ++frame;
+    }
   }
 
+  server.stop();
   watcher.stop();
   boot.write_state(frame);
   renderer.reset();

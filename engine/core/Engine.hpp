@@ -14,6 +14,8 @@ struct EngineOptions {
   std::string input;     // --headless: zaplanowane klawisze, np. "RIGHT:0-60 SPACE:10"
   std::string screenshot; // zrzut ekranu ostatniej klatki (wymaga okna i --frames)
   std::string scene;      // scena startowa zamiast <StartScene> z pimpex.xml
+  bool api = false;       // API na żywo (JSON-RPC na 127.0.0.1, .pimpex/api.json)
+  int apiPort = 0;        // 0 = losowy wolny port
 };
 
 // Pętla gry:
