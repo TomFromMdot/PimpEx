@@ -78,8 +78,13 @@ Pola są takie same jak w `.swap`: skróty (`x`, `y`, `z`, `vx`, `rotation`…),
 | `swap.remove("nazwa")`   | usuwa PROC z `scene.swap`                                         |
 | `swap.paste("PROC ... END")` | wkleja dowolny kod `.swap` (zastępuje PROC o tej samej nazwie) |
 | `swap.has("nazwa")`      | `true`, jeśli PROC jest teraz w `scene.swap`                      |
+| `gui.show("pauza")`      | pokazuje scenę GUI z `gui/pauza.xml` (docs/gui.md)                |
+| `gui.hide("pauza")`      | chowa scenę GUI                                                   |
+| `gui.toggle("pauza")`    | pokazuje albo chowa; zwraca `true`, gdy GUI jest teraz widoczne   |
+| `gui.shown("pauza")`     | `true`, jeśli GUI jest widoczne                                   |
 
-`swap.*` i `scene()` działają po zakończeniu klatki. Boot zapisuje wtedy
+`swap.*` i `scene()` działają po zakończeniu klatki, a `gui.*` od razu.
+Nieznana nazwa GUI to błąd Lua. Boot zapisuje wtedy
 zmieniony `scene.swap` na dysku, więc widać go w edytorze.
 
 ```lua

@@ -26,8 +26,8 @@ int CheckCommand::run() {
     std::println(std::cerr, "Znaleziono błędy: {}, ostrzeżenia: {}.", errors, warnings);
     return 1;
   }
-  std::println("OK – sceny: {}, procedury: {}, aktorzy: {}, skrypty: {}, ostrzeżenia: {}.",
-               summary.scenes, summary.procs, summary.actors, summary.scripts, warnings);
+  std::println("OK – sceny: {}, procedury: {}, aktorzy: {}, skrypty: {}, GUI: {}, ostrzeżenia: {}.",
+               summary.scenes, summary.procs, summary.actors, summary.scripts, summary.guis, warnings);
   return 0;
 }
 

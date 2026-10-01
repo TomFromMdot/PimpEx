@@ -62,6 +62,14 @@ z gotowego szablonu tworzy `pimpex scene new <nazwa> --template <szablon>`
 </Scene>
 ```
 
+### Atrybuty `<Scene>`
+
+| Atrybut      | Znaczenie                                                        |
+|--------------|------------------------------------------------------------------|
+| `background` | kolor tła sceny (zamiast koloru z `pimpex.xml`)                  |
+| `mode`       | `2d` (domyślnie) albo `3d`                                       |
+| `gui`        | sceny GUI widoczne od startu sceny, np. `gui="hud"` albo `gui="hud menu"` (pliki `gui/<nazwa>.xml`, docs/gui.md) |
+
 ### Atrybuty `<Actor>` i `<Archetype>`
 
 | Atrybut    | Domyślnie | Znaczenie                                   |

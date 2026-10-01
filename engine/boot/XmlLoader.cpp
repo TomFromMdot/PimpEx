@@ -1,5 +1,8 @@
 #include "boot/XmlLoader.hpp"
 
+#include "core/Strings.hpp"
+#include "vm/Parser.hpp"
+
 #include <pugixml.hpp>
 
 #include <algorithm>
@@ -465,7 +468,9 @@ SceneData parse_scene_xml(std::string_view content, const std::string &file,
     diagnostics.push_back({Diagnostic::Severity::Error, file, 1, "brakuje elementu <Scene>"});
     return data;
   }
-  ctx.check_attributes(root, {"background", "mode"});
+  ctx.check_attributes(root, {"background", "mode", "gui"});
+  data.gui = split_words(root.attribute("gui").value());
+  data.guiLine = ctx.line_of(root);
   if (root.attribute("background")) {
     Rgba color;
     ctx.read_color(root, "background", color);
@@ -562,6 +567,110 @@ SceneData parse_scene_xml(std::string_view content, const std::string &file,
   for (const auto &[name, def] : data.archetypes)
     checkResources(def);
   return data;
+}
+
+gui::GuiScene parse_gui_xml(std::string_view content, const std::string &file, const std::string &name,
+                            Diagnostics &diagnostics) {
+  using gui::ElementKind;
+  gui::GuiScene scene;
+  scene.name = name;
+  scene.file = file;
+  XmlContext ctx(content, file, diagnostics);
+  pugi::xml_document doc;
+  if (!ctx.parse(doc))
+    return scene;
+  const auto root = doc.child("Gui");
+  if (!root) {
+    diagnostics.push_back({Diagnostic::Severity::Error, file, 1, "brakuje elementu <Gui>"});
+    return scene;
+  }
+  ctx.check_attributes(root, {"pause", "dim"});
+  ctx.read_bool(root, "pause", scene.pause);
+  if (root.attribute("dim")) {
+    Rgba color;
+    ctx.read_color(root, "dim", color);
+    scene.dim = color;
+  }
+
+  for (auto node : root.children()) {
+    if (node.type() != pugi::node_element)
+      continue;
+    const std::string_view tag = node.name();
+    gui::Element e;
+    e.line = ctx.line_of(node);
+    if (tag == "Panel") {
+      e.kind = ElementKind::Panel;
+      e.color = {0, 0, 0, 160};
+      ctx.check_attributes(node, {"name", "anchor", "x", "y", "w", "h", "color", "border"});
+    } else if (tag == "Label") {
+      e.kind = ElementKind::Label;
+      ctx.check_attributes(node, {"name", "anchor", "x", "y", "w", "h", "text", "size", "color", "align"});
+    } else if (tag == "Button") {
+      e.kind = ElementKind::Button;
+      e.w = 220;
+      e.h = 56;
+      e.color = {48, 48, 72, 255};
+      e.hoverColor = {74, 74, 112, 255};
+      ctx.check_attributes(node, {"name", "anchor", "x", "y", "w", "h", "text", "size", "color", "hover",
+                                  "text_color", "border", "click", "key"});
+    } else if (tag == "Image") {
+      e.kind = ElementKind::Image;
+      ctx.check_attributes(node, {"name", "anchor", "x", "y", "w", "h", "src", "color"});
+    } else {
+      ctx.warning(node, std::format("nieznany element <{}> w <Gui> (dostępne: Panel, Label, Button, Image)", tag));
+      continue;
+    }
+
+    e.name = node.attribute("name").value();
+    if (const auto anchor = node.attribute("anchor")) {
+      if (auto parsed = gui::anchor_from_name(anchor.value()))
+        e.anchor = *parsed;
+      else
+        ctx.error(node, std::format("anchor=\"{}\" – dozwolone: top-left, top, top-right, left, center, "
+                                    "right, bottom-left, bottom, bottom-right",
+                                    anchor.value()));
+    }
+    ctx.read_float(node, "x", e.x);
+    ctx.read_float(node, "y", e.y);
+    ctx.read_float(node, "w", e.w);
+    ctx.read_float(node, "h", e.h);
+    e.text = node.attribute("text").value();
+    ctx.read_int(node, "size", e.size);
+    ctx.read_color(node, "color", e.color);
+    ctx.read_color(node, "hover", e.hoverColor);
+    ctx.read_color(node, "text_color", e.textColor);
+    if (node.attribute("border")) {
+      Rgba color;
+      ctx.read_color(node, "border", color);
+      e.border = color;
+    }
+    if (const auto align = node.attribute("align")) {
+      const std::string_view value = align.value();
+      if (value == "left") e.align = gui::Align::Left;
+      else if (value == "center") e.align = gui::Align::Center;
+      else if (value == "right") e.align = gui::Align::Right;
+      else ctx.error(node, std::format("align=\"{}\" – dozwolone: left, center, right", value));
+    }
+    if (e.kind == ElementKind::Image) {
+      e.image = node.attribute("src").value();
+      if (e.image.empty())
+        ctx.error(node, "<Image> musi mieć atrybut src (plik obrazka względem katalogu projektu)");
+    }
+    if (e.kind == ElementKind::Button) {
+      auto parsed = vm::parse_instructions(node.attribute("click").value(), file, e.line);
+      diagnostics.insert(diagnostics.end(), parsed.diagnostics.begin(), parsed.diagnostics.end());
+      e.click = std::move(parsed.instructions);
+      if (const auto key = node.attribute("key")) {
+        e.key = vm::key_from_name(key.value());
+        if (!e.key)
+          ctx.error(node, std::format("nieznany klawisz key=\"{}\"", key.value()));
+      }
+      if (e.click.empty() && !node.attribute("click"))
+        ctx.warning(node, "<Button> bez click – kliknięcie nic nie zrobi");
+    }
+    scene.elements.push_back(std::move(e));
+  }
+  return scene;
 }
 
 } // namespace PimpEx::boot

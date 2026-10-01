@@ -22,12 +22,16 @@ public:
   // Ruch myszy od poprzedniej klatki (kamera fps).
   virtual float mouse_dx() const { return 0; }
   virtual float mouse_dy() const { return 0; }
+  virtual bool mouse_down(MouseButton) const { return false; }    // przycisk trzymany
+  virtual bool mouse_pressed(MouseButton) const { return false; } // wciśnięty w tej klatce
 };
 
 // Input sterowany ręcznie – dla testów i trybu bez okna (--headless).
 class ManualInput : public IInput {
   std::array<bool, KeyCount> _down{};
   std::array<bool, KeyCount> _pressed{};
+  std::array<bool, MouseButtonCount> _mouseDown{};
+  std::array<bool, MouseButtonCount> _mousePressed{};
   float _mouseX = 0, _mouseY = 0;
 
 public:
@@ -37,11 +41,19 @@ public:
     _mouseX = x;
     _mouseY = y;
   }
+  void set_mouse_down(MouseButton button, bool value) { _mouseDown[static_cast<std::size_t>(button)] = value; }
+  void set_mouse_pressed(MouseButton button, bool value) {
+    _mousePressed[static_cast<std::size_t>(button)] = value;
+  }
 
   bool down(Key key) const override { return _down[static_cast<std::size_t>(key)]; }
   bool pressed(Key key) const override { return _pressed[static_cast<std::size_t>(key)]; }
   float mouse_x() const override { return _mouseX; }
   float mouse_y() const override { return _mouseY; }
+  bool mouse_down(MouseButton button) const override { return _mouseDown[static_cast<std::size_t>(button)]; }
+  bool mouse_pressed(MouseButton button) const override {
+    return _mousePressed[static_cast<std::size_t>(button)];
+  }
 };
 
 // Klawisze wciśnięte „z zewnątrz” (API input.press) nałożone na prawdziwy input.
@@ -76,16 +88,24 @@ public:
   float mouse_y() const override { return _base ? _base->mouse_y() : 0; }
   float mouse_dx() const override { return _base ? _base->mouse_dx() : 0; }
   float mouse_dy() const override { return _base ? _base->mouse_dy() : 0; }
+  bool mouse_down(MouseButton button) const override { return _base && _base->mouse_down(button); }
+  bool mouse_pressed(MouseButton button) const override { return _base && _base->mouse_pressed(button); }
 };
 
 // Zaplanowane wciśnięcia klawiszy dla trybu --headless, np. "RIGHT:0-60 SPACE:10".
 // KLAWISZ:od-do trzyma klawisz w klatkach od..do, KLAWISZ:n wciska go na jedną klatkę.
+// CLICK@x/y:n stawia kursor w (x, y) i trzyma lewy przycisk myszy (np. przycisk GUI).
 class ScriptedInput : public ManualInput {
   struct Press {
     Key key;
     long from, to;
   };
+  struct Click {
+    float x, y;
+    long from, to;
+  };
   std::vector<Press> _presses;
+  std::vector<Click> _clicks;
 
 public:
   // Zwraca opis błędu albo pusty tekst.

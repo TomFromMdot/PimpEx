@@ -51,9 +51,17 @@ void RaylibInput::poll() {
     if (std::abs(_mouseDx) > 200 || std::abs(_mouseDy) > 200)
       _mouseDx = _mouseDy = 0;
   }
+  if (_ignoreMotion)
+    _mouseDx = _mouseDy = 0;
   _hasLastMouse = IsWindowFocused();
   _mouseX = mouse.x;
   _mouseY = mouse.y;
+
+  static constexpr int buttons[] = {MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE};
+  for (std::size_t i = 0; i < vm::MouseButtonCount; ++i) {
+    _mouseDown[i] = IsMouseButtonDown(buttons[i]);
+    _mousePressed[i] = IsMouseButtonPressed(buttons[i]);
+  }
 }
 
 } // namespace PimpEx::render

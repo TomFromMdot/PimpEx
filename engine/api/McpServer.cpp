@@ -54,14 +54,14 @@ json tools_list() {
       "Uruchamia grę bez okna na N klatek (60 = 1 s) z zaplanowanymi klawiszami i zwraca zrzut "
       "stanu (aktorzy, pola, procedury) oraz dziennik. Nie zmienia plików projektu.",
       schema({{"frames", prop("integer", "ile klatek (domyślnie 120)")},
-              {"input", prop("string", "klawisze: KLAWISZ:od-do albo KLAWISZ:klatka, np. \"RIGHT:0-60 SPACE:10\"")},
+              {"input", prop("string", "klawisze: KLAWISZ:od-do albo KLAWISZ:klatka, kliknięcie: CLICK@x/y:klatka, np. \"RIGHT:0-60 SPACE:10 CLICK@400/300:20\"")},
               {"scene", prop("string", "scena startowa (domyślnie z pimpex.xml)")}}));
   add("pimpex_docs",
       "Dokumentacja silnika PimpEx. Tematy: opcodes (język .swap), components (komponenty ECS, "
       "także z components.xml projektu), behaviors (zachowania Lua i systemy), lua-api, "
-      "scene-xml (pliki sceny, 3D), api (API na żywo).",
+      "scene-xml (pliki sceny, 3D), gui (menu, pauza, przyciski), api (API na żywo).",
       schema({{"topic", {{"type", "string"},
-                         {"enum", {"opcodes", "components", "behaviors", "lua-api", "scene-xml", "api"}},
+                         {"enum", {"opcodes", "components", "behaviors", "lua-api", "scene-xml", "gui", "api"}},
                          {"description", "temat"}}}},
              {"topic"}));
   add("pimpex_scene_new",
@@ -169,8 +169,9 @@ json call_tool(const fs::path &root, const std::string &name, const json &args) 
       text += d.format() + "\n";
     text += has_errors(diagnostics)
                 ? "Są błędy – popraw je i sprawdź ponownie."
-                : std::format("OK – sceny: {}, procedury: {}, aktorzy: {}, skrypty: {}, komponenty użytkownika: {}.",
-                              summary.scenes, summary.procs, summary.actors, summary.scripts, summary.components);
+                : std::format("OK – sceny: {}, procedury: {}, aktorzy: {}, skrypty: {}, GUI: {}, komponenty użytkownika: {}.",
+                              summary.scenes, summary.procs, summary.actors, summary.scripts, summary.guis,
+                              summary.components);
     return {{"content", {text_content(text)}}, {"isError", has_errors(diagnostics)}};
   }
   if (name == "pimpex_run") {

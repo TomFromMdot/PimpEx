@@ -7,7 +7,6 @@
 
 namespace PimpEx {
 
-// Odległość edycyjna (Levenshtein) – do podpowiedzi przy literówkach.
 inline std::size_t edit_distance(std::string_view a, std::string_view b) {
   std::vector<std::size_t> row(b.size() + 1);
   for (std::size_t j = 0; j <= b.size(); ++j)
@@ -17,7 +16,8 @@ inline std::size_t edit_distance(std::string_view a, std::string_view b) {
     row[0] = i;
     for (std::size_t j = 1; j <= b.size(); ++j) {
       const std::size_t cur = row[j];
-      row[j] = std::min({row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] == b[j - 1] ? 0 : 1)});
+      row[j] = std::min(
+          {row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] == b[j - 1] ? 0 : 1)});
       prev = cur;
     }
   }
@@ -32,9 +32,8 @@ inline std::string to_upper_ascii(std::string_view s) {
   return out;
 }
 
-// Najbliższa nazwa z listy (bez względu na wielkość liter), jeśli różni się
-// o najwyżej 2 znaki. Pusty tekst = brak sensownej podpowiedzi.
-inline std::string closest_match(std::string_view word, const std::vector<std::string> &candidates) {
+inline std::string closest_match(std::string_view word,
+                                 const std::vector<std::string> &candidates) {
   const auto upper = to_upper_ascii(word);
   std::string best;
   std::size_t bestDistance = 3;
@@ -46,6 +45,22 @@ inline std::string closest_match(std::string_view word, const std::vector<std::s
     }
   }
   return best;
+}
+
+inline std::vector<std::string> split_words(std::string_view text) {
+  std::vector<std::string> words;
+  std::size_t pos = 0;
+  while (pos < text.size()) {
+    const auto start = text.find_first_not_of(" ,\t", pos);
+    if (start == std::string_view::npos)
+      break;
+    auto end = text.find_first_of(" ,\t", start);
+    if (end == std::string_view::npos)
+      end = text.size();
+    words.emplace_back(text.substr(start, end - start));
+    pos = end;
+  }
+  return words;
 }
 
 } // namespace PimpEx

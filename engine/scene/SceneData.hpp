@@ -52,6 +52,8 @@ struct SceneData {
   std::map<std::string, ActorDef> archetypes;
   std::map<std::string, Resource> textures;
   std::map<std::string, Resource> models;
+  std::vector<std::string> gui; // <Scene gui="hud pauza">: GUI widoczne po wczytaniu sceny
+  int guiLine = 0;
 };
 
 // pimpex.xml

@@ -165,3 +165,34 @@ END)",
   CHECK(r.program.procs[1].mode == ProcMode::Once);
   CHECK(r.program.procs[1].forEach == "Health");
 }
+
+TEST_CASE("parser: GUI_SHOW, GUI_HIDE i GUI_TOGGLE") {
+  const auto r = parse_program("PROC menu\n  IF PRESSED ESCAPE : GUI_TOGGLE pauza\n  GUI_SHOW hud\n  GUI_HIDE menu\nEND\n",
+                               "scene.swap");
+  INFO(errors_of(r));
+  REQUIRE(r.ok());
+  const auto &body = r.program.procs[0].body;
+  REQUIRE(body.size() == 3);
+  CHECK(body[0].op == Op::GuiToggle);
+  CHECK(body[0].target == "pauza");
+  CHECK(body[1].op == Op::GuiShow);
+  CHECK(body[2].op == Op::GuiHide);
+  CHECK_FALSE(parse_program("PROC a\n  GUI_SHOW\nEND\n", "s").ok());
+}
+
+TEST_CASE("parser: instrukcje oddzielone średnikiem (kliknięcie przycisku GUI)") {
+  const auto r = parse_instructions(R"(SET Game.level 2; TEXT Hud "a;b" ; GUI_HIDE menu; SCENE poziom)", "gui/menu.xml", 7);
+  REQUIRE(r.ok());
+  REQUIRE(r.instructions.size() == 4);
+  CHECK(r.instructions[0].op == Op::Set);
+  CHECK(r.instructions[1].text == "a;b");
+  CHECK(r.instructions[2].op == Op::GuiHide);
+  CHECK(r.instructions[3].op == Op::Scene);
+  CHECK(r.instructions[3].line == 7);
+  CHECK(parse_instructions("", "f", 1).instructions.empty());
+
+  const auto bad = parse_instructions("SCENE poziom; SKOK 3", "gui/menu.xml", 4);
+  REQUIRE_FALSE(bad.ok());
+  CHECK(bad.diagnostics[0].format().starts_with("gui/menu.xml:4: błąd: nieznana instrukcja 'SKOK'"));
+  CHECK_FALSE(parse_instructions("PROC x", "f", 1).ok());
+}

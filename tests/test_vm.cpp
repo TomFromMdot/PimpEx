@@ -10,7 +10,7 @@ using namespace PimpEx::vm;
 namespace {
 
 struct FakeHost : IVmHost {
-  std::vector<std::string> calls, added, removed, scenes, logs, errors;
+  std::vector<std::string> calls, added, removed, scenes, guis, logs, errors;
 
   void call_function(const std::string &name, const std::vector<std::string> &args,
                      int) override {
@@ -22,6 +22,9 @@ struct FakeHost : IVmHost {
   void request_proc_add(const std::string &name, int) override { added.push_back(name); }
   void request_proc_remove(const std::string &name, int) override { removed.push_back(name); }
   void request_scene(const std::string &name, int) override { scenes.push_back(name); }
+  void request_gui(Op op, const std::string &name, int) override {
+    guis.push_back((op == Op::GuiShow ? "show " : op == Op::GuiHide ? "hide " : "toggle ") + name);
+  }
   void log(const std::string &message) override { logs.push_back(message); }
   void runtime_error(int line, const std::string &message) override {
     errors.push_back(std::to_string(line) + ": " + message);
@@ -260,4 +263,26 @@ END)");
   CHECK(f.get("Player", "z") == 3);
   REQUIRE(f.host.errors.size() == 1);
   CHECK(f.host.errors[0] == "2: SELF działa tylko w PROC ... FOR");
+}
+
+TEST_CASE("vm: GUI_* przekazuje polecenia do hosta, Mouse.left czyta przycisk") {
+  Fixture f;
+  f.load("PROC gui\n  IF Mouse.left == 1 : GUI_SHOW pauza\n  GUI_TOGGLE hud\n  GUI_HIDE menu\nEND\n");
+  f.step();
+  CHECK(f.host.guis == std::vector<std::string>{"toggle hud", "hide menu"});
+  f.input.set_mouse_down(MouseButton::Left, true);
+  f.step();
+  CHECK(f.host.guis.size() == 5);
+  CHECK(f.host.guis[2] == "show pauza");
+}
+
+TEST_CASE("vm: run_instructions wykonuje instrukcje spoza PROC") {
+  Fixture f;
+  const auto parsed = parse_instructions("SET Game.level 3; MOVE Player 5 0; SCENE koniec", "gui/menu.xml", 2);
+  REQUIRE(parsed.ok());
+  FrameContext ctx{f.input, 800, 600, 0};
+  f.vm.run_instructions(parsed.instructions, f.world, ctx, f.host);
+  CHECK(f.get("Game", "level") == 3);
+  CHECK(f.get("Player", "x") == 105);
+  CHECK(f.host.scenes == std::vector<std::string>{"koniec"});
 }

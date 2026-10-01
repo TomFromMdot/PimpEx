@@ -161,6 +161,12 @@ void check_program_references(const ProgramCheckInput &input, Diagnostics &diagn
         if (input.luaFunctions && !input.luaFunctions->contains(instr.target))
           error(line, std::format("nie ma funkcji Lua '{}' w katalogu scripts/", instr.target));
         break;
+      case vm::Op::GuiShow:
+      case vm::Op::GuiHide:
+      case vm::Op::GuiToggle:
+        if (input.guiNames && !input.guiNames->contains(instr.target))
+          error(line, std::format("nie ma GUI '{}' (plik gui/{}.xml)", instr.target, instr.target));
+        break;
       case vm::Op::Log:
       case vm::Op::ProcRemove:
         break;
@@ -201,6 +207,35 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
   // Lua: składnia skryptów i lista zdefiniowanych funkcji (dla CALL).
   const auto lua = script::check_scripts(paths, diagnostics);
   summary.scripts = static_cast<int>(paths.script_files().size());
+  const std::set<std::string> *luaFunctions = lua.ok ? &lua.functions : nullptr;
+
+  // Sceny GUI. Najpierw nazwy (przycisk może włączać inne GUI), potem kliknięcia.
+  std::vector<gui::GuiScene> guis;
+  std::set<std::string> guiNames;
+  for (const auto &file : paths.gui_files()) {
+    if (const auto text = read_file(file)) {
+      guis.push_back(parse_gui_xml(*text, paths.display(file), file.stem().string(), diagnostics));
+      guiNames.insert(guis.back().name);
+    }
+  }
+  summary.guis = static_cast<int>(guis.size());
+  for (const auto &scene : guis)
+    for (const auto &element : scene.elements)
+      for (const auto &instr : element.click) {
+        auto report = [&](std::string message) {
+          diagnostics.push_back({Diagnostic::Severity::Error, scene.file, instr.line, std::move(message)});
+        };
+        if (instr.op == vm::Op::Scene &&
+            std::find(sceneNames.begin(), sceneNames.end(), instr.target) == sceneNames.end())
+          report(std::format("nie ma sceny '{}' (katalog scenes/{})", instr.target, instr.target));
+        if (instr.op == vm::Op::Call && luaFunctions && !luaFunctions->contains(instr.target))
+          report(std::format("nie ma funkcji Lua '{}' w katalogu scripts/", instr.target));
+        if ((instr.op == vm::Op::GuiShow || instr.op == vm::Op::GuiHide || instr.op == vm::Op::GuiToggle) &&
+            !guiNames.contains(instr.target))
+          report(std::format("nie ma GUI '{}' (plik gui/{}.xml)", instr.target, instr.target));
+        if (instr.op == vm::Op::ProcAdd)
+          report("PROC_ADD nie działa w GUI – przycisk nie wie, z której sceny wziąć library.swap");
+      }
 
   for (const auto &sceneName : sceneNames) {
     ++summary.scenes;
@@ -213,6 +248,10 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
     const auto data =
         parse_scene_xml(*xml, paths.display(xmlPath), sceneName, diagnostics, registry.get());
     summary.actors += static_cast<int>(data.actors.size());
+    for (const auto &name : data.gui)
+      if (!guiNames.contains(name))
+        diagnostics.push_back({Diagnostic::Severity::Error, paths.display(xmlPath), data.guiLine,
+                               std::format("<Scene gui>: nie ma GUI '{}' (plik gui/{}.xml)", name, name)});
 
     // Każde <Behavior name="x"> potrzebuje pliku scripts/behaviors/x.lua.
     auto checkBehaviors = [&](const scene::ActorDef &def) {
@@ -245,13 +284,12 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
     diagnostics.insert(diagnostics.end(), parsed.diagnostics.begin(), parsed.diagnostics.end());
     summary.procs += static_cast<int>(parsed.program.procs.size());
 
-    const std::set<std::string> *luaFunctions = lua.ok ? &lua.functions : nullptr;
     check_program_references({parsed.program, data, library ? &*library : nullptr, &sceneNames,
-                              luaFunctions, paths.display(swapPath), registry.get()},
+                              luaFunctions, paths.display(swapPath), registry.get(), &guiNames},
                              diagnostics);
     if (library)
       check_program_references({*library, data, &*library, &sceneNames, luaFunctions,
-                                paths.display(paths.library_swap(sceneName)), registry.get()},
+                                paths.display(paths.library_swap(sceneName)), registry.get(), &guiNames},
                                diagnostics);
   }
   return diagnostics;

@@ -47,3 +47,8 @@ ctest --test-dir build --output-on-failure
 - Szablon projektu (`templates/project/`) i `docs/` są wbudowane w binarkę
   przez `cmake/EmbedTemplate.cmake`. `{{NAME}}` zamienia się na nazwę projektu.
 - Zmiana API Lua (`script/LuaRuntime.cpp`) wymaga aktualizacji `docs/lua-api.md`.
+- GUI (`gui/Gui.hpp`): dane i `GuiSystem` (pokazywanie po nazwie, najechanie,
+  kliknięcia) bez raylib; wczytywanie w `boot/XmlLoader.cpp`
+  (`parse_gui_xml`), rysowanie w `render/Renderer.cpp` (`draw_gui`).
+  Nowy element GUI: `ElementKind` + atrybuty w `parse_gui_xml` + rysowanie,
+  `docs/gui.md` i testy w `tests/test_gui.cpp`.

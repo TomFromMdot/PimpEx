@@ -72,6 +72,7 @@ Pola specjalne (tylko do odczytu):
 
 - `Screen.w`, `Screen.h` – rozmiar okna
 - `Mouse.x`, `Mouse.y` – pozycja myszki, `Mouse.dx`, `Mouse.dy` – jej ruch w tej klatce
+- `Mouse.left`, `Mouse.right` – `1`, gdy przycisk myszy jest wciśnięty
 - `Scene.frame` – numer bieżącej klatki
 
 ## Instrukcje
@@ -91,6 +92,9 @@ Pola specjalne (tylko do odczytu):
 | `PROC_ADD nazwa`                        | wkleja procedurę `nazwa` z `library.swap` do `scene.swap`      |
 | `PROC_REMOVE nazwa`                     | usuwa procedurę `nazwa` z `scene.swap`                         |
 | `SCENE nazwa`                           | przełącza na inną scenę (`scenes/nazwa/`)                      |
+| `GUI_SHOW nazwa`                        | pokazuje scenę GUI z `gui/nazwa.xml` (menu, pauza – docs/gui.md) |
+| `GUI_HIDE nazwa`                        | chowa scenę GUI                                                |
+| `GUI_TOGGLE nazwa`                      | pokazuje albo chowa scenę GUI (np. pauza pod ESCAPE)           |
 
 `SPAWN` bez `AS` nadaje nazwę automatycznie (`Bullet_1`, `Bullet_2`…).
 Bez `AT` nowy aktor pojawia się w pozycji z archetypu.

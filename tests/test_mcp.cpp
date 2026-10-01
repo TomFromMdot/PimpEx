@@ -40,6 +40,8 @@ TEST_CASE("MCP: initialize, tools/list, tools/call") {
 
   const auto docs = call("pimpex_docs", {{"topic", "components"}});
   CHECK(docs["content"][0]["text"].get<std::string>().find("### `<Camera>`") != std::string::npos);
+  const auto guiDocs = call("pimpex_docs", {{"topic", "gui"}});
+  CHECK(guiDocs["content"][0]["text"].get<std::string>().find("GUI_SHOW") != std::string::npos);
 
   const auto live = call("live_state", json::object());
   CHECK(live["isError"] == true); // gra nie działa

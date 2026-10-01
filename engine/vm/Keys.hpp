@@ -28,6 +28,11 @@ inline std::string_view key_name(Key key) {
   return KeyNames[static_cast<std::size_t>(key)];
 }
 
+// Przyciski myszki: `Mouse.left` w .swap, kliknięcia w GUI.
+enum class MouseButton { Left, Right, Middle, Count };
+
+constexpr std::size_t MouseButtonCount = static_cast<std::size_t>(MouseButton::Count);
+
 // Nazwa klawisza bez względu na wielkość liter: "w", "W", "space"...
 inline std::optional<Key> key_from_name(std::string_view name) {
   std::string upper(name);

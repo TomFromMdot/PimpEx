@@ -29,6 +29,7 @@ bool Boot::start(const std::string &sceneOverride) {
     return false;
   _lua = std::make_unique<script::LuaRuntime>(*this);
   load_scripts();
+  load_gui();
   return load_scene(sceneOverride.empty() ? _config.startScene : sceneOverride);
 }
 
@@ -71,6 +72,40 @@ void Boot::load_scripts() {
       apply_script(file, *source);
 }
 
+void Boot::load_gui() {
+  _gui.clear();
+  for (const auto &file : _paths.gui_files()) {
+    const auto text = read_file(file);
+    if (!text)
+      continue;
+    Diagnostics diagnostics;
+    auto scene = parse_gui_xml(*text, _paths.display(file), file.stem().string(), diagnostics);
+    _log.diagnostics(diagnostics);
+    if (!has_errors(diagnostics))
+      _gui.set(std::move(scene));
+  }
+}
+
+// Po wczytaniu sceny widać dokładnie te GUI, które podaje <Scene gui="...">.
+void Boot::show_scene_gui() {
+  _gui.hide_all();
+  for (const auto &name : _sceneData.gui)
+    if (!_gui.show(name))
+      _log.diagnostic({Diagnostic::Severity::Error, _paths.display(_paths.scene_xml(_sceneName)),
+                       _sceneData.guiLine,
+                       std::format("nie ma GUI '{}' (plik {})", name, _paths.display(_paths.gui_xml(name)))});
+}
+
+void Boot::apply_gui_xml(gui::GuiScene scene, Diagnostics diagnostics) {
+  _log.diagnostics(diagnostics);
+  if (has_errors(diagnostics)) {
+    _log.error(std::format("{} ma błędy – GUI się nie zmienia.", scene.file));
+    return;
+  }
+  _log.info(std::format("hot-reload: {} (elementy: {})", scene.file, scene.elements.size()));
+  _gui.set(std::move(scene));
+}
+
 bool Boot::load_scene(const std::string &name) {
   const auto xmlPath = _paths.scene_xml(name);
   const auto xml = read_file(xmlPath);
@@ -88,6 +123,7 @@ bool Boot::load_scene(const std::string &name) {
   ++_sceneGeneration;
   _sceneData = std::move(data);
   _world.load(_sceneData);
+  show_scene_gui();
   _lua->reset_instances();
   _requests.clear();
 
@@ -111,14 +147,25 @@ bool Boot::load_scene(const std::string &name) {
 
 void Boot::run_frame(const vm::FrameContext &ctx) {
   _frame = &ctx;
-  _vm.run_frame(_program, _world, ctx, *this);
-  _lua->update(_world); // zachowania (on_start/on_update/on_destroy) i systemy
+  // Pauzę sprawdzamy przed kliknięciami: „Wróć” z key="ESCAPE" nie może od
+  // razu oddać klawisza procedurze, która znów pokaże pauzę.
+  const bool paused = _gui.pauses_game();
+  for (const auto &click : _gui.update(ctx.input, ctx.screenWidth, ctx.screenHeight)) {
+    _guiActionFile = click.file;
+    _vm.run_instructions(click.actions, _world, ctx, *this);
+    _guiActionFile.clear();
+  }
 
-  _contacts = scene::step_physics(_world);
-  std::vector<std::pair<std::string, std::string>> touching;
-  for (const auto &contact : _contacts)
-    touching.emplace_back(_world.name_of(contact.a), _world.name_of(contact.b));
-  _lua->dispatch_contacts(_world, touching);
+  if (!paused) {
+    _vm.run_frame(_program, _world, ctx, *this);
+    _lua->update(_world); // zachowania (on_start/on_update/on_destroy) i systemy
+
+    _contacts = scene::step_physics(_world);
+    std::vector<std::pair<std::string, std::string>> touching;
+    for (const auto &contact : _contacts)
+      touching.emplace_back(_world.name_of(contact.a), _world.name_of(contact.b));
+    _lua->dispatch_contacts(_world, touching);
+  }
 
   apply_requests(); // na końcu: zmiany .swap i scena z VM, Lua i on_touch
   _frame = nullptr;
@@ -266,8 +313,11 @@ void Boot::apply_scene_xml(scene::SceneData data, Diagnostics diagnostics) {
                            _paths.display(_paths.scene_xml(_sceneName))));
     return;
   }
+  const bool guiChanged = data.gui != _sceneData.gui;
   _sceneData = std::move(data);
   _world.reload(_sceneData, _config.keepStateOnReload);
+  if (guiChanged)
+    show_scene_gui();
   _log.info(std::format("hot-reload: {} (aktorzy: {})",
                         _paths.display(_paths.scene_xml(_sceneName)), _world.size()));
 }
@@ -291,10 +341,29 @@ void Boot::call_function(const std::string &name, const std::vector<std::string>
     _log.diagnostic(*error);
 }
 
+void Boot::request_gui(vm::Op op, const std::string &name, int line) {
+  bool known = true;
+  switch (op) {
+  case vm::Op::GuiShow:
+    known = _gui.show(name);
+    break;
+  case vm::Op::GuiHide:
+    known = _gui.find(name) != nullptr;
+    _gui.hide(name);
+    break;
+  default:
+    known = _gui.toggle(name).has_value();
+    break;
+  }
+  if (!known)
+    runtime_error(line, std::format("nie ma GUI '{}' (plik {})", name, _paths.display(_paths.gui_xml(name))));
+}
+
 void Boot::log(const std::string &message) { _log.info("LOG: " + message); }
 
 void Boot::runtime_error(int line, const std::string &message) {
-  _log.diagnostic({Diagnostic::Severity::Error, swap_display(), line, message});
+  _log.diagnostic(
+      {Diagnostic::Severity::Error, _guiActionFile.empty() ? swap_display() : _guiActionFile, line, message});
 }
 
 std::vector<fs::path> Boot::watched_files() const {
@@ -304,6 +373,8 @@ std::vector<fs::path> Boot::watched_files() const {
     files.push_back(behavior);
   for (const auto &script : _paths.script_files())
     files.push_back(script);
+  for (const auto &gui : _paths.gui_files())
+    files.push_back(gui);
   return files;
 }
 
@@ -315,6 +386,11 @@ void Boot::write_state(long frame) const {
   out << "procedury:";
   for (const auto &proc : _program.procs)
     out << ' ' << proc.name;
+  out << "\ngui:";
+  for (const auto &name : _gui.shown())
+    out << ' ' << name;
+  if (_gui.pauses_game())
+    out << " (pauza)";
   out << "\naktorzy: " << _world.size() << '\n';
   vm::ManualInput noInput;
   const vm::FrameContext ctx{noInput, _config.width, _config.height, frame};

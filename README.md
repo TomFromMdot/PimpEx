@@ -21,6 +21,7 @@ Gra składa się z czterech warstw. Żadna nie wymaga kompilowania silnika:
 | **Dane**          | `components.xml`              | własne komponenty, np. `Health` z polem `hp`                |
 | **Proces sceny**  | `scenes/<scena>/scene.swap`   | procedury (`PROC`) wykonywane w każdej klatce, bez końca    |
 | **Zachowania**    | `scripts/behaviors/*.lua`, `scripts/*.lua` | Lua: `<Behavior>` na aktorze, `system()`, funkcje dla `CALL` |
+| **GUI**           | `gui/<nazwa>.xml`             | menu, pauza, przyciski – włączane po nazwie: `GUI_SHOW pauza` |
 
 ```xml
 <!-- scene.xml -->
@@ -51,6 +52,24 @@ tworzy się jedną komendą:
 ```
 pimpex scene new poziom2 --template platformer2d   # empty2d, topdown2d, platformer2d, empty3d, arena3d, starter2d
 ```
+
+### GUI: menu i pauza po nazwie
+
+Każdy plik `gui/<nazwa>.xml` to scena GUI z panelami, napisami, obrazkami
+i przyciskami, rysowana nad grą. Przycisk wykonuje instrukcje `.swap`:
+
+```xml
+<!-- gui/pauza.xml -->
+<Gui pause="true" dim="#00000099">
+  <Label  anchor="center" y="-80" text="Pauza" size="44"/>
+  <Button anchor="center" text="Wróć" key="ESCAPE" click="GUI_HIDE pauza"/>
+  <Button anchor="center" y="70" text="Menu" click="SCENE menu"/>
+</Gui>
+```
+
+`GUI_SHOW pauza` w `.swap`, `gui.show("pauza")` w Lua albo
+`<Scene gui="hud">` pokazuje GUI, a `pause="true"` zatrzymuje grę, dopóki
+GUI jest widoczne (docs/gui.md).
 
 ### Scena to nieskończony proces opcodów
 
@@ -98,7 +117,8 @@ Opcje `dev` i `play`:
 - `--scene nazwa` – scena startowa;
 - `--headless` – sama logika, bez okna (z `--frames N`; `dev --headless`
   działa do `quit`);
-- `--input "RIGHT:0-60 SPACE:10"` – zaplanowane klawisze;
+- `--input "RIGHT:0-60 SPACE:10 CLICK@400/300:20"` – zaplanowane klawisze
+  i kliknięcia;
 - `--screenshot shot.png` – zrzut ostatniej klatki;
 - `--no-api` / `--api` – API na żywo.
 
@@ -126,6 +146,7 @@ Spróbuj: `pimpex init gra --template arena3d && cd gra && claude "dodaj trzecie
 - [docs/lua-api.md](docs/lua-api.md) – API skryptów Lua
 - [docs/components.md](docs/components.md) – komponenty ECS (generowane z kodu)
 - [docs/behaviors.md](docs/behaviors.md) – zachowania i systemy
+- [docs/gui.md](docs/gui.md) – GUI: menu, pauza, przyciski
 - [docs/api.md](docs/api.md) – API na żywo i serwer MCP
 - [examples/pong](examples/pong) – Pong: dwie sceny, komputer wklejany z biblioteki
 - [examples/wolf3d](examples/wolf3d) – Wolf 3D: mapa ASCII, strażnicy z wzrokiem (raycast), drzwi, znajdźki
@@ -154,7 +175,8 @@ engine/boot     Boot, ładowanie XML, SwapFile, FileWatcher, pimpex check
 engine/vm       Lexer, Parser, Program, VM, klawisze i input
 engine/scene    ComponentRegistry, komponenty, World (EnTT), fizyka, docs komponentów
 engine/script   Lua (sol2): runtime, zachowania, systemy, sprawdzanie skryptów
-engine/render   raylib: Renderer 2D/3D, shader światła, czcionka, RaylibInput
+engine/gui      sceny GUI: elementy, układ (kotwice), GuiSystem – pokazywanie po nazwie, kliknięcia
+engine/render   raylib: Renderer 2D/3D, GUI, shader światła, czcionka, RaylibInput
 engine/api      API na żywo (JSON-RPC/HTTP) i serwer MCP
 engine/cli      komendy CLI (wzorzec Command) + szablony
 apps/pimpex     main()

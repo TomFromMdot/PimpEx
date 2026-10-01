@@ -55,6 +55,9 @@ enum class Op {
   ProcAdd,    // PROC_ADD nazwa   – boot wkleja PROC z biblioteki do .swap
   ProcRemove, // PROC_REMOVE nazwa – boot usuwa PROC z .swap
   Scene,      // SCENE nazwa – zmiana sceny
+  GuiShow,    // GUI_SHOW nazwa   – pokazuje scenę GUI z gui/nazwa.xml
+  GuiHide,    // GUI_HIDE nazwa   – chowa ją
+  GuiToggle,  // GUI_TOGGLE nazwa – pokazuje albo chowa
 };
 
 struct Instr {
@@ -62,7 +65,7 @@ struct Instr {
   int line = 0;
   std::vector<Condition> guard; // warunki z IF ... AND ... : (wszystkie muszą być prawdziwe)
 
-  std::string target;            // aktor / archetyp / nazwa PROC / sceny / funkcji
+  std::string target;            // aktor / archetyp / nazwa PROC / sceny / funkcji / GUI
   std::string other;             // FOLLOW: cel, SPAWN: nazwa po AS
   Ref ref;                       // SET / ADD / MUL
   std::vector<Value> values;     // argumenty liczbowe

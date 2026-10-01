@@ -19,7 +19,8 @@ std::string to_upper(std::string_view s) { return to_upper_ascii(s); }
 
 const std::vector<std::string_view> Instructions = {
     "MOVE", "SET",  "ADD", "MUL",  "SPAWN",    "DESTROY",     "FOLLOW",
-    "TEXT", "LOG",  "CALL", "IF",  "PROC_ADD", "PROC_REMOVE", "SCENE"};
+    "TEXT", "LOG",  "CALL", "IF",  "PROC_ADD", "PROC_REMOVE", "SCENE",
+    "GUI_SHOW", "GUI_HIDE", "GUI_TOGGLE"};
 
 std::string suggestion(std::string_view word) {
   const std::vector<std::string> names(Instructions.begin(), Instructions.end());
@@ -275,6 +276,9 @@ Instr parse_statement(Cursor &c, int line) {
   } else if (keyword == "SCENE") {
     instr.op = Op::Scene;
     instr.target = c.name("nazwa sceny");
+  } else if (keyword == "GUI_SHOW" || keyword == "GUI_HIDE" || keyword == "GUI_TOGGLE") {
+    instr.op = keyword == "GUI_SHOW" ? Op::GuiShow : keyword == "GUI_HIDE" ? Op::GuiHide : Op::GuiToggle;
+    instr.target = c.name("nazwa GUI (plik gui/nazwa.xml)");
   } else if (keyword == "PROC" || keyword == "END") {
     throw LineError(std::format("{} nie może stać za IF", keyword));
   } else {
@@ -289,6 +293,39 @@ Instr parse_statement(Cursor &c, int line) {
 } // namespace
 
 const std::vector<std::string_view> &instruction_names() { return Instructions; }
+
+InstructionsResult parse_instructions(std::string_view source, const std::string &file, int line) {
+  InstructionsResult result;
+  auto parse_one = [&](std::string_view text) {
+    auto lexed = tokenize_line(text);
+    if (!lexed.error.empty()) {
+      result.diagnostics.push_back({Diagnostic::Severity::Error, file, line, lexed.error});
+      return;
+    }
+    if (lexed.tokens.empty())
+      return;
+    Cursor c(lexed.tokens);
+    try {
+      if (c.accept("PROC") || c.accept("END"))
+        throw LineError("tu wpisz same instrukcje, bez PROC i END");
+      result.instructions.push_back(parse_statement(c, line));
+    } catch (const LineError &e) {
+      result.diagnostics.push_back({Diagnostic::Severity::Error, file, line, e.what()});
+    }
+  };
+  // Średnik w cudzysłowie (np. TEXT Hud "a;b") nie dzieli instrukcji.
+  bool quoted = false;
+  std::size_t start = 0;
+  for (std::size_t i = 0; i <= source.size(); ++i) {
+    if (i < source.size() && source[i] == '"')
+      quoted = !quoted;
+    if (i == source.size() || (source[i] == ';' && !quoted)) {
+      parse_one(source.substr(start, i - start));
+      start = i + 1;
+    }
+  }
+  return result;
+}
 
 ParseResult parse_program(std::string_view source, const std::string &file) {
   ParseResult result;

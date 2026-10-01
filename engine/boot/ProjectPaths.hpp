@@ -33,6 +33,8 @@ struct ProjectPaths {
   fs::path scripts_dir() const { return root / "scripts"; }
   fs::path behaviors_dir() const { return scripts_dir() / "behaviors"; }
   fs::path behavior_file(const std::string &name) const { return behaviors_dir() / (name + ".lua"); }
+  fs::path gui_dir() const { return root / "gui"; }
+  fs::path gui_xml(const std::string &name) const { return gui_dir() / (name + ".xml"); }
   fs::path runtime_dir() const { return runtimeOverride.empty() ? root / ".pimpex" : runtimeOverride; }
   fs::path runtime_log() const { return runtime_dir() / "runtime.log"; }
   fs::path state_file() const { return runtime_dir() / "state.txt"; }
@@ -58,6 +60,17 @@ struct ProjectPaths {
     std::error_code ec;
     for (const auto &entry : fs::directory_iterator(behaviors_dir(), ec))
       if (entry.is_regular_file() && entry.path().extension() == ".lua")
+        files.push_back(entry.path());
+    std::sort(files.begin(), files.end());
+    return files;
+  }
+
+  // Sceny GUI: gui/<nazwa>.xml.
+  std::vector<fs::path> gui_files() const {
+    std::vector<fs::path> files;
+    std::error_code ec;
+    for (const auto &entry : fs::directory_iterator(gui_dir(), ec))
+      if (entry.is_regular_file() && entry.path().extension() == ".xml")
         files.push_back(entry.path());
     std::sort(files.begin(), files.end());
     return files;

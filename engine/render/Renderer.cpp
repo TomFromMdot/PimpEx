@@ -39,6 +39,8 @@ struct Renderer::Impl {
   };
   LightLocs lightLocs[MaxLights]{};
   bool cursorLocked = false;
+  bool cursorFreed = true; // kursor wolny (start, ESC, inne okno); klik w okno go łapie
+  bool fpsCamera = false;
   Font font{};
 
   // Czcionka z polskimi znakami. Rozmiar bazowy duży, żeby napisy były ostre.
@@ -61,7 +63,11 @@ struct Renderer::Impl {
     const auto res = data.textures.find(id);
     if (res == data.textures.end())
       return nullptr;
-    const auto &path = res->second.path;
+    return texture_file(res->second.path);
+  }
+
+  // Obrazek po ścieżce względem projektu (np. <Image src> w GUI).
+  const Texture2D *texture_file(const std::string &path) {
     if (auto it = textures.find(path); it != textures.end())
       return &it->second;
     if (failed.contains(path))
@@ -264,6 +270,90 @@ struct Renderer::Impl {
     SetShaderValue(lighting, viewPosLoc, view, SHADER_UNIFORM_VEC3);
   }
 
+  // --- kursor ----------------------------------------------------------------------------
+
+  // Kursor złapany przez okno (DisableCursor) to pod X11/WSLg też brak dostępu
+  // do paska tytułu: krzyżyka i przesuwania okna. Dlatego gra startuje z wolnym
+  // kursorem, a łapie go dopiero kliknięcie w okno przy kamerze fps (jak
+  // „kliknij, aby grać” w przeglądarce). ESC, inne okno i GUI z przyciskami
+  // go uwalniają.
+  void update_cursor(bool fps, const gui::GuiSystem &gui) {
+    fpsCamera = fps;
+    const bool focused = IsWindowFocused();
+    if (!focused || (cursorLocked && IsKeyPressed(KEY_ESCAPE)))
+      cursorFreed = true;
+    else if (cursorFreed && fps && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+      cursorFreed = false;
+    const bool lock = fps && focused && !cursorFreed && !gui.wants_mouse();
+    if (lock != cursorLocked) {
+      lock ? DisableCursor() : EnableCursor();
+      cursorLocked = lock;
+    }
+  }
+
+  // --- GUI ---------------------------------------------------------------------------------
+
+  void draw_gui_text(const gui::Element &e, const std::string &value, const gui::Rect &r, Color color) {
+    const auto size = static_cast<float>(e.size);
+    const auto measured = MeasureTextEx(font, value.c_str(), size, size / 16);
+    float x = r.x + (r.w - measured.x) / 2;
+    if (e.align == gui::Align::Left)
+      x = r.x;
+    else if (e.align == gui::Align::Right)
+      x = r.x + r.w - measured.x;
+    const float y = r.y + (r.h - measured.y) / 2;
+    DrawTextEx(font, value.c_str(), {std::round(x), std::round(y)}, size, size / 16, color);
+  }
+
+  void draw_gui(const gui::GuiSystem &gui, const World &world, const vm::FrameContext &ctx) {
+    for (const auto &name : gui.shown()) {
+      const auto *scene = gui.find(name);
+      if (!scene)
+        continue;
+      if (scene->dim)
+        DrawRectangle(0, 0, ctx.screenWidth, ctx.screenHeight, to_color(*scene->dim));
+      for (std::size_t i = 0; i < scene->elements.size(); ++i) {
+        const auto &e = scene->elements[i];
+        auto r = gui::layout(e, ctx.screenWidth, ctx.screenHeight);
+        const Rectangle rect{r.x, r.y, r.w, r.h};
+        switch (e.kind) {
+        case gui::ElementKind::Panel:
+          DrawRectangleRec(rect, to_color(e.color));
+          if (e.border)
+            DrawRectangleLinesEx(rect, 2, to_color(*e.border));
+          break;
+        case gui::ElementKind::Label:
+          draw_gui_text(e, vm::format_text(world, ctx, e.text, ""), r, to_color(e.color));
+          break;
+        case gui::ElementKind::Button: {
+          Color background = to_color(gui.is_hovered(name, i) ? e.hoverColor : e.color);
+          if (gui.is_pressed(name, i))
+            background = ColorBrightness(background, -0.25f);
+          DrawRectangleRounded(rect, 0.25f, 8, background);
+          if (e.border)
+            DrawRectangleRoundedLinesEx(rect, 0.25f, 8, 2, to_color(*e.border));
+          draw_gui_text(e, vm::format_text(world, ctx, e.text, ""), r, to_color(e.textColor));
+          break;
+        }
+        case gui::ElementKind::Image:
+          if (const auto *tex = texture_file(e.image)) {
+            const Rectangle source{0, 0, static_cast<float>(tex->width), static_cast<float>(tex->height)};
+            if (e.w <= 0 || e.h <= 0) { // bez w/h: rozmiar obrazka
+              r.w = source.width;
+              r.h = source.height;
+              r.x -= r.w / 2;
+              r.y -= r.h / 2;
+            }
+            DrawTexturePro(*tex, source, {r.x, r.y, r.w, r.h}, {0, 0}, 0, to_color(e.color));
+          } else {
+            DrawRectangleRec(rect, MAGENTA); // brak obrazka
+          }
+          break;
+        }
+      }
+    }
+  }
+
   // --- rysowanie --------------------------------------------------------------------------
 
   void draw_text(const World &world, const vm::FrameContext &ctx, entt::entity e, const std::string &name,
@@ -339,8 +429,10 @@ void Renderer::unload_textures() {
   _impl->failed.clear();
 }
 
-void Renderer::draw(const World &world, const SceneData &data, const ProjectConfig &config,
-                    const vm::FrameContext &ctx) {
+bool Renderer::mouse_look_suspended() const { return _impl->fpsCamera && !_impl->cursorLocked; }
+
+void Renderer::draw(const World &world, const SceneData &data, const gui::GuiSystem &gui,
+                    const ProjectConfig &config, const vm::FrameContext &ctx) {
   const auto &registry = world.registry();
   const bool is3d = world.mode() == SceneMode::Mode3D;
 
@@ -364,14 +456,10 @@ void Renderer::draw(const World &world, const SceneData &data, const ProjectConf
   const auto background = world.background().value_or(config.background);
   ClearBackground(to_color(background));
 
+  bool fps = false;
   if (is3d) {
     _impl->init3d();
-    bool fps = false;
     const auto cam = _impl->camera3d(world, ctx, fps);
-    if (fps != _impl->cursorLocked) {
-      fps ? DisableCursor() : EnableCursor();
-      _impl->cursorLocked = fps;
-    }
     _impl->update_lights(world, cam);
     BeginMode3D(cam);
     for (const auto &item : worldItems)
@@ -402,7 +490,18 @@ void Renderer::draw(const World &world, const SceneData &data, const ProjectConf
     if (registry.all_of<Text>(item.entity))
       _impl->draw_text(world, ctx, item.entity, *item.name, {t.x - t.w / 2, t.y - t.h / 2});
   }
+  _impl->draw_gui(gui, world, ctx);
+  if (fps && !_impl->cursorLocked && !gui.wants_mouse()) {
+    const char *hint = "Kliknij w okno, aby sterować myszą (ESC uwalnia kursor)";
+    const auto size = MeasureTextEx(_impl->font, hint, 22, 22.f / 16);
+    const Vector2 at{std::round((ctx.screenWidth - size.x) / 2), 16};
+    DrawRectangle(static_cast<int>(at.x) - 10, 10, static_cast<int>(size.x) + 20, static_cast<int>(size.y) + 12,
+                  Color{0, 0, 0, 170});
+    DrawTextEx(_impl->font, hint, at, 22, 22.f / 16, RAYWHITE);
+  }
   EndDrawing();
+  // Także w 2D: po przejściu ze sceny fps (np. ekran „przegrana”) kursor wraca.
+  _impl->update_cursor(fps, gui);
 }
 
 } // namespace PimpEx::render

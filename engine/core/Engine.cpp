@@ -23,12 +23,13 @@ namespace fs = std::filesystem;
 
 // Plik przygotowany na wątku zasobów – gotowy do podmiany w klatce.
 struct FileUpdate {
-  enum class Kind { Swap, Library, SceneXml, Components, Script };
+  enum class Kind { Swap, Library, SceneXml, Components, Script, Gui };
   Kind kind = Kind::Script;
   fs::path path;
   std::string text;
   vm::ParseResult program;
   scene::SceneData scene;
+  gui::GuiScene gui;
   Diagnostics diagnostics;
 };
 
@@ -47,6 +48,9 @@ std::optional<FileUpdate> prepare(const boot::ProjectPaths &paths,
     update.kind = FileUpdate::Kind::SceneXml;
     const auto sceneName = path.parent_path().filename().string();
     update.scene = boot::parse_scene_xml(content, display, sceneName, update.diagnostics, &components);
+  } else if (path.parent_path() == paths.gui_dir() && path.extension() == ".xml") {
+    update.kind = FileUpdate::Kind::Gui;
+    update.gui = boot::parse_gui_xml(content, display, path.stem().string(), update.diagnostics);
   } else if (filename == "components.xml") {
     update.kind = FileUpdate::Kind::Components;
   } else if (path.extension() == ".lua") {
@@ -62,7 +66,7 @@ void apply(boot::Boot &boot, render::Renderer *renderer, FileUpdate update) {
   const auto &paths = boot.paths();
   // Zmiany z innej sceny (np. tuż po SCENE) pomijamy.
   if (update.kind != FileUpdate::Kind::Script && update.kind != FileUpdate::Kind::Components &&
-      update.path.parent_path() != paths.scene_dir(boot.scene_name()))
+      update.kind != FileUpdate::Kind::Gui && update.path.parent_path() != paths.scene_dir(boot.scene_name()))
     return;
   switch (update.kind) {
   case FileUpdate::Kind::Swap:
@@ -83,6 +87,9 @@ void apply(boot::Boot &boot, render::Renderer *renderer, FileUpdate update) {
     break;
   case FileUpdate::Kind::Script:
     boot.apply_script(update.path, update.text);
+    break;
+  case FileUpdate::Kind::Gui:
+    boot.apply_gui_xml(std::move(update.gui), std::move(update.diagnostics));
     break;
   }
 }
@@ -233,7 +240,9 @@ int Engine::run() {
     }
 
     if (renderer) {
-      renderer->draw(boot.world(), boot.scene_data(), config, ctx);
+      renderer->draw(boot.world(), boot.scene_data(), boot.gui(), config, ctx);
+      // Kamera fps bez złapanego kursora (GUI, ESC, inne okno): mysz nie obraca gracza.
+      raylibInput.set_ignore_motion(renderer->mouse_look_suspended());
       const bool lastFrame = frame + 1 == _options.frames;
       if ((!_options.screenshot.empty() && lastFrame && runLogic) || !control.screenshots.empty()) {
         Image image = LoadImageFromScreen();

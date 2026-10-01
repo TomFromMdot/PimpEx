@@ -23,6 +23,7 @@ struct ProgramCheckInput {
   const std::set<std::string> *luaFunctions = nullptr;  // do sprawdzenia CALL
   std::string file;
   const scene::ComponentRegistry *components = nullptr; // null = tylko wbudowane
+  const std::set<std::string> *guiNames = nullptr;      // do sprawdzenia GUI_SHOW/HIDE/TOGGLE
 };
 
 // Sprawdza, czy program odwołuje się do istniejących aktorów, archetypów,
@@ -35,6 +36,7 @@ struct CheckSummary {
   int actors = 0;
   int scripts = 0;
   int components = 0; // komponenty użytkownika z components.xml
+  int guis = 0;       // sceny GUI z gui/*.xml
 };
 
 // Pełna walidacja projektu bez uruchamiania gry (`pimpex check`).

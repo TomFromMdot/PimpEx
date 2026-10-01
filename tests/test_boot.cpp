@@ -1,5 +1,6 @@
 #include "boot/Boot.hpp"
 #include "boot/FileWatcher.hpp"
+#include "boot/ProjectCheck.hpp"
 #include "boot/SwapFile.hpp"
 #include "boot/XmlLoader.hpp"
 #include "core/Engine.hpp"
@@ -336,4 +337,146 @@ return {
   boot.world().set("Wall", "z", 0);
   boot.run_frame(ctx);
   CHECK(get("Game", "sees") == 0);
+}
+
+TEST_CASE("Boot: GUI – <Scene gui>, kliknięcie wykonuje instrukcje, pauza zatrzymuje logikę") {
+  TempProject project("gui");
+  project.write("gui/hud.xml", R"(<Gui><Label text="Klatki: {Game.frames}"/></Gui>)");
+  project.write("gui/pauza.xml", R"(<Gui pause="true">
+  <Button anchor="center" text="Wróć" key="ESCAPE" click="GUI_HIDE pauza; ADD Game.resumed 1"/>
+  <Button anchor="center" y="80" text="Koniec" click="SCENE koniec"/>
+</Gui>)");
+  project.write("scenes/main/scene.xml", R"(<Scene gui="hud">
+  <Actor name="Game" w="0" h="0"/>
+</Scene>)");
+  project.write("scenes/main/scene.swap",
+                "PROC tick\n  ADD Game.frames 1\n  IF PRESSED ESCAPE : GUI_TOGGLE pauza\nEND\n");
+  project.write("scenes/koniec/scene.xml", R"(<Scene><Actor name="Napis" w="0" h="0"/></Scene>)");
+  project.write("scenes/koniec/scene.swap", "");
+
+  Log log;
+  log.set_quiet(true);
+  Boot boot(project.paths(), log, 1);
+  REQUIRE(boot.start());
+  CHECK(boot.gui().shown() == std::vector<std::string>{"hud"});
+
+  vm::ManualInput input;
+  long frame = 0;
+  auto step = [&] {
+    const vm::FrameContext ctx{input, 800, 600, frame++};
+    boot.run_frame(ctx);
+    input.set_pressed(vm::Key::Escape, false);
+  };
+  step();
+  CHECK(*boot.world().get("Game", "frames") == 1);
+
+  // ESC w procedurze pokazuje pauzę – logika stoi.
+  input.set_pressed(vm::Key::Escape, true);
+  step();
+  CHECK(boot.gui().is_shown("pauza"));
+  step();
+  step();
+  CHECK(*boot.world().get("Game", "frames") == 2);
+
+  // ESC = „Wróć” (key="ESCAPE"): pauza znika i nie wraca w tej samej klatce.
+  input.set_pressed(vm::Key::Escape, true);
+  step();
+  CHECK_FALSE(boot.gui().is_shown("pauza"));
+  CHECK(*boot.world().get("Game", "resumed") == 1);
+  step();
+  CHECK(*boot.world().get("Game", "frames") == 3);
+
+  // Klik myszką w „Koniec” zmienia scenę, a GUI z <Scene gui> się chowa.
+  REQUIRE(boot.gui().show("pauza"));
+  input.set_mouse(400, 380);
+  input.set_mouse_down(vm::MouseButton::Left, true);
+  step();
+  input.set_mouse_down(vm::MouseButton::Left, false);
+  step();
+  CHECK(boot.scene_name() == "koniec");
+  CHECK(boot.gui().shown().empty());
+}
+
+TEST_CASE("Boot: GUI z Lua i błędy nieznanego GUI") {
+  BootFixture f("gui_lua");
+  f.project.write("gui/menu.xml", R"(<Gui><Button text="x" click="GUI_SHOW nie_ma"/></Gui>)");
+  f.project.write("scripts/ui.lua", R"(
+function pokaz() gui.show("menu"); set("Game", "shown", gui.shown("menu") and 1 or 0) end
+function przelacz() set("Game", "state", gui.toggle("menu") and 1 or 0) end
+function zle() gui.show("nie_ma") end
+)");
+  REQUIRE(f.boot.start());
+  f.project.write("scenes/main/scene.swap", "PROC a ONCE\n  CALL pokaz\n  CALL przelacz\n  GUI_SHOW brak\nEND\n");
+  REQUIRE(f.boot.load_scene("main"));
+  f.step();
+  CHECK(f.get("Game", "shown") == 1);
+  CHECK(f.get("Game", "state") == 0);
+  CHECK_FALSE(f.boot.gui().is_shown("menu"));
+  auto logText = [&] {
+    std::string text;
+    for (const auto &line : f.log.tail(50))
+      text += line + "\n";
+    return text;
+  };
+  const auto errors = logText();
+  INFO(errors);
+  CHECK(errors.find("scenes/main/scene.swap:4: błąd: nie ma GUI 'brak' (plik gui/brak.xml)") != std::string::npos);
+  CHECK(f.boot.lua().eval("zle()").output.find("gui.show: nie ma GUI 'nie_ma'") != std::string::npos);
+
+  // Błąd w kliknięciu wskazuje plik GUI, a nie scene.swap.
+  f.boot.gui().show("menu");
+  f.input.set_mouse(50, 10);
+  f.input.set_mouse_down(vm::MouseButton::Left, true);
+  f.step();
+  f.input.set_mouse_down(vm::MouseButton::Left, false);
+  f.step();
+  CHECK(logText().find("gui/menu.xml:1: błąd: nie ma GUI 'nie_ma'") != std::string::npos);
+}
+
+TEST_CASE("Engine: kliknięcie z --input CLICK@x/y i GUI w state.txt") {
+  TempProject project("gui_engine");
+  project.write("gui/menu.xml",
+                R"(<Gui><Button anchor="center" text="Graj" click="SET Game.started 1; GUI_HIDE menu"/></Gui>)");
+  project.write("gui/hud.xml", R"(<Gui><Label text="hud"/></Gui>)");
+  project.write("scenes/main/scene.xml", R"(<Scene gui="hud menu"><Actor name="Game" w="0" h="0"/></Scene>)");
+  EngineOptions options;
+  options.headless = true;
+  options.frames = 20;
+  options.quiet = true;
+  options.watch = false;
+  options.input = "CLICK@400/300:5";
+  CHECK(Engine(project.root, options).run() == 0);
+  const auto state = project.read(".pimpex/state.txt");
+  INFO(state);
+  CHECK(state.find("started=1") != std::string::npos);
+  CHECK(state.find("gui: hud\n") != std::string::npos);
+
+  vm::ScriptedInput input;
+  CHECK(input.parse("CLICK@400:5").find("CLICK@x/y") != std::string::npos);
+}
+
+TEST_CASE("check: GUI – nieznane GUI, sceny i funkcje w kliknięciach") {
+  TempProject project("gui_check");
+  project.write("gui/menu.xml", R"(<Gui>
+  <Button text="a" click="SCENE nie_ma"/>
+  <Button text="b" click="GUI_SHOW brak; CALL nie_ma_fn"/>
+  <Button text="c" click="SCENE main; GUI_HIDE menu"/>
+</Gui>)");
+  project.write("scenes/main/scene.xml", R"(<Scene gui="menu hud">
+  <Actor name="Game" w="0" h="0"/>
+</Scene>)");
+  project.write("scenes/main/scene.swap", "PROC a\n  IF PRESSED ESCAPE : GUI_TOGGLE pauza\nEND\n");
+  CheckSummary summary;
+  const auto diagnostics = check_project(project.paths(), summary);
+  std::string text;
+  for (const auto &d : diagnostics)
+    text += d.format() + "\n";
+  INFO(text);
+  CHECK(summary.guis == 1);
+  CHECK(text.find("gui/menu.xml:2: błąd: nie ma sceny 'nie_ma'") != std::string::npos);
+  CHECK(text.find("gui/menu.xml:3: błąd: nie ma GUI 'brak'") != std::string::npos);
+  CHECK(text.find("gui/menu.xml:3: błąd: nie ma funkcji Lua 'nie_ma_fn'") != std::string::npos);
+  CHECK(text.find("gui/menu.xml:4") == std::string::npos);
+  CHECK(text.find("scenes/main/scene.xml:1: błąd: <Scene gui>: nie ma GUI 'hud'") != std::string::npos);
+  CHECK(text.find("scenes/main/scene.swap:2: błąd: nie ma GUI 'pauza'") != std::string::npos);
 }

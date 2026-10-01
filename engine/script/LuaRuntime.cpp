@@ -309,6 +309,28 @@ struct LuaRuntime::Impl {
     swap.set_function("paste", [this](const std::string &source) { host.request_proc_paste(source); });
     swap.set_function("has", [this](const std::string &name) { return host.lua_has_proc(name); });
 
+    // Sceny GUI z gui/<nazwa>.xml (docs/gui.md).
+    auto gui = lua.create_named_table("gui");
+    auto noGui = [](const std::string &fn, const std::string &name) {
+      return sol::error(std::format("gui.{}: nie ma GUI '{}' (plik gui/{}.xml)", fn, name, name));
+    };
+    gui.set_function("show", [this, noGui](const std::string &name) {
+      if (!host.lua_gui().show(name))
+        throw noGui("show", name);
+    });
+    gui.set_function("hide", [this, noGui](const std::string &name) {
+      if (!host.lua_gui().find(name))
+        throw noGui("hide", name);
+      host.lua_gui().hide(name);
+    });
+    gui.set_function("toggle", [this, noGui](const std::string &name) {
+      const auto shown = host.lua_gui().toggle(name);
+      if (!shown)
+        throw noGui("toggle", name);
+      return *shown;
+    });
+    gui.set_function("shown", [this](const std::string &name) { return host.lua_gui().is_shown(name); });
+
     lua.safe_script(SelfPrelude, "@pimpex_prelude");
   }
 };

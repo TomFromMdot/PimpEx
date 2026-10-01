@@ -21,6 +21,8 @@ std::optional<scene::FieldValue> read_value(const scene::World &world, const Fra
     if (actor == "Mouse" && field == "y") value = ctx.input.mouse_y();
     if (actor == "Mouse" && field == "dx") value = ctx.input.mouse_dx();
     if (actor == "Mouse" && field == "dy") value = ctx.input.mouse_dy();
+    if (actor == "Mouse" && field == "left") value = ctx.input.mouse_down(MouseButton::Left) ? 1 : 0;
+    if (actor == "Mouse" && field == "right") value = ctx.input.mouse_down(MouseButton::Right) ? 1 : 0;
     if (actor == "Scene" && field == "frame") value = static_cast<double>(ctx.frame);
     if (!value && error)
       *error = std::format("{} nie ma pola '{}'", actor, field);
@@ -327,6 +329,11 @@ void Vm::execute(const Instr &instr) {
   case Op::Scene:
     _host->request_scene(instr.target, line);
     return;
+  case Op::GuiShow:
+  case Op::GuiHide:
+  case Op::GuiToggle:
+    _host->request_gui(instr.op, instr.target, line);
+    return;
   }
 }
 
@@ -361,6 +368,20 @@ void Vm::run_frame(const Program &program, scene::World &world, const FrameConte
     if (proc.mode == ProcMode::Once)
       host.request_proc_remove(proc.name, proc.firstLine);
   }
+  _ctx = nullptr;
+  _world = nullptr;
+  _host = nullptr;
+}
+
+void Vm::run_instructions(const std::vector<Instr> &instructions, scene::World &world,
+                          const FrameContext &ctx, IVmHost &host) {
+  _ctx = &ctx;
+  _world = &world;
+  _host = &host;
+  _self.clear();
+  _other.clear();
+  for (const auto &instr : instructions)
+    execute(instr);
   _ctx = nullptr;
   _world = nullptr;
   _host = nullptr;

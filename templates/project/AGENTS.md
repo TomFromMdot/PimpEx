@@ -14,6 +14,7 @@ Cała gra to pliki tekstowe, bez edytora GUI.
 | `components.xml`                 | własne komponenty danych (np. Health)               | `docs/components.md`   |
 | `scripts/behaviors/*.lua`        | zachowania aktorów (`<Behavior name="...">`)        | `docs/behaviors.md`    |
 | `scripts/*.lua`                  | funkcje dla `CALL` i systemy `system()`             | `docs/lua-api.md`      |
+| `gui/<nazwa>.xml`                | GUI: menu, pauza, przyciski (`GUI_SHOW nazwa`)      | `docs/gui.md`          |
 | `.pimpex/state.txt`              | zrzut stanu działającej gry (tylko do odczytu)      | –                      |
 | `.pimpex/runtime.log`            | błędy, `LOG`, zmiany wprowadzone przez silnik       | –                      |
 
@@ -70,6 +71,9 @@ Gdy działa `pimpex dev .`, zapisane pliki trafiają do gry w locie, a narzędzi
 - 2D: `x`, `y` to środek, `y` rośnie w dół, prędkość w pikselach na klatkę.
   3D (`<Scene mode="3d">`): `y` rośnie w górę, jednostki to metry.
 - HUD (wynik, życia): aktor z `space="screen"` i `<Text value="... {Game.coins}"/>`.
+- Menu, pauza i przyciski: plik `gui/<nazwa>.xml` (`<Button click="SCENE poziom">`),
+  włączany przez `GUI_SHOW nazwa` albo `<Scene gui="nazwa">` (docs/gui.md).
+  Kliknięcie bez okna: `--input "CLICK@400/300:10"`.
 - W `.swap` nie ma arytmetyki (`Player.x + 5` nie zadziała). Użyj `ADD`,
   `MUL` albo Lua.
 - Nie edytuj plików w `.pimpex/`. Tworzy je silnik.

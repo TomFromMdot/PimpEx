@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Diagnostic.hpp"
+#include "gui/Gui.hpp"
 #include "scene/World.hpp"
 #include "vm/Vm.hpp"
 
@@ -19,6 +20,7 @@ public:
   virtual scene::World &lua_world() = 0;
   virtual const vm::FrameContext *lua_frame() = 0; // null poza klatką
   virtual bool lua_has_proc(const std::string &name) = 0;
+  virtual gui::GuiSystem &lua_gui() = 0;
   virtual void request_proc_add(const std::string &name, int line) = 0;
   virtual void request_proc_remove(const std::string &name, int line) = 0;
   virtual void request_proc_paste(const std::string &source) = 0;

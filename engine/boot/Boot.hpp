@@ -2,6 +2,7 @@
 
 #include "boot/ProjectPaths.hpp"
 #include "core/Log.hpp"
+#include "gui/Gui.hpp"
 #include "scene/Physics.hpp"
 #include "scene/SceneData.hpp"
 #include "scene/World.hpp"
@@ -52,6 +53,8 @@ private:
   vm::Program _library;
 
   vm::Vm _vm;
+  gui::GuiSystem _gui;
+  std::string _guiActionFile; // plik GUI, którego przycisk teraz działa (do komunikatów)
   std::unique_ptr<script::LuaRuntime> _lua;
   std::vector<Request> _requests;
   const vm::FrameContext *_frame = nullptr;
@@ -63,6 +66,8 @@ private:
   void remove_in_memory(const std::string &name);
   bool commit_swap(std::string text, const std::string &reason);
   void load_scripts();
+  void load_gui();
+  void show_scene_gui();
 
 public:
   Boot(ProjectPaths paths, Log &log, unsigned seed = std::random_device{}());
@@ -75,7 +80,8 @@ public:
   // Wczytuje components.xml (jeśli jest). false = błędy w pliku.
   bool load_components(const std::string *text = nullptr);
 
-  // Jedna klatka logiki: procedury, prośby o zmiany w .swap, ruch.
+  // Jedna klatka logiki: kliknięcia GUI, procedury, prośby o zmiany w .swap,
+  // ruch. Widoczne GUI z pause="true" zatrzymuje procedury, Lua i fizykę.
   void run_frame(const vm::FrameContext &ctx);
 
   // Wykonuje zamówione zmiany (.swap, scena) od razu – np. z API, gdy gra stoi.
@@ -92,6 +98,7 @@ public:
   void apply_script(const fs::path &path, const std::string &source);
   // components.xml zmienił się: nowy rejestr i ponowne wczytanie scene.xml.
   void apply_components_xml(const std::string &text);
+  void apply_gui_xml(gui::GuiScene scene, Diagnostics diagnostics);
 
   void set_self_write_callback(SelfWriteCallback callback) { _onSelfWrite = std::move(callback); }
 
@@ -112,6 +119,8 @@ public:
   const std::string &scene_name() const { return _sceneName; }
   int scene_generation() const { return _sceneGeneration; }
   const scene::SceneData &scene_data() const { return _sceneData; }
+  gui::GuiSystem &gui() { return _gui; }
+  const gui::GuiSystem &gui() const { return _gui; }
   scene::World &world() { return _world; }
   const vm::Program &program() const { return _program; }
 
@@ -122,6 +131,7 @@ public:
   void request_proc_remove(const std::string &name, int line) override;
   void request_proc_paste(const std::string &source) override;
   void request_scene(const std::string &name, int line) override;
+  void request_gui(vm::Op op, const std::string &name, int line) override;
   void log(const std::string &message) override;
   void runtime_error(int line, const std::string &message) override;
   void lua_error(const Diagnostic &error) override { _log.diagnostic(error); }
@@ -129,6 +139,7 @@ public:
   scene::World &lua_world() override { return _world; }
   const vm::FrameContext *lua_frame() override { return _frame; }
   bool lua_has_proc(const std::string &name) override { return _program.find(name) != nullptr; }
+  gui::GuiSystem &lua_gui() override { return _gui; }
 };
 
 } // namespace PimpEx::boot

@@ -28,6 +28,8 @@ public:
   virtual void request_proc_add(const std::string &name, int line) = 0;
   virtual void request_proc_remove(const std::string &name, int line) = 0;
   virtual void request_scene(const std::string &name, int line) = 0;
+  // GUI_SHOW / GUI_HIDE / GUI_TOGGLE nazwa.
+  virtual void request_gui(Op op, const std::string &name, int line) = 0;
   virtual void log(const std::string &message) = 0;
   virtual void runtime_error(int line, const std::string &message) = 0;
 };
@@ -57,6 +59,10 @@ public:
 
   void run_frame(const Program &program, scene::World &world, const FrameContext &ctx,
                  IVmHost &host);
+
+  // Wykonuje instrukcje spoza PROC (np. kliknięcie przycisku GUI).
+  void run_instructions(const std::vector<Instr> &instructions, scene::World &world,
+                        const FrameContext &ctx, IVmHost &host);
 
   // Po podmianie programu te same błędy mogą znów zostać zgłoszone.
   void reset_reports() { _reported.clear(); }
