@@ -1,7 +1,7 @@
-<!-- Własne komponenty gry. -->
+<!-- The game's own components. -->
 <Components>
-  <Component name="Health" doc="Punkty życia gracza i strażników">
-    <Field name="hp" type="number" default="100" doc="aktualne życie"/>
-    <Field name="max" type="number" default="100" doc="najwięcej życia"/>
+  <Component name="Health" doc="Hit points of the player and the guards">
+    <Field name="hp" type="number" default="100" doc="current health"/>
+    <Field name="max" type="number" default="100" doc="maximum health"/>
   </Component>
 </Components>

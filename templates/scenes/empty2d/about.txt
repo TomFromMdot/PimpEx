@@ -1,1 +1,1 @@
-Pusta scena 2D z napisem i aktorem Game na stan gry
+Empty 2D scene with a title and a Game actor for game state

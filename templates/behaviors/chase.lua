@@ -1,7 +1,7 @@
--- Goni wskazanego aktora.
--- Parametry: target (domyślnie Player), speed (domyślnie 1),
---            axes – po których osiach goni: "xy" (2D, domyślnie) albo "xz" (3D, po ziemi),
---            range – goni tylko, gdy cel jest bliżej niż range (opcjonalnie).
+-- Chases an actor.
+-- Parameters: target (default Player), speed (default 1),
+--             axes – which axes to chase on: "xy" (2D, default) or "xz" (3D, along the ground),
+--             range – only chase when the target is closer than range (optional).
 --   <Behavior name="chase" target="Player" speed="1.5"/>
 return {
   on_update = function(self)

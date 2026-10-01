@@ -15,9 +15,8 @@
 
 namespace PimpEx::scene {
 
-// „Żywa” scena: aktorzy (GameObjecty) w rejestrze EnTT, dostępni po nazwie.
-// Pola czyta się i zapisuje ścieżkami: "x", "vx", "Rect.color", "Health.hp",
-// "score" (zmienna). Tylko wątek główny dotyka World.
+// The live scene: actors in an EnTT registry, found by name. Fields are paths:
+// "x", "vx", "Rect.color", "Health.hp", "score" (a variable). Main thread only.
 class World {
   std::shared_ptr<const ComponentRegistry> _components;
   entt::registry _registry;
@@ -33,9 +32,8 @@ class World {
   void strip_components(entt::entity e);
 
 public:
-  // Pole znalezione po ścieżce.
   struct FieldRef {
-    const ComponentDesc *component = nullptr; // null = zmienna z <Var>
+    const ComponentDesc *component = nullptr; // null = a <Var> variable
     const FieldDesc *field = nullptr;
     std::string var;
   };
@@ -43,23 +41,20 @@ public:
   World();
   explicit World(std::shared_ptr<const ComponentRegistry> components);
 
-  // Rejestr komponentów (wbudowane + components.xml).
   void set_components(std::shared_ptr<const ComponentRegistry> components);
   const ComponentRegistry &components() const { return *_components; }
 
-  // Buduje świat od zera na podstawie scene.xml.
   void load(const SceneData &data);
 
-  // Hot-reload scene.xml. Z `keepState` aktorzy, którzy już istnieją,
-  // zachowują pozycję, prędkość, zmienne i dane komponentów użytkownika;
-  // resztę (wygląd, rozmiar, nowe komponenty) biorą z pliku.
-  // Aktorzy usunięci z pliku znikają, a stworzeni przez SPAWN zostają.
+  // Hot-reload of scene.xml. With `keepState` existing actors keep position,
+  // velocity, variables and user component data; the rest (looks, size, new
+  // components) comes from the file. Actors removed from the file disappear,
+  // spawned ones stay.
   void reload(const SceneData &data, bool keepState);
 
   void clear();
 
-  // SPAWN: tworzy aktora z archetypu. Zwraca nazwę nowego aktora
-  // albo nullopt, jeśli archetypu nie ma.
+  // Returns the new actor's name, or nullopt without such an archetype.
   std::optional<std::string> spawn(const std::string &archetype, const std::string &name,
                                    std::optional<std::pair<float, float>> position);
 
@@ -68,44 +63,40 @@ public:
   entt::entity find(const std::string &name) const;
   std::string name_of(entt::entity e) const;
 
-  // --- pola -------------------------------------------------------------------------
-  // "x" / "vx" / "rotation" – skróty do Transform i Body; "Comp.pole";
-  // inna pojedyncza nazwa – zmienna. Zwraca nullopt i opis w `error`.
+  // "x" / "vx" / "rotation" – Transform and Body shortcuts; "Comp.field";
+  // any other single name is a variable. nullopt and `error` on failure.
   std::optional<FieldRef> resolve(std::string_view path, std::string *error = nullptr) const;
 
   std::optional<FieldValue> get_field(const std::string &actor, std::string_view path,
                                       std::string *error = nullptr) const;
-  // Wartość liczbowa (bool = 0/1). Tekst albo brak pola = nullopt.
+  // Numeric value (bool = 0/1); nullopt for text or a missing field.
   std::optional<double> get(const std::string &actor, std::string_view path) const;
 
-  // Zwraca opis błędu albo nullopt. Brakujący komponent zostaje dodany.
+  // Returns an error message or nullopt. A missing component is added.
   std::optional<std::string> set_field(const std::string &actor, std::string_view path,
                                        const FieldValue &value);
   bool set(const std::string &actor, std::string_view path, double value) {
     return !set_field(actor, path, value).has_value();
   }
 
-  // --- komponenty i zapytania ---------------------------------------------------------
   bool has_component(entt::entity e, std::string_view component) const;
   std::optional<std::string> add_component(const std::string &actor, const std::string &component);
   bool remove_component(const std::string &actor, const std::string &component);
   std::vector<std::string> components_of(entt::entity e) const;
 
   bool has_tag(entt::entity e, std::string_view tag) const;
-  // "Health" – aktorzy z komponentem, "@enemy" – z tagiem, "" – wszyscy.
+  // "Health" – has the component, "@enemy" – has the tag, "" – everyone.
   bool matches(entt::entity e, std::string_view selector) const;
   std::vector<std::string> query(std::string_view selector) const;
 
-  // Czy prostokąty (prostopadłościany) dwóch aktorów na siebie nachodzą.
   bool touching(const std::string &a, const std::string &b) const;
   bool touching(entt::entity a, entt::entity b) const;
 
-  // Kafel z <Tilemap> bez ruchu i zachowań (np. ściana). W zrzucie stanu
-  // i w API jest tylko liczony, żeby setki ścian nie zasłaniały reszty.
+  // A <Tilemap> tile without movement or behaviors (e.g. a wall). The state
+  // dump and the API only count these so hundreds of walls do not hide the rest.
   bool is_static_tile(entt::entity e) const;
 
-  // Promień od (x, y, z) w kierunku (dx, dy, dz): pierwszy aktor z solidnym
-  // Colliderem w odległości do `maxDistance`. `ignore` – np. sam strzelający.
+  // First actor with a solid Collider within `maxDistance`. `ignore` is e.g. the shooter.
   struct RayHit {
     entt::entity entity = entt::null;
     float distance = 0;
@@ -122,10 +113,10 @@ public:
   entt::registry &registry() { return _registry; }
   const entt::registry &registry() const { return _registry; }
 
-  // Zamienia szablon napisu ({Aktor.pole}) na tekst – podaje go VM.
+  // Expands {Actor.field} templates; supplied by the VM.
   using TextFormatter = std::function<std::string(const std::string &text, const std::string &self)>;
 
-  // Tekstowy zrzut stanu – czytelny dla człowieka i agenta AI.
+  // Human- and agent-readable state dump.
   void dump(std::ostream &out, const TextFormatter &formatText = {}) const;
 };
 

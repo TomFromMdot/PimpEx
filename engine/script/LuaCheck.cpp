@@ -12,7 +12,7 @@ LuaCheckResult check_scripts(const boot::ProjectPaths &paths, Diagnostics &diagn
   sol::state lua;
   lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table);
 
-  // Na górnym poziomie skryptu wolno rejestrować systemy – tu tylko atrapa.
+  // Scripts may register systems at the top level – a stub is enough here.
   lua.set_function("system", [](sol::object, sol::object) {});
 
   std::set<std::string> builtins;
@@ -24,9 +24,8 @@ LuaCheckResult check_scripts(const boot::ProjectPaths &paths, Diagnostics &diagn
     const auto source = boot::read_file(file);
     if (!source)
       continue;
-    // Kompilujemy i wykonujemy skrypt w pustym stanie (bez API silnika),
-    // żeby poznać zdefiniowane funkcje. Dlatego skrypty powinny na górnym
-    // poziomie tylko definiować funkcje i zmienne.
+    // Runs the script in an empty state (no engine API) to learn its functions.
+    // That is why scripts should only define functions and variables at the top level.
     auto loaded = lua.load(*source, "@" + paths.display(file));
     if (!loaded.valid()) {
       sol::error err = loaded;
@@ -48,7 +47,6 @@ LuaCheckResult check_scripts(const boot::ProjectPaths &paths, Diagnostics &diagn
         !builtins.contains(key.as<std::string>()))
       result.functions.insert(key.as<std::string>());
 
-  // Zachowania: każdy plik musi zwracać tabelę z funkcjami.
   for (const auto &file : paths.behavior_files()) {
     const auto source = boot::read_file(file);
     if (!source)
@@ -72,7 +70,7 @@ LuaCheckResult check_scripts(const boot::ProjectPaths &paths, Diagnostics &diagn
     sol::object value = run;
     if (value.get_type() != sol::type::table) {
       diagnostics.push_back({Diagnostic::Severity::Error, display, 0,
-                             "zachowanie musi kończyć się `return { on_start = ..., on_update = ... }`"});
+                             "a behavior must end with `return { on_start = ..., on_update = ... }`"});
       result.ok = false;
       continue;
     }
@@ -83,7 +81,7 @@ LuaCheckResult check_scripts(const boot::ProjectPaths &paths, Diagnostics &diagn
       static const std::set<std::string> known = {"on_start", "on_update", "on_touch", "on_destroy"};
       if (v.get_type() == sol::type::function && name.starts_with("on_") && !known.contains(name))
         diagnostics.push_back({Diagnostic::Severity::Warning, display, 0,
-                               std::format("'{}' nie zostanie wywołane – silnik zna on_start, "
+                               std::format("'{}' will never be called – the engine knows on_start, "
                                            "on_update, on_touch, on_destroy",
                                            name)});
     }

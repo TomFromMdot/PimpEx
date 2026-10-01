@@ -10,23 +10,20 @@
 
 namespace PimpEx::vm {
 
-// Stan klawiatury i myszki w bieżącej klatce.
-// VM nie wie nic o raylib – dostaje tylko ten interfejs.
+// Keyboard and mouse state for the current frame. Keeps the VM free of raylib.
 class IInput {
 public:
   virtual ~IInput() = default;
-  virtual bool down(Key key) const = 0;    // klawisz trzymany
-  virtual bool pressed(Key key) const = 0; // wciśnięty w tej klatce
+  virtual bool down(Key key) const = 0;    // held
+  virtual bool pressed(Key key) const = 0; // went down this frame
   virtual float mouse_x() const = 0;
   virtual float mouse_y() const = 0;
-  // Ruch myszy od poprzedniej klatki (kamera fps).
   virtual float mouse_dx() const { return 0; }
   virtual float mouse_dy() const { return 0; }
-  virtual bool mouse_down(MouseButton) const { return false; }    // przycisk trzymany
-  virtual bool mouse_pressed(MouseButton) const { return false; } // wciśnięty w tej klatce
+  virtual bool mouse_down(MouseButton) const { return false; }
+  virtual bool mouse_pressed(MouseButton) const { return false; }
 };
 
-// Input sterowany ręcznie – dla testów i trybu bez okna (--headless).
 class ManualInput : public IInput {
   std::array<bool, KeyCount> _down{};
   std::array<bool, KeyCount> _pressed{};
@@ -56,10 +53,10 @@ public:
   }
 };
 
-// Klawisze wciśnięte „z zewnątrz” (API input.press) nałożone na prawdziwy input.
+// Keys pressed from outside (API input.press) layered over the real input.
 class OverlayInput : public IInput {
   const IInput *_base = nullptr;
-  std::array<long, KeyCount> _downUntil{}; // klatka, do której klawisz jest trzymany
+  std::array<long, KeyCount> _downUntil{};
   std::array<long, KeyCount> _pressedAt{};
   long _frame = 0;
 
@@ -70,7 +67,7 @@ public:
   }
   void set_base(const IInput *base) { _base = base; }
   void set_frame(long frame) { _frame = frame; }
-  // Trzyma klawisz przez `frames` klatek, zaczynając od następnej.
+  // Holds the key for `frames` frames, starting with the next one.
   void press(Key key, long frames) {
     const auto i = static_cast<std::size_t>(key);
     _pressedAt[i] = _frame;
@@ -92,9 +89,9 @@ public:
   bool mouse_pressed(MouseButton button) const override { return _base && _base->mouse_pressed(button); }
 };
 
-// Zaplanowane wciśnięcia klawiszy dla trybu --headless, np. "RIGHT:0-60 SPACE:10".
-// KLAWISZ:od-do trzyma klawisz w klatkach od..do, KLAWISZ:n wciska go na jedną klatkę.
-// CLICK@x/y:n stawia kursor w (x, y) i trzyma lewy przycisk myszy (np. przycisk GUI).
+// Scripted input for --headless runs, e.g. "RIGHT:0-60 SPACE:10 CLICK@400/300:20".
+// KEY:from-to holds a key, KEY:n taps it for one frame, CLICK@x/y:n moves the
+// cursor to (x, y) and holds the left mouse button.
 class ScriptedInput : public ManualInput {
   struct Press {
     Key key;
@@ -108,7 +105,7 @@ class ScriptedInput : public ManualInput {
   std::vector<Click> _clicks;
 
 public:
-  // Zwraca opis błędu albo pusty tekst.
+  // Returns an error message, or an empty string.
   std::string parse(std::string_view spec);
   void update(long frame);
 };

@@ -1,10 +1,10 @@
--- Skrypty Lua: bardziej złożona logika, wywoływana z scene.swap przez CALL.
--- Na górnym poziomie pliku tylko definiujemy funkcje i zmienne.
+-- Lua scripts: more complex logic, called from scene.swap with CALL.
+-- At the top level of the file we only define functions and variables.
 
--- `sparks or {}` – po hot-reloadzie skryptu lista iskier nie ginie.
+-- `sparks or {}` – the spark list survives a script hot-reload.
 sparks = sparks or {}
 
--- CALL coin_collected – gracz dotknął monety.
+-- CALL coin_collected – the player touched a coin.
 function coin_collected()
   local x, y = get("Coin", "x"), get("Coin", "y")
   for i = 1, 8 do
@@ -13,13 +13,13 @@ function coin_collected()
     set(name, "vy", math.random(-40, 40) / 10)
     table.insert(sparks, name)
   end
-  -- moneta przeskakuje w losowe miejsce
+  -- the coin jumps to a random place
   set("Coin", "x", math.random(40, 760))
   set("Coin", "y", math.random(60, 560))
-  log("Moneta! Razem: " .. get("Game", "coins"))
+  log("Coin! Total: " .. get("Game", "coins"))
 end
 
--- CALL update_sparks – co klatkę iskry gasną i znikają.
+-- CALL update_sparks – every frame the sparks fade and disappear.
 function update_sparks()
   for i = #sparks, 1, -1 do
     local name = sparks[i]

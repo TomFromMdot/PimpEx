@@ -6,7 +6,7 @@
 
 namespace PimpEx::cli {
 
-// pimpex mcp [projekt] – serwer MCP (stdio) dla agentów AI.
+// pimpex mcp [project] – MCP server (stdio) for AI agents.
 class McpCommand : public ICommand {
   std::string _project = ".";
 

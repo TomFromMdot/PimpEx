@@ -8,19 +8,18 @@
 #include <string>
 #include <string_view>
 
-// Wczytywanie pimpex.xml i scene.xml. Funkcje działają na tekście,
-// więc można je wołać z wątku zasobów i łatwo testować.
+// pimpex.xml, scene.xml and gui/*.xml. Text in, data out – safe on the asset
+// thread and easy to test.
 namespace PimpEx::boot {
 
 scene::ProjectConfig parse_project_xml(std::string_view content, const std::string &file,
                                        Diagnostics &diagnostics);
 
-// `components` – rejestr z komponentami użytkownika (null = tylko wbudowane).
+// `components` includes user components (null = built-ins only).
 scene::SceneData parse_scene_xml(std::string_view content, const std::string &file,
                                  const std::string &sceneName, Diagnostics &diagnostics,
                                  const scene::ComponentRegistry *components = nullptr);
 
-// gui/<nazwa>.xml – jedna scena GUI (docs/gui.md).
 gui::GuiScene parse_gui_xml(std::string_view content, const std::string &file, const std::string &name,
                             Diagnostics &diagnostics);
 

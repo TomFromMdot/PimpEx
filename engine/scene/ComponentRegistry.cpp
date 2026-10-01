@@ -13,11 +13,11 @@ namespace PimpEx::scene {
 
 std::string_view field_type_name(FieldType type) {
   switch (type) {
-  case FieldType::Number: return "liczba";
-  case FieldType::Integer: return "liczba całkowita";
+  case FieldType::Number: return "number";
+  case FieldType::Integer: return "integer";
   case FieldType::Bool: return "true/false";
-  case FieldType::Text: return "tekst";
-  case FieldType::Color: return "kolor";
+  case FieldType::Text: return "text";
+  case FieldType::Color: return "color";
   }
   return "?";
 }
@@ -65,14 +65,14 @@ std::optional<FieldValue> parse_field_text(const FieldDesc &field, std::string_v
   case FieldType::Integer:
     if (auto number = parse_number(text))
       return field.type == FieldType::Integer ? std::round(*number) : *number;
-    error = std::format("{}=\"{}\" musi być liczbą", field.name, text);
+    error = std::format("{}=\"{}\" must be a number", field.name, text);
     return std::nullopt;
   case FieldType::Bool:
     if (text == "true" || text == "1" || text == "tak")
       return 1.0;
     if (text == "false" || text == "0" || text == "nie")
       return 0.0;
-    error = std::format("{}=\"{}\" musi być true albo false", field.name, text);
+    error = std::format("{}=\"{}\" must be true or false", field.name, text);
     return std::nullopt;
   case FieldType::Text:
   case FieldType::Color:
@@ -102,7 +102,7 @@ std::optional<FieldValue> coerce_field(const FieldDesc &field, const FieldValue 
     const auto str = number ? format_number(*number) : *text;
     if (!field.choices.empty() &&
         std::find(field.choices.begin(), field.choices.end(), str) == field.choices.end()) {
-      error = std::format("{}=\"{}\" – dozwolone: {}", field.name, str, choices_text(field));
+      error = std::format("{}=\"{}\" – allowed: {}", field.name, str, choices_text(field));
       return std::nullopt;
     }
     return str;
@@ -110,14 +110,13 @@ std::optional<FieldValue> coerce_field(const FieldDesc &field, const FieldValue 
   case FieldType::Color:
     if (text && parse_color(*text))
       return *text;
-    error = std::format("{}: nieznany kolor '{}' (użyj #rrggbb albo nazwy, np. red)", field.name,
+    error = std::format("{}: unknown color '{}' (use #rrggbb or a name, e.g. red)", field.name,
                         number ? format_number(*number) : *text);
     return std::nullopt;
   }
   return std::nullopt;
 }
 
-// --- wiązanie pól struktur C++ z opisem komponentu ------------------------------------
 
 namespace {
 
@@ -204,14 +203,14 @@ public:
 
 template <typename C> ComponentDesc color_only(std::string name, std::string group, std::string doc) {
   return Binder<C>(std::move(name), std::move(group), std::move(doc))
-      .field("color", &C::color, "kolor")
+      .field("color", &C::color, "color")
       .build();
 }
 
 template <typename C> ComponentDesc mesh(std::string name, std::string doc) {
   return Binder<C>(std::move(name), "3D", std::move(doc))
-      .field("color", &C::color, "kolor")
-      .field("wire", &C::wire, "true = tylko krawędzie (siatka)")
+      .field("color", &C::color, "color")
+      .field("wire", &C::wire, "true = edges only (wireframe)")
       .build();
 }
 
@@ -220,86 +219,86 @@ template <typename C> ComponentDesc mesh(std::string name, std::string doc) {
 std::shared_ptr<ComponentRegistry> ComponentRegistry::with_builtins() {
   auto registry = std::make_shared<ComponentRegistry>();
 
-  registry->add(Binder<Transform>("Transform", "ogólne",
-                                  "Pozycja, rozmiar, obrót i widoczność. Każdy aktor go ma; "
-                                  "jego pola można pisać wprost na <Actor>.")
-                    .field("x", &Transform::x, "pozycja X (środek)")
-                    .field("y", &Transform::y, "pozycja Y (środek); w 2D rośnie w dół, w 3D w górę")
-                    .field("z", &Transform::z, "pozycja Z (3D)")
-                    .field("w", &Transform::w, "szerokość")
-                    .field("h", &Transform::h, "wysokość")
-                    .field("d", &Transform::d, "głębokość (3D)")
-                    .field("rx", &Transform::rx, "obrót wokół osi X w stopniach (3D)")
-                    .field("ry", &Transform::ry, "obrót wokół osi Y w stopniach (3D)")
-                    .field("rz", &Transform::rz, "obrót wokół osi Z w stopniach (w 2D: obrót)")
-                    .field("scale", &Transform::scale, "skala (3D, modele)")
-                    .field("layer", &Transform::layer, "kolejność rysowania 2D (większe = wyżej)")
-                    .field("visible", &Transform::visible, "czy aktor jest rysowany")
+  registry->add(Binder<Transform>("Transform", "general",
+                                  "Position, size, rotation and visibility. Every actor has it; "
+                                  "its fields can be written directly on <Actor>.")
+                    .field("x", &Transform::x, "X position (centre)")
+                    .field("y", &Transform::y, "Y position (centre); grows down in 2D, up in 3D")
+                    .field("z", &Transform::z, "Z position (3D)")
+                    .field("w", &Transform::w, "width")
+                    .field("h", &Transform::h, "height")
+                    .field("d", &Transform::d, "depth (3D)")
+                    .field("rx", &Transform::rx, "rotation around X in degrees (3D)")
+                    .field("ry", &Transform::ry, "rotation around Y in degrees (3D)")
+                    .field("rz", &Transform::rz, "rotation around Z in degrees (the 2D rotation)")
+                    .field("scale", &Transform::scale, "scale (3D, models)")
+                    .field("layer", &Transform::layer, "2D drawing order (higher = on top)")
+                    .field("visible", &Transform::visible, "whether the actor is drawn")
                     .field("space", &Transform::space,
-                           "world = w świecie, screen = HUD w pikselach ekranu",
+                           "world = in the world, screen = HUD in screen pixels",
                            {"world", "screen"})
                     .build());
 
-  registry->add(Binder<Body>("Body", "ruch",
-                             "Prędkość i grawitacja. Silnik przesuwa aktora co klatkę.")
-                    .field("vx", &Body::vx, "prędkość X na klatkę")
-                    .field("vy", &Body::vy, "prędkość Y na klatkę")
-                    .field("vz", &Body::vz, "prędkość Z na klatkę (3D)")
-                    .field("gravity", &Body::gravity, "przyspieszenie w dół na klatkę (np. 0.5)")
-                    .field("grounded", &Body::grounded, "1, gdy stoi na czymś solidnym", {}, true)
+  registry->add(Binder<Body>("Body", "movement",
+                             "Velocity and gravity. The engine moves the actor every frame.")
+                    .field("vx", &Body::vx, "X velocity per frame")
+                    .field("vy", &Body::vy, "Y velocity per frame")
+                    .field("vz", &Body::vz, "Z velocity per frame (3D)")
+                    .field("gravity", &Body::gravity, "downward acceleration per frame (e.g. 0.5)")
+                    .field("grounded", &Body::grounded, "1 when standing on something solid", {}, true)
                     .build());
 
-  registry->add(Binder<Collider>("Collider", "ruch",
-                                 "Kolizje z prostokątem/prostopadłościanem aktora (w, h, d).")
+  registry->add(Binder<Collider>("Collider", "movement",
+                                 "Collisions with the actor's box (w, h, d).")
                     .field("kind", &Collider::kind,
-                           "solid = nie da się przez niego przejść, trigger = tylko wykrywa dotyk",
+                           "solid = cannot be walked through, trigger = only detects touches",
                            {"solid", "trigger"})
                     .build());
 
-  registry->add(color_only<Rect>("Rect", "2D", "Prostokąt w × h."));
-  registry->add(color_only<Circle>("Circle", "2D", "Koło o średnicy w."));
-  registry->add(Binder<Sprite>("Sprite", "2D", "Obrazek z <Resources> rozciągnięty do w × h.")
-                    .field("texture", &Sprite::texture, "id tekstury z <Resources>")
-                    .field("tint", &Sprite::tint, "zabarwienie (white = bez zmian)")
+  registry->add(color_only<Rect>("Rect", "2D", "Rectangle w × h."));
+  registry->add(color_only<Circle>("Circle", "2D", "Circle with diameter w."));
+  registry->add(Binder<Sprite>("Sprite", "2D", "Image from <Resources> stretched to w × h.")
+                    .field("texture", &Sprite::texture, "texture id from <Resources>")
+                    .field("tint", &Sprite::tint, "tint (white = unchanged)")
                     .build());
   registry->add(Binder<Text>("Text", "2D",
-                             "Napis. {Aktor.pole} wstawia wartość na żywo. W scenie 3D "
-                             "napisy zwykle mają space=\"screen\".")
-                    .field("value", &Text::value, "treść napisu")
-                    .field("size", &Text::size, "wielkość liter")
-                    .field("color", &Text::color, "kolor")
+                             "Text. {Actor.field} inserts a live value. In 3D scenes "
+                             "text usually has space=\"screen\".")
+                    .field("value", &Text::value, "the text")
+                    .field("size", &Text::size, "font size")
+                    .field("color", &Text::color, "color")
                     .build());
 
-  registry->add(mesh<Cube>("Cube", "Prostopadłościan w × h × d."));
-  registry->add(mesh<Sphere>("Sphere", "Kula o średnicy w."));
-  registry->add(mesh<Cylinder>("Cylinder", "Walec: średnica w, wysokość h."));
-  registry->add(color_only<Plane>("Plane", "3D", "Płaska podłoga w × d."));
-  registry->add(Binder<Model>("Model", "3D", "Model 3D (.glb, .gltf, .obj) z <Resources>.")
-                    .field("model", &Model::model, "id modelu z <Resources>")
-                    .field("tint", &Model::tint, "zabarwienie")
+  registry->add(mesh<Cube>("Cube", "Box w × h × d."));
+  registry->add(mesh<Sphere>("Sphere", "Sphere with diameter w."));
+  registry->add(mesh<Cylinder>("Cylinder", "Cylinder: diameter w, height h."));
+  registry->add(color_only<Plane>("Plane", "3D", "Flat floor w × d."));
+  registry->add(Binder<Model>("Model", "3D", "3D model (.glb, .gltf, .obj) from <Resources>.")
+                    .field("model", &Model::model, "model id from <Resources>")
+                    .field("tint", &Model::tint, "tint")
                     .build());
 
-  registry->add(Binder<Camera>("Camera", "kamera i światło",
-                               "Kamera. Pozycja z Transform aktora. Pierwsza aktywna kamera "
-                               "w scenie jest używana.")
+  registry->add(Binder<Camera>("Camera", "camera and light",
+                               "Camera. Position from the actor's Transform. The first active "
+                               "camera in the scene is used.")
                     .field("mode", &Camera::mode,
-                           "fixed | follow (2D i 3D), orbit | fps (3D)",
+                           "fixed | follow (2D and 3D), orbit | fps (3D)",
                            {"fixed", "follow", "orbit", "fps"})
-                    .field("target", &Camera::target, "aktor, za którym podąża / na który patrzy")
-                    .field("zoom", &Camera::zoom, "przybliżenie (2D)")
-                    .field("fov", &Camera::fov, "kąt widzenia w stopniach (3D)")
-                    .field("distance", &Camera::distance, "odległość od celu (3D follow/orbit)")
-                    .field("height", &Camera::height, "wysokość nad celem (3D follow/orbit)")
-                    .field("active", &Camera::active, "czy ta kamera jest używana")
+                    .field("target", &Camera::target, "actor to follow / look at")
+                    .field("zoom", &Camera::zoom, "zoom (2D)")
+                    .field("fov", &Camera::fov, "field of view in degrees (3D)")
+                    .field("distance", &Camera::distance, "distance from the target (3D follow/orbit)")
+                    .field("height", &Camera::height, "height above the target (3D follow/orbit)")
+                    .field("active", &Camera::active, "whether this camera is used")
                     .build());
-  registry->add(Binder<Light>("Light", "kamera i światło",
-                              "Światło w scenie 3D (maks. 4). Pozycja z Transform.")
+  registry->add(Binder<Light>("Light", "camera and light",
+                              "Light in a 3D scene (max 4). Position from Transform.")
                     .field("kind", &Light::kind,
-                           "point = żarówka, directional = słońce (świeci od swojej pozycji do (0, 0, 0)), "
-                           "ambient = światło otoczenia (bez kierunku)",
+                           "point = bulb, directional = sun (shines from its position to (0, 0, 0)), "
+                           "ambient = ambient light (no direction)",
                            {"point", "directional", "ambient"})
-                    .field("color", &Light::color, "kolor światła")
-                    .field("intensity", &Light::intensity, "jasność")
+                    .field("color", &Light::color, "light color")
+                    .field("intensity", &Light::intensity, "brightness")
                     .build());
   return registry;
 }
@@ -326,15 +325,13 @@ std::vector<std::string> ComponentRegistry::names() const {
   return out;
 }
 
-// --- components.xml ------------------------------------------------------------------------
-
 namespace {
 
 ComponentDesc custom_component(std::string name, std::string doc, std::vector<FieldDesc> fields) {
   ComponentDesc desc;
   desc.name = name;
   desc.doc = std::move(doc);
-  desc.group = "użytkownika";
+  desc.group = "user";
   desc.builtin = false;
   desc.fields = std::move(fields);
   const auto defaults = std::make_shared<std::map<std::string, FieldValue>>();
@@ -384,24 +381,24 @@ void ComponentRegistry::load_custom(std::string_view xml, const std::string &fil
   const auto result = doc.load_buffer(xml.data(), xml.size());
   if (!result) {
     diagnostics.push_back({Diagnostic::Severity::Error, file, 1,
-                           std::format("niepoprawny XML: {}", result.description())});
+                           std::format("invalid XML: {}", result.description())});
     return;
   }
   const auto root = doc.child("Components");
   if (!root) {
-    diagnostics.push_back({Diagnostic::Severity::Error, file, 1, "brakuje elementu <Components>"});
+    diagnostics.push_back({Diagnostic::Severity::Error, file, 1, "missing <Components> element"});
     return;
   }
 
   for (auto node : root.children("Component")) {
     const std::string name = node.attribute("name").value();
     if (name.empty() || !(std::isupper(static_cast<unsigned char>(name[0])))) {
-      error(node, "<Component> musi mieć name zaczynające się wielką literą, np. Health");
+      error(node, "<Component> needs a name starting with a capital letter, e.g. Health");
       continue;
     }
     if (name == "Actor" || name == "Archetype" || name == "Var" || name == "Behavior" ||
         (find(name) && find(name)->builtin)) {
-      error(node, std::format("nazwa '{}' jest zajęta przez silnik", name));
+      error(node, std::format("the name '{}' is reserved by the engine", name));
       continue;
     }
     std::vector<FieldDesc> fields;
@@ -416,11 +413,11 @@ void ComponentRegistry::load_custom(std::string_view xml, const std::string &fil
       else if (type == "text") field.type = FieldType::Text;
       else if (type == "color") field.type = FieldType::Color;
       else {
-        error(fieldNode, std::format("nieznany typ pola '{}' (number, integer, bool, text, color)", type));
+        error(fieldNode, std::format("unknown field type '{}' (number, integer, bool, text, color)", type));
         continue;
       }
       if (field.name.empty() || field.name.find('.') != std::string::npos) {
-        error(fieldNode, "<Field> musi mieć name (bez kropek)");
+        error(fieldNode, "<Field> needs a name (without dots)");
         continue;
       }
       field.defaultValue = field.type == FieldType::Text    ? FieldValue{std::string()}

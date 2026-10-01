@@ -5,7 +5,7 @@
 
 namespace PimpEx {
 
-// Liczby całkowite bez ułamka ("3"), pozostałe z dwoma miejscami ("2.50").
+// Whole numbers without a fraction ("3"), others with two decimals ("2.50").
 inline std::string format_number(double value) {
   if (value == static_cast<double>(static_cast<long long>(value)))
     return std::format("{}", static_cast<long long>(value));

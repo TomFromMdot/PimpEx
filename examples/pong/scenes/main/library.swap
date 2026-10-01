@@ -1,7 +1,7 @@
-# Procedury na żądanie – wklejane do scene.swap w trakcie gry.
+# Procedures on demand – pasted into scene.swap while the game runs.
 
-# Komputer steruje prawą paletką: goni piłkę, ale jest trochę wolniejszy.
-PROC komputer
-  IF Pilka.y < Prawa.y AND Pilka.vx > 0 : MOVE Prawa 0 -5
-  IF Pilka.y > Prawa.y AND Pilka.vx > 0 : MOVE Prawa 0 5
+# The computer moves the right paddle: it chases the ball, but a bit slower.
+PROC computer
+  IF Ball.y < Right.y AND Ball.vx > 0 : MOVE Right 0 -5
+  IF Ball.y > Right.y AND Ball.vx > 0 : MOVE Right 0 5
 END

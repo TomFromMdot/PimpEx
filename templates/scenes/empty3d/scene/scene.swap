@@ -1,4 +1,4 @@
-# Procedury sceny {{SCENE}} – każda PROC działa co klatkę (docs/opcodes.md).
+# Procedures of scene {{SCENE}} – every PROC runs each frame (docs/opcodes.md).
 
 PROC start
 END

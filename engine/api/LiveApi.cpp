@@ -29,14 +29,14 @@ scene::FieldValue field_from_json(const json &value) {
     return value.get<bool>() ? 1.0 : 0.0;
   if (value.is_string())
     return value.get<std::string>();
-  throw ApiError(InvalidParams, "value musi być liczbą, tekstem albo true/false");
+  throw ApiError(InvalidParams, "value must be a number, text or true/false");
 }
 
 std::string str(const json &params, const char *key, bool required = true) {
   if (params.contains(key) && params[key].is_string())
     return params[key].get<std::string>();
   if (required)
-    throw ApiError(InvalidParams, std::format("brakuje parametru '{}' (tekst)", key));
+    throw ApiError(InvalidParams, std::format("missing parameter '{}' (text)", key));
   return {};
 }
 
@@ -134,31 +134,31 @@ struct MethodInfo {
 };
 
 constexpr MethodInfo Methods[] = {
-    {"ping", "", "czy gra działa; zwraca scenę i klatkę"},
-    {"state.get", "selector?, brief?", "stan sceny: klatka, pauza, procedury, aktorzy (filtr: Komponent albo @tag)"},
-    {"actors.list", "selector?", "nazwy aktorów (wszyscy, z komponentem albo z @tagiem)"},
-    {"actor.get", "name", "wszystkie komponenty, zmienne i tagi aktora"},
-    {"actor.set", "name, field, value", "ustawia pole: \"x\", \"vx\", \"Health.hp\", \"Rect.color\", zmienną"},
-    {"actor.spawn", "archetype, name?, x?, y?, z?", "tworzy aktora z archetypu"},
-    {"actor.destroy", "name", "usuwa aktora"},
-    {"actor.add_component", "name, component, values?", "dodaje komponent (z wartościami pól)"},
-    {"actor.remove_component", "name, component", "usuwa komponent"},
-    {"swap.get", "", "tekst scene.swap, lista procedur i biblioteki"},
-    {"swap.paste", "source", "wkleja PROC ... END do scene.swap (ta sama nazwa = podmiana)"},
-    {"swap.add", "name", "wkleja PROC z library.swap"},
-    {"swap.remove", "name", "usuwa PROC z scene.swap"},
-    {"scene.load", "name", "przełącza scenę"},
-    {"scene.list", "", "sceny projektu"},
-    {"input.press", "keys, frames?", "trzyma klawisze (np. [\"SPACE\"]) przez N klatek"},
-    {"game.pause", "", "zatrzymuje logikę (rysowanie trwa)"},
-    {"game.resume", "", "wznawia logikę"},
-    {"game.step", "frames?", "wykonuje N klatek logiki podczas pauzy"},
-    {"game.quit", "", "zamyka grę"},
-    {"screenshot", "", "PNG ostatniej klatki (base64); tylko z oknem"},
-    {"log.tail", "lines?", "ostatnie linie runtime.log"},
-    {"components.list", "", "schemat komponentów (wbudowane + components.xml)"},
-    {"lua.eval", "code", "wykonuje kod Lua w grze i zwraca wynik"},
-    {"check", "", "pimpex check dla całego projektu"},
+    {"ping", "", "is the game running; returns the scene and frame"},
+    {"state.get", "selector?, brief?", "scene state: frame, pause, procs, actors (filter: Component or @tag)"},
+    {"actors.list", "selector?", "actor names (all, with a component or with a @tag)"},
+    {"actor.get", "name", "all components, variables and tags of an actor"},
+    {"actor.set", "name, field, value", "sets a field: \"x\", \"vx\", \"Health.hp\", \"Rect.color\", a variable"},
+    {"actor.spawn", "archetype, name?, x?, y?, z?", "creates an actor from an archetype"},
+    {"actor.destroy", "name", "removes an actor"},
+    {"actor.add_component", "name, component, values?", "adds a component (with field values)"},
+    {"actor.remove_component", "name, component", "removes a component"},
+    {"swap.get", "", "scene.swap text, procedure and library lists"},
+    {"swap.paste", "source", "pastes PROC ... END into scene.swap (same name = replace)"},
+    {"swap.add", "name", "pastes a PROC from library.swap"},
+    {"swap.remove", "name", "removes a PROC from scene.swap"},
+    {"scene.load", "name", "switches the scene"},
+    {"scene.list", "", "project scenes"},
+    {"input.press", "keys, frames?", "holds keys (e.g. [\"SPACE\"]) for N frames"},
+    {"game.pause", "", "stops logic (drawing continues)"},
+    {"game.resume", "", "resumes logic"},
+    {"game.step", "frames?", "runs N logic frames while paused"},
+    {"game.quit", "", "quits the game"},
+    {"screenshot", "", "PNG of the last frame (base64); needs a window"},
+    {"log.tail", "lines?", "last lines of runtime.log"},
+    {"components.list", "", "component schema (built-in + components.xml)"},
+    {"lua.eval", "code", "runs Lua code in the game and returns the result"},
+    {"check", "", "pimpex check for the whole project"},
 };
 
 } // namespace
@@ -179,7 +179,7 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
                              boot.config().width, boot.config().height, control.frame};
   auto requireActor = [&](const std::string &name) {
     if (!world.exists(name))
-      throw ApiError(AppError, std::format("aktor '{}' nie istnieje", name));
+      throw ApiError(AppError, std::format("actor '{}' does not exist", name));
   };
 
   if (method == "ping")
@@ -188,7 +188,7 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
   if (method == "state.get") {
     const auto selector = str(params, "selector", false);
     const bool brief = params.value("brief", false);
-    // Statyczne kafle mapy (ściany) tylko liczymy – chyba że ktoś o nie prosi.
+    // Static map tiles (walls) are only counted unless asked for.
     const bool withStatic = params.value("static", false) || !selector.empty();
     json actors = json::array();
     int staticTiles = 0;
@@ -217,7 +217,7 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
   if (method == "actor.set") {
     const auto name = str(params, "name");
     if (!params.contains("value"))
-      throw ApiError(InvalidParams, "brakuje parametru 'value'");
+      throw ApiError(InvalidParams, "missing parameter 'value'");
     if (auto error = world.set_field(name, str(params, "field"), field_from_json(params["value"])))
       throw ApiError(AppError, *error);
     return actor_json(world, name, ctx, false);
@@ -228,7 +228,7 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
       position = std::pair{params["x"].get<float>(), params["y"].get<float>()};
     const auto created = world.spawn(str(params, "archetype"), str(params, "name", false), position);
     if (!created)
-      throw ApiError(AppError, std::format("nie ma archetypu '{}'", str(params, "archetype")));
+      throw ApiError(AppError, std::format("no archetype '{}'", str(params, "archetype")));
     if (params.contains("z"))
       world.set(*created, "z", params["z"].get<double>());
     return actor_json(world, *created, ctx, false);
@@ -254,7 +254,7 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
     const auto name = str(params, "name");
     requireActor(name);
     if (!world.remove_component(name, str(params, "component")))
-      throw ApiError(AppError, "nie można usunąć tego komponentu");
+      throw ApiError(AppError, "this component cannot be removed");
     return actor_json(world, name, ctx, false);
   }
 
@@ -271,10 +271,10 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
     const auto source = str(params, "source");
     const auto parsed = vm::parse_program(source, "swap.paste");
     if (!parsed.ok() || parsed.program.procs.empty())
-      throw ApiError(AppError, "kod musi zawierać poprawne PROC ... END: " +
-                                   (parsed.diagnostics.empty() ? std::string("brak PROC")
+      throw ApiError(AppError, "the code must contain a valid PROC ... END: " +
+                                   (parsed.diagnostics.empty() ? std::string("no PROC")
                                                                : parsed.diagnostics.front().format()));
-    // Sprawdzamy odwołania (aktorzy, archetypy, komponenty) względem działającej sceny.
+    // Check references (actors, archetypes, components) against the running scene.
     Diagnostics diagnostics;
     const auto sceneNames = boot.paths().scene_names();
     boot::check_program_references({parsed.program, boot.scene_data(), &boot.library(), &sceneNames,
@@ -284,7 +284,7 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
       std::string text;
       for (const auto &d : diagnostics)
         text += "\n" + d.format();
-      throw ApiError(AppError, "kod nie został wklejony:" + text);
+      throw ApiError(AppError, "the code was not pasted:" + text);
     }
     boot.request_proc_paste(source);
     boot.apply_requests();
@@ -294,11 +294,11 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
     const auto name = str(params, "name");
     if (method == "swap.add") {
       if (!boot.library().find(name))
-        throw ApiError(AppError, std::format("nie ma procedury '{}' w library.swap", name));
+        throw ApiError(AppError, std::format("no procedure '{}' in library.swap", name));
       boot.request_proc_add(name, 0);
     } else {
       if (!boot.program().find(name))
-        throw ApiError(AppError, std::format("nie ma procedury '{}' w scene.swap", name));
+        throw ApiError(AppError, std::format("no procedure '{}' in scene.swap", name));
       boot.request_proc_remove(name, 0);
     }
     boot.apply_requests();
@@ -307,7 +307,7 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
   if (method == "scene.load") {
     const auto name = str(params, "name");
     if (!boot.load_scene(name))
-      throw ApiError(AppError, std::format("nie mogę wczytać sceny '{}' – szczegóły w log.tail", name));
+      throw ApiError(AppError, std::format("cannot load scene '{}' – details in log.tail", name));
     return {{"scene", name}};
   }
   if (method == "scene.list")
@@ -315,12 +315,12 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
 
   if (method == "input.press") {
     if (!params.contains("keys") || !params["keys"].is_array())
-      throw ApiError(InvalidParams, "keys musi być listą, np. [\"SPACE\"]");
+      throw ApiError(InvalidParams, "keys must be a list, e.g. [\"SPACE\"]");
     const long frames = params.value("frames", 1L);
     for (const auto &k : params["keys"]) {
       const auto key = vm::key_from_name(k.get<std::string>());
       if (!key)
-        throw ApiError(InvalidParams, std::format("nieznany klawisz '{}'", k.get<std::string>()));
+        throw ApiError(InvalidParams, std::format("unknown key '{}'", k.get<std::string>()));
       control.input->press(*key, frames);
     }
     return {{"frame", control.frame}};
@@ -339,9 +339,9 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
   }
   if (method == "screenshot") {
     if (!control.canScreenshot)
-      throw ApiError(AppError, "zrzut ekranu wymaga okna (gra działa z --headless)");
+      throw ApiError(AppError, "screenshots need a window (the game runs with --headless)");
     control.screenshots.push_back(request);
-    return nullptr; // odpowiedź po narysowaniu klatki
+    return nullptr; // answered after the frame is drawn
   }
   if (method == "log.tail") {
     const auto lines = params.value("lines", 50);
@@ -353,7 +353,7 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
     const auto result = boot.lua().eval(str(params, "code"));
     if (!result.ok)
       throw ApiError(AppError, "Lua: " + result.output);
-    boot.apply_requests(); // kod mógł wołać swap.* albo scene()
+    boot.apply_requests(); // the code may have called swap.* or scene()
     return {{"output", result.output}};
   }
   if (method == "check") {
@@ -361,10 +361,8 @@ json dispatch(const std::shared_ptr<ApiRequest> &request, boot::Boot &boot, Game
     const auto diagnostics = boot::check_project(boot.paths(), summary);
     return {{"ok", !has_errors(diagnostics)}, {"diagnostics", diagnostics_json(diagnostics)}};
   }
-  throw ApiError(MethodNotFound, std::format("nieznana metoda '{}' – lista: GET /methods", method));
+  throw ApiError(MethodNotFound, std::format("unknown method '{}' – list: GET /methods", method));
 }
-
-// --- serwer HTTP --------------------------------------------------------------------------
 
 LiveServer::LiveServer(ApiMailbox &mailbox, std::filesystem::path infoFile)
     : _mailbox(mailbox), _infoFile(std::move(infoFile)) {}
@@ -393,14 +391,14 @@ int LiveServer::start(const std::string &projectRoot, int port) {
     };
     if (!authorized(req)) {
       res.status = 401;
-      reply({{"error", {{"code", -32001}, {"message", "brak tokenu – nagłówek Authorization: Bearer <token> z .pimpex/api.json"}}}});
+      reply({{"error", {{"code", -32001}, {"message", "missing token – send Authorization: Bearer <token> from .pimpex/api.json"}}}});
       return;
     }
     json message;
     try {
       message = json::parse(req.body);
     } catch (const json::parse_error &e) {
-      reply({{"error", {{"code", -32700}, {"message", std::string("niepoprawny JSON: ") + e.what()}}}});
+      reply({{"error", {{"code", -32700}, {"message", std::string("invalid JSON: ") + e.what()}}}});
       return;
     }
     id = message.value("id", json(nullptr));
@@ -410,7 +408,7 @@ int LiveServer::start(const std::string &projectRoot, int port) {
     auto future = request->reply.get_future();
     _mailbox.post(request);
     if (future.wait_for(std::chrono::seconds(10)) != std::future_status::ready) {
-      reply({{"error", {{"code", AppError}, {"message", "gra nie odpowiada (czy okno nie jest zamrożone?)"}}}});
+      reply({{"error", {{"code", AppError}, {"message", "the game does not respond (is the window frozen?)"}}}});
       return;
     }
     reply(future.get());

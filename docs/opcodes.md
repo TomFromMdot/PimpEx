@@ -1,147 +1,147 @@
-# Język `.swap` – procedury sceny
+# The `.swap` language – scene procedures
 
-Plik `scene.swap` to **program pętli sceny**. Składa się z procedur (`PROC`).
-Silnik wykonuje **każdą procedurę w każdej klatce** (60 razy na sekundę),
-od góry do dołu, dopóki gra działa. To jest „nieskończony proces” sceny.
+`scene.swap` is the **scene loop program**. It is made of procedures (`PROC`).
+The engine runs **every procedure every frame** (60 times a second), top to
+bottom, for as long as the game runs. This is the scene's "endless process".
 
-Plik możesz zmieniać **w trakcie gry**. Po zapisaniu silnik wczyta nową wersję
-między klatkami, bez restartu. Jeśli w pliku jest błąd, silnik dalej wykonuje
-poprzednią, poprawną wersję, a błąd zapisuje w `.pimpex/runtime.log`.
+You can change the file **while the game runs**. After you save, the engine
+loads the new version between frames, without a restart. If the file has an
+error, the engine keeps running the previous valid version and writes the
+error to `.pimpex/runtime.log`.
 
 ```
-# To jest komentarz – silnik go pomija.
-PROC ruch_gracza
+# This is a comment – the engine skips it.
+PROC player_movement
   IF KEY LEFT  : MOVE Player -4 0
   IF KEY RIGHT : MOVE Player 4 0
 END
 ```
 
-## Procedury
+## Procedures
 
-| Zapis                 | Znaczenie                                                    |
+| Syntax                | Meaning                                                      |
 |-----------------------|--------------------------------------------------------------|
-| `PROC nazwa` … `END`  | wykonuje się co klatkę                                       |
-| `PROC nazwa EVERY 30` | wykonuje się co 30 klatek (60 klatek = 1 sekunda)            |
-| `PROC nazwa ONCE`     | wykonuje się raz, a potem silnik **sam usuwa ją z pliku**    |
-| `PROC nazwa FOR @tag` | ciało wykonuje się dla **każdego** aktora z tagiem (`SELF`)  |
-| `PROC nazwa FOR Health` | … dla każdego aktora z komponentem `Health`                |
+| `PROC name` … `END`   | runs every frame                                             |
+| `PROC name EVERY 30`  | runs every 30 frames (60 frames = 1 second)                  |
+| `PROC name ONCE`      | runs once, then the engine **removes it from the file**      |
+| `PROC name FOR @tag`  | the body runs for **every** actor with the tag (`SELF`)      |
+| `PROC name FOR Health` | … for every actor with the `Health` component               |
 
-Można łączyć tryby, np. `PROC regeneracja FOR Health EVERY 60`.
+Modes can be combined, e.g. `PROC regeneration FOR Health EVERY 60`.
 
-`ONCE` przydaje się do „wklejania” jednorazowych poleceń do działającej gry.
-Dopisujesz na koniec pliku procedurę `ONCE`, zapisujesz, silnik ją wykonuje
-i czyści.
+`ONCE` is handy for "pasting" one-off commands into a running game. Append a
+`ONCE` procedure to the file, save, and the engine runs it and cleans up.
 
-Nazwy procedur muszą być unikalne w pliku.
+Procedure names must be unique in a file.
 
-## Wartości
+## Values
 
-Wszędzie, gdzie instrukcja oczekuje liczby, możesz wpisać:
+Wherever an instruction expects a number you can write:
 
-- liczbę: `4`, `-2.5`
-- pole aktora: `Player.x`, `Game.score`, `Player.Health.hp`
-- pole z minusem: `-Ball.vx`
-- losową liczbę: `RANDOM 1 6` (liczba z przedziału od 1 do 6, z ułamkami)
+- a number: `4`, `-2.5`
+- an actor field: `Player.x`, `Game.score`, `Player.Health.hp`
+- a negated field: `-Ball.vx`
+- a random number: `RANDOM 1 6` (a number between 1 and 6, with fractions)
 
-## Pola aktorów
+## Actor fields
 
-| Pole        | Znaczenie                                              |
+| Field       | Meaning                                                |
 |-------------|--------------------------------------------------------|
-| `x`, `y`    | pozycja środka aktora (piksele, `y` rośnie w dół)      |
-| `vx`, `vy`  | prędkość – o tyle silnik przesuwa aktora co klatkę     |
-| `w`, `h`    | szerokość i wysokość                                   |
-| `rotation`  | obrót w stopniach                                      |
-| `visible`   | `1` – widoczny, `0` – ukryty                           |
-| `z`, `vz`, `d`, `rx`, `ry` | trzecia oś, prędkość, głębokość i obrót w 3D |
-| `Komponent.pole` | pole komponentu, np. `Player.Health.hp`, `Cam.Camera.zoom` (docs/components.md) |
-| inne nazwy  | Twoje zmienne, np. `Game.score`, `Player.lives`        |
+| `x`, `y`    | the actor's centre (pixels, `y` grows down)            |
+| `vx`, `vy`  | velocity – how far the engine moves the actor each frame |
+| `w`, `h`    | width and height                                       |
+| `rotation`  | rotation in degrees                                    |
+| `visible`   | `1` – visible, `0` – hidden                            |
+| `z`, `vz`, `d`, `rx`, `ry` | the third axis, its velocity, depth and 3D rotation |
+| `Component.field` | a component field, e.g. `Player.Health.hp`, `Cam.Camera.zoom` (docs/components.md) |
+| other names | your variables, e.g. `Game.score`, `Player.lives`      |
 
-Zmienna, której jeszcze nie ma, powstaje przy pierwszym `SET` albo `ADD`.
-Odczyt nieistniejącej zmiennej daje `0`. Zmienne przechowują tylko liczby.
-Pola tekstowe komponentów ustawia się tekstem w cudzysłowie:
-`SET Hud.Text.value "Brawo!"`, `SET Player.Rect.color "red"`.
+A variable that does not exist yet is created by the first `SET` or `ADD`.
+Reading a missing variable gives `0`. Variables hold numbers only. Text
+component fields are set with quoted text:
+`SET Hud.Text.value "Well done!"`, `SET Player.Rect.color "red"`.
 
-### SELF i OTHER
+### SELF and OTHER
 
-- `SELF` – w `PROC ... FOR` aktor, dla którego właśnie wykonuje się ciało:
+- `SELF` – in `PROC ... FOR`, the actor the body is running for:
   `MOVE SELF 1 0`, `IF SELF.Health.hp <= 0 : DESTROY SELF`.
-- `OTHER` – aktor znaleziony przez ostatnie `TOUCH` z grupą:
+- `OTHER` – the actor found by the last `TOUCH` with a group:
   `IF TOUCH SELF @enemy : ADD OTHER.Health.hp -1`.
 
-Pola specjalne (tylko do odczytu):
+Special read-only fields:
 
-- `Screen.w`, `Screen.h` – rozmiar okna
-- `Mouse.x`, `Mouse.y` – pozycja myszki, `Mouse.dx`, `Mouse.dy` – jej ruch w tej klatce
-- `Mouse.left`, `Mouse.right` – `1`, gdy przycisk myszy jest wciśnięty
-- `Scene.frame` – numer bieżącej klatki
+- `Screen.w`, `Screen.h` – the window size
+- `Mouse.x`, `Mouse.y` – the mouse position, `Mouse.dx`, `Mouse.dy` – its motion this frame
+- `Mouse.left`, `Mouse.right` – `1` while the mouse button is held
+- `Scene.frame` – the current frame number
 
-## Instrukcje
+## Instructions
 
-| Instrukcja                              | Co robi                                                        |
+| Instruction                             | What it does                                                   |
 |-----------------------------------------|----------------------------------------------------------------|
-| `MOVE aktor dx dy [dz]`                 | przesuwa aktora o `dx`, `dy` (i `dz` w 3D)                     |
-| `SET Aktor.pole wartość`                | ustawia pole (liczbą albo "tekstem" w cudzysłowie)             |
-| `ADD Aktor.pole wartość`                | dodaje do pola (ujemna wartość odejmuje)                       |
-| `MUL Aktor.pole wartość`                | mnoży pole (np. `MUL Ball.vx -1` odbija piłkę)                 |
-| `SPAWN Archetyp [AS nazwa] [AT x y [z]]`| tworzy nowego aktora z archetypu opisanego w `scene.xml`       |
-| `DESTROY aktor`                         | usuwa aktora                                                   |
-| `FOLLOW aktor cel prędkość`             | przesuwa aktora w stronę celu (w 3D też po osi z)              |
-| `TEXT aktor "tekst"`                    | zmienia napis aktora; `{Aktor.pole}` wstawia wartość pola      |
-| `LOG "tekst"`                           | wypisuje tekst w konsoli i w `.pimpex/runtime.log`             |
-| `CALL funkcja [argumenty…]`             | wywołuje funkcję Lua ze skryptów w katalogu `scripts/`         |
-| `PROC_ADD nazwa`                        | wkleja procedurę `nazwa` z `library.swap` do `scene.swap`      |
-| `PROC_REMOVE nazwa`                     | usuwa procedurę `nazwa` z `scene.swap`                         |
-| `SCENE nazwa`                           | przełącza na inną scenę (`scenes/nazwa/`)                      |
-| `GUI_SHOW nazwa`                        | pokazuje scenę GUI z `gui/nazwa.xml` (menu, pauza – docs/gui.md) |
-| `GUI_HIDE nazwa`                        | chowa scenę GUI                                                |
-| `GUI_TOGGLE nazwa`                      | pokazuje albo chowa scenę GUI (np. pauza pod ESCAPE)           |
+| `MOVE actor dx dy [dz]`                 | moves the actor by `dx`, `dy` (and `dz` in 3D)                 |
+| `SET Actor.field value`                 | sets a field (to a number or "quoted text")                    |
+| `ADD Actor.field value`                 | adds to a field (a negative value subtracts)                   |
+| `MUL Actor.field value`                 | multiplies a field (e.g. `MUL Ball.vx -1` bounces the ball)    |
+| `SPAWN Archetype [AS name] [AT x y [z]]`| creates a new actor from an archetype in `scene.xml`           |
+| `DESTROY actor`                         | removes the actor                                              |
+| `FOLLOW actor target speed`             | moves the actor towards the target (also along z in 3D)        |
+| `TEXT actor "text"`                     | changes the actor's text; `{Actor.field}` inserts a field value |
+| `LOG "text"`                            | prints text to the console and `.pimpex/runtime.log`           |
+| `CALL function [args…]`                 | calls a Lua function from the scripts in `scripts/`            |
+| `PROC_ADD name`                         | pastes procedure `name` from `library.swap` into `scene.swap`  |
+| `PROC_REMOVE name`                      | removes procedure `name` from `scene.swap`                     |
+| `SCENE name`                            | switches to another scene (`scenes/name/`)                     |
+| `GUI_SHOW name`                         | shows the GUI scene from `gui/name.xml` (menus, pause – docs/gui.md) |
+| `GUI_HIDE name`                         | hides the GUI scene                                            |
+| `GUI_TOGGLE name`                       | shows or hides the GUI scene (e.g. a pause on ESCAPE)          |
 
-`SPAWN` bez `AS` nadaje nazwę automatycznie (`Bullet_1`, `Bullet_2`…).
-Bez `AT` nowy aktor pojawia się w pozycji z archetypu.
+`SPAWN` without `AS` names the actor automatically (`Bullet_1`, `Bullet_2`…).
+Without `AT` the new actor appears at the archetype's position.
 
-W `TEXT` zapis `{pole}` bez nazwy aktora oznacza pole tego samego aktora,
-np. `TEXT Score "Punkty: {points}"`.
+In `TEXT`, `{field}` without an actor name means a field of the same actor,
+e.g. `TEXT Score "Points: {points}"`.
 
-## Warunki: `IF`
+## Conditions: `IF`
 
 ```
-IF warunek : instrukcja
-IF warunek AND warunek : instrukcja
-IF warunek : IF inny_warunek : instrukcja
+IF condition : instruction
+IF condition AND condition : instruction
+IF condition : IF other_condition : instruction
 ```
 
-| Warunek                   | Prawdziwy, gdy…                                      |
+| Condition                 | True when…                                           |
 |---------------------------|------------------------------------------------------|
-| `KEY W`                   | klawisz jest wciśnięty (trzymany)                    |
-| `PRESSED SPACE`           | klawisz został wciśnięty w tej klatce (jednorazowo)  |
-| `TOUCH a b`               | aktorzy `a` i `b` stykają się (prostokąty w, h, d)   |
-| `TOUCH a @tag`            | `a` dotyka **któregokolwiek** aktora z tagiem – on staje się `OTHER` |
-| `TOUCH a Komponent`       | jak wyżej, dla aktorów z komponentem                 |
-| `EXISTS aktor`            | aktor istnieje                                       |
-| `EXISTS @tag`             | istnieje choć jeden aktor z tagiem                   |
-| `CHANCE 10`               | wylosowano 10% szans (w każdej klatce osobno)        |
-| `wartość < wartość`       | porównanie: `<`, `<=`, `>`, `>=`, `==`, `!=`         |
-| `NOT warunek`             | odwraca warunek                                      |
+| `KEY W`                   | the key is held                                      |
+| `PRESSED SPACE`           | the key went down this frame (once)                  |
+| `TOUCH a b`               | actors `a` and `b` touch (boxes w, h, d)             |
+| `TOUCH a @tag`            | `a` touches **any** actor with the tag – it becomes `OTHER` |
+| `TOUCH a Component`       | the same, for actors with the component              |
+| `EXISTS actor`            | the actor exists                                     |
+| `EXISTS @tag`             | at least one actor has the tag                       |
+| `CHANCE 10`               | a 10% chance came up (rolled separately every frame) |
+| `value < value`           | comparison: `<`, `<=`, `>`, `>=`, `==`, `!=`         |
+| `NOT condition`           | negates the condition                                |
 
-Klawisze: `A`–`Z`, `0`–`9`, `SPACE`, `ENTER`, `ESCAPE`, `SHIFT`,
+Keys: `A`–`Z`, `0`–`9`, `SPACE`, `ENTER`, `ESCAPE`, `SHIFT`,
 `LEFT`, `RIGHT`, `UP`, `DOWN`.
 
-## Biblioteka procedur: `library.swap`
+## The procedure library: `library.swap`
 
-Obok `scene.swap` może leżeć `library.swap`. Procedury z biblioteki **nie
-wykonują się same**. To gotowe klocki, które silnik (boot) wkleja do
-`scene.swap` na żądanie: przez `PROC_ADD nazwa` albo z Lua przez
-`swap.add("nazwa")`. `PROC_REMOVE` i `swap.remove("nazwa")` wycinają procedurę
-z `scene.swap`.
+`library.swap` may sit next to `scene.swap`. Library procedures **do not run
+on their own**. They are ready-made blocks the engine (Boot) pastes into
+`scene.swap` on request: with `PROC_ADD name` or from Lua with
+`swap.add("name")`. `PROC_REMOVE` and `swap.remove("name")` cut a procedure
+out of `scene.swap`.
 
 ```
 # library.swap
-PROC deszcz EVERY 20
-  SPAWN Kropla AT RANDOM 0 800 0
+PROC rain EVERY 20
+  SPAWN Drop AT RANDOM 0 800 0
 END
 ```
 
-## Sprawdzanie
+## Checking
 
-`pimpex check <projekt>` sprawdza wszystkie pliki bez uruchamiania gry
-i wypisuje błędy w formacie `plik:linia: błąd: opis`.
+`pimpex check <project>` checks every file without running the game and
+prints errors as `file:line: error: message`.

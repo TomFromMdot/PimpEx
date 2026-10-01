@@ -6,7 +6,7 @@
 
 namespace PimpEx::scene {
 
-// Opis wszystkich komponentów jako Markdown (docs/components.md, `pimpex components`).
+// All components as Markdown (docs/components.md, `pimpex components`).
 std::string components_markdown(const ComponentRegistry &registry);
 
 } // namespace PimpEx::scene

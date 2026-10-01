@@ -7,8 +7,7 @@
 
 namespace PimpEx::vm {
 
-// Klawisze dostępne w opcodach (KEY / PRESSED) i w Lua.
-// Silnik nie zależy tu od raylib – mapowanie jest w render/RaylibInput.
+// Keys available to opcodes (KEY / PRESSED) and Lua. Mapped to raylib in render/RaylibInput.
 enum class Key {
   A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
   Num0, Num1, Num2, Num3, Num4, Num5, Num6, Num7, Num8, Num9,
@@ -28,12 +27,11 @@ inline std::string_view key_name(Key key) {
   return KeyNames[static_cast<std::size_t>(key)];
 }
 
-// Przyciski myszki: `Mouse.left` w .swap, kliknięcia w GUI.
 enum class MouseButton { Left, Right, Middle, Count };
 
 constexpr std::size_t MouseButtonCount = static_cast<std::size_t>(MouseButton::Count);
 
-// Nazwa klawisza bez względu na wielkość liter: "w", "W", "space"...
+// Case-insensitive: "w", "W", "space"...
 inline std::optional<Key> key_from_name(std::string_view name) {
   std::string upper(name);
   for (auto &c : upper)

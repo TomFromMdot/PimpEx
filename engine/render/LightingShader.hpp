@@ -1,7 +1,7 @@
 #pragma once
 
-// Prosty shader oświetlenia Blinna-Phonga (do 4 świateł) dla scen 3D.
-// Wzorowany na raylib/examples/shaders/lighting, wbudowany w binarkę.
+// Blinn-Phong lighting (up to 4 lights) for 3D scenes, based on
+// raylib/examples/shaders/lighting.
 namespace PimpEx::render {
 
 inline constexpr const char *LightingVertexShader = R"(#version 330

@@ -1,33 +1,33 @@
-# Zachowania i systemy
+# Behaviors and systems
 
-Zachowania dopisuje się do aktorów bez kompilowania silnika. Są trzy sposoby,
-od najprostszego:
+Behavior is added to actors without compiling the engine. There are three
+ways, from the simplest:
 
-| Sposób                           | Gdzie                         | Kiedy użyć                                   |
+| Way                              | Where                         | When to use                                  |
 |----------------------------------|-------------------------------|----------------------------------------------|
-| `PROC nazwa FOR @tag`            | `scene.swap`                  | proste reguły dla grupy aktorów              |
-| `<Behavior name="...">`          | `scripts/behaviors/*.lua`     | zachowanie jednego aktora z własnym stanem   |
-| `system("Komponent", funkcja)`   | `scripts/*.lua`               | logika dla wszystkich aktorów z komponentem  |
+| `PROC name FOR @tag`             | `scene.swap`                  | simple rules for a group of actors           |
+| `<Behavior name="...">`          | `scripts/behaviors/*.lua`     | one actor's behavior with its own state      |
+| `system("Component", function)`  | `scripts/*.lua`               | logic for every actor with a component       |
 
-## 1. Systemy w `.swap`: `PROC ... FOR`
+## 1. Systems in `.swap`: `PROC ... FOR`
 
 ```
-# Każda moneta (tag coin) sprawdza, czy dotyka gracza.
-PROC monety FOR @coin
+# Every coin (tag coin) checks whether it touches the player.
+PROC coins FOR @coin
   IF TOUCH SELF Player : ADD Game.coins 1
   IF TOUCH SELF Player : DESTROY SELF
 END
 
-# Każdy aktor z komponentem Health: śmierć przy hp <= 0.
-PROC smierc FOR Health
+# Every actor with the Health component: dies at hp <= 0.
+PROC death FOR Health
   IF SELF.Health.hp <= 0 : DESTROY SELF
 END
 ```
 
-`SELF` to aktor, dla którego właśnie wykonuje się ciało. `TOUCH SELF @enemy`
-ustawia `OTHER` na dotkniętego wroga (docs/opcodes.md).
+`SELF` is the actor the body is running for. `TOUCH SELF @enemy` sets `OTHER`
+to the enemy that was touched (docs/opcodes.md).
 
-## 2. Zachowania Lua: `<Behavior>`
+## 2. Lua behaviors: `<Behavior>`
 
 ```xml
 <Actor name="Ghost" x="400" y="300" tags="enemy">
@@ -36,24 +36,24 @@ ustawia `OTHER` na dotkniętego wroga (docs/opcodes.md).
 </Actor>
 ```
 
-Plik `scripts/behaviors/chase.lua` **zwraca tabelę** z funkcjami, które
-silnik woła sam:
+The file `scripts/behaviors/chase.lua` **returns a table** of functions the
+engine calls by itself:
 
 ```lua
 return {
-  on_start   = function(self) end,          -- raz, gdy aktor się pojawia
-  on_update  = function(self) end,          -- co klatkę
-  on_touch   = function(self, other) end,   -- styk z innym aktorem (oba muszą mieć <Collider>)
-  on_destroy = function(self) end,          -- gdy aktor znika
+  on_start   = function(self) end,          -- once, when the actor appears
+  on_update  = function(self) end,          -- every frame
+  on_touch   = function(self, other) end,   -- contact with another actor (both need a <Collider>)
+  on_destroy = function(self) end,          -- when the actor goes away
 }
 ```
 
 ### `self`
 
-- Parametry z XML trafiają do `self`: `speed="1.5"` daje `self.speed == 1.5`.
-  Liczby są liczbami, `true`/`false` to wartości logiczne.
-- `self.name` to nazwa aktora.
-- Pola aktora czyta się i zapisuje bezpośrednio: `self.x`, `self.y`, `self.z`,
+- XML parameters end up in `self`: `speed="1.5"` gives `self.speed == 1.5`.
+  Numbers are numbers, `true`/`false` are booleans.
+- `self.name` is the actor's name.
+- Actor fields are read and written directly: `self.x`, `self.y`, `self.z`,
   `self.w`, `self.h`, `self.d`, `self.rx`, `self.ry`, `self.rz`,
   `self.rotation`, `self.scale`, `self.layer`, `self.visible`, `self.vx`,
   `self.vy`, `self.vz`, `self.gravity`, `self.grounded`:
@@ -61,62 +61,63 @@ return {
   ```lua
   self.x = self.x + 2
   ```
-- Inne klucze (`self.timer`, `self.dir`) to zwykłe dane Lua, które
-  zostają między klatkami.
-- Metody: `self:get("Health.hp")`, `self:set("Rect.color", "red")`,
+- Other keys (`self.timer`, `self.dir`) are plain Lua data kept between frames.
+- Methods: `self:get("Health.hp")`, `self:set("Rect.color", "red")`,
   `self:move(dx, dy, dz)`, `self:destroy()`, `self:exists()`,
   `self:has("Collider")`, `self:has_tag("enemy")`, `self:touching("Wall")`,
-  `self:text("Napis")`, `self:distance("Player")`.
-- Wzrok (promienie, zatrzymują je aktorzy z solidnym `Collider`):
-  - `self:forward()` – kierunek patrzenia (w 3D z `ry`, 0 = w stronę -z;
-    w 2D z `rotation`, 0 = w prawo);
-  - `self:look(max)` – co jest przed aktorem: nazwa i odległość albo `nil`
-    (np. trafienie przy strzale);
-  - `self:sees("Player", max)` – czy nic solidnego nie zasłania celu;
-  - `self:face("Player")` – obraca aktora przodem do celu.
+  `self:text("Hello")`, `self:distance("Player")`.
+- Sight (rays, stopped by actors with a solid `Collider`):
+  - `self:forward()` – the facing direction (in 3D from `ry`, 0 = towards -z;
+    in 2D from `rotation`, 0 = right);
+  - `self:look(max)` – what is in front of the actor: a name and distance or
+    `nil` (e.g. what a shot hits);
+  - `self:sees("Player", max)` – nothing solid blocks the view of the target;
+  - `self:face("Player")` – turns the actor to face the target.
 
-Aktor może mieć kilka `<Behavior>`. Po zapisaniu pliku zachowania silnik
-podmienia funkcje, a `self` (np. `self.dir`) zostaje. `on_start` nie
-wykonuje się drugi raz.
+An actor can have several `<Behavior>`s. When a behavior file is saved the
+engine swaps the functions and keeps `self` (e.g. `self.dir`). `on_start`
+does not run again.
 
-### Gotowe zachowania
+### Ready-made behaviors
 
-Każdy projekt dostaje je w `scripts/behaviors/`. Możesz je kopiować
-i zmieniać.
+Every project gets these in `scripts/behaviors/`. Copy and change them freely.
 
-| Plik              | Co robi                                         | Parametry                                   |
+| File              | What it does                                    | Parameters                                  |
 |-------------------|-------------------------------------------------|---------------------------------------------|
-| `topdown_move`    | ruch strzałkami/WASD w 4 kierunkach             | `speed`                                     |
-| `platformer_move` | bieg w bok i skok (wymaga `gravity` i Collider) | `speed`, `jump`                             |
-| `chase`           | goni aktora                                     | `target`, `speed`, `axes` (`xy`/`xz`), `range` |
-| `patrol`          | tam i z powrotem                                | `axis`, `distance`, `speed`                 |
-| `spin`            | kręci się                                       | `axis` (`ry`/`rz`), `speed`                 |
-| `move3d`          | 3D zza pleców: W/S przód, A/D obrót, skok       | `speed`, `turn`, `jump`                     |
-| `fps_controller`  | 3D z oczu: mysz + WASD (z `<Camera mode="fps">`)| `speed`, `sensitivity`, `jump`, `camera`    |
+| `topdown_move`    | arrows/WASD movement in 4 directions            | `speed`                                     |
+| `platformer_move` | running and jumping (needs `gravity` and a Collider) | `speed`, `jump`                        |
+| `chase`           | chases an actor                                 | `target`, `speed`, `axes` (`xy`/`xz`), `range` |
+| `patrol`          | back and forth                                  | `axis`, `distance`, `speed`                 |
+| `spin`            | spins                                           | `axis` (`ry`/`rz`), `speed`                 |
+| `move3d`          | 3D third person: W/S forward, A/D turn, jump    | `speed`, `turn`, `jump`                     |
+| `fps_controller`  | 3D first person: mouse + WASD (with `<Camera mode="fps">`) | `speed`, `sensitivity`, `jump`, `camera` |
 
-## 3. Systemy Lua: `system()`
+## 3. Lua systems: `system()`
 
-W dowolnym pliku `scripts/*.lua`, na górnym poziomie:
+In any `scripts/*.lua` file, at the top level:
 
 ```lua
--- Co klatkę dla każdego aktora z komponentem Health.
+-- Every frame for each actor with the Health component.
 system("Health", function(e)
   if e:get("Health.hp") <= 0 then e:destroy() end
 end)
 
--- Dla każdego aktora z tagiem enemy.
+-- For each actor with the enemy tag.
 system("@enemy", function(e)
   e.rotation = e.rotation + 1
 end)
 ```
 
-`e` działa jak `self` w zachowaniach, ale bez własnych danych (co klatkę
-jest tworzony od nowa).
+`e` works like `self` in behaviors but has no data of its own (it is created
+anew every frame).
 
-## Kolejność w jednej klatce
+## Order within one frame
 
-1. procedury z `scene.swap` (w tym `FOR`),
-2. zachowania: `on_start` dla nowych, `on_destroy` dla usuniętych, potem `on_update`,
-3. systemy Lua,
-4. fizyka (`Body`, `Collider`) i `on_touch`,
-5. zmiany zamówione w tej klatce: `PROC_ADD`, `PROC_REMOVE`, `swap.*`, `SCENE`.
+1. GUI clicks and button keys (docs/gui.md),
+2. procedures from `scene.swap` (including `FOR`),
+3. behaviors: `on_start` for new actors, `on_destroy` for removed ones, then `on_update`,
+4. Lua systems,
+5. physics (`Body`, `Collider`) and `on_touch`,
+6. changes requested during the frame: `PROC_ADD`, `PROC_REMOVE`, `swap.*`, `SCENE`.
+
+While a GUI with `pause="true"` is visible, steps 2–5 are skipped.

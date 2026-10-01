@@ -1,0 +1,12 @@
+# Procedures pasted into scene.swap on demand.
+
+# God mode – active while it is in scene.swap.
+PROC iddqd
+  SET Player.Health.hp 100
+END
+
+# Full ammo – once.
+PROC idkfa ONCE
+  SET Game.ammo 99
+  LOG "IDKFA: full ammo"
+END

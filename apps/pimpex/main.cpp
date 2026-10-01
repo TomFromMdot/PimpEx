@@ -8,7 +8,7 @@
 #include "cli/commands/SceneCommand.hpp"
 
 int main(int argc, char **argv) {
-  CLI::App app{"PimpEx – silnik gier, w którym wszystko jest tekstem."};
+  CLI::App app{"PimpEx – a game engine where everything is text."};
   app.set_version_flag("--version", "PimpEx 0.2.0");
   argv = app.ensure_utf8(argv);
 

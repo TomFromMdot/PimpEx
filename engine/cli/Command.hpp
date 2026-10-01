@@ -7,13 +7,12 @@
 
 namespace PimpEx::cli {
 
-// Wzorzec Command: każda komenda CLI (init, check, dev...) to osobna klasa.
+// Command pattern: every CLI command (init, check, dev...) is its own class.
 class ICommand {
 public:
   virtual ~ICommand() = default;
-  // Rejestruje podkomendę i jej opcje. Zwraca utworzoną podkomendę.
   virtual CLI::App *setup(CLI::App &app) = 0;
-  // Wykonuje komendę. Zwraca kod wyjścia programu (0 = sukces).
+  // Returns the process exit code.
   virtual int run() = 0;
 };
 
@@ -29,7 +28,6 @@ public:
     _entries.push_back({std::move(command), nullptr});
   }
 
-  // Parsuje argumenty i uruchamia wybraną komendę.
   int run(CLI::App &app, int argc, char **argv) {
     for (auto &entry : _entries)
       entry.subcommand = entry.command->setup(app);

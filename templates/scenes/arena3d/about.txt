@@ -1,1 +1,1 @@
-Arena 3D: ruch W/S/A/D + skok, kamera zza pleców, monety i goniące kule
+Arena 3D: W/S/A/D movement + jump, third-person camera, coins and chasing balls

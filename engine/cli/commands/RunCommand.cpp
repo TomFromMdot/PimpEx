@@ -6,44 +6,44 @@
 namespace PimpEx::cli {
 
 CLI::App *RunCommand::setup(CLI::App &app) {
-  auto *sub = _dev ? app.add_subcommand("dev", "Uruchamia grę z hot-reloadem: zapisane zmiany "
-                                               "w plikach pojawiają się od razu.")
-                   : app.add_subcommand("play", "Uruchamia grę (bez obserwowania plików).");
-  sub->add_option("project", _project, "Katalog projektu")->capture_default_str();
-  sub->add_option("--scene", _options.scene, "Scena startowa (zamiast <StartScene> z pimpex.xml)");
-  sub->add_option("--frames", _options.frames, "Zakończ po tylu klatkach (0 = bez limitu)");
+  auto *sub = _dev ? app.add_subcommand("dev", "Runs the game with hot-reload: saved file changes "
+                                               "show up immediately.")
+                   : app.add_subcommand("play", "Runs the game (without watching files).");
+  sub->add_option("project", _project, "Project directory")->capture_default_str();
+  sub->add_option("--scene", _options.scene, "Start scene (instead of <StartScene> from pimpex.xml)");
+  sub->add_option("--frames", _options.frames, "Stop after this many frames (0 = no limit)");
   sub->add_flag("--headless", _options.headless,
-                "Bez okna – tylko logika (testy, CI, agenci AI); wymaga --frames");
+                "No window – logic only (tests, CI, AI agents); needs --frames");
   sub->add_option("--state-every", _options.stateEvery,
-                  "Co ile klatek zapisywać .pimpex/state.txt (0 = tylko na końcu)")
+                  "Frames between .pimpex/state.txt writes (0 = only at the end)")
       ->capture_default_str();
   sub->add_option("--input", _options.input,
-                  "Z --headless: zaplanowane klawisze, np. \"RIGHT:0-60 SPACE:10\"");
+                  "With --headless: scripted input, e.g. \"RIGHT:0-60 SPACE:10 CLICK@400/300:20\"");
   sub->add_option("--screenshot", _options.screenshot,
-                  "Zapisz zrzut ekranu ostatniej klatki do pliku .png (wymaga --frames)");
+                  "Save a screenshot of the last frame as .png (needs --frames)");
   if (_dev)
-    sub->add_flag("!--no-api", _options.api, "Bez API na żywo dla agentów");
+    sub->add_flag("!--no-api", _options.api, "Without the live API for agents");
   else
-    sub->add_flag("--api", _options.api, "Włącz API na żywo (JSON-RPC, .pimpex/api.json)");
-  sub->add_option("--api-port", _options.apiPort, "Port API (domyślnie losowy wolny)");
-  sub->add_flag("--quiet", _options.quiet, "Dziennik tylko do .pimpex/runtime.log");
+    sub->add_flag("--api", _options.api, "Enable the live API (JSON-RPC, .pimpex/api.json)");
+  sub->add_option("--api-port", _options.apiPort, "API port (default: any free port)");
+  sub->add_flag("--quiet", _options.quiet, "Log only to .pimpex/runtime.log");
   sub->add_option("--runtime-dir", _options.runtimeDir,
-                  "Katalog na runtime.log i state.txt zamiast .pimpex/ (np. dla testów)");
+                  "Directory for runtime.log and state.txt instead of .pimpex/ (e.g. for tests)");
   return sub;
 }
 
 int RunCommand::run() {
   if (_options.headless && _options.frames <= 0 && !_options.api) {
-    std::println(std::cerr, "--headless wymaga --frames N albo API (pimpex dev --headless działa do "
+    std::println(std::cerr, "--headless needs --frames N or the API (pimpex dev --headless runs until "
                             "game.quit / Ctrl+C).");
     return 1;
   }
   if (!_options.input.empty() && !_options.headless) {
-    std::println(std::cerr, "--input działa tylko razem z --headless.");
+    std::println(std::cerr, "--input only works with --headless.");
     return 1;
   }
   if (!_options.screenshot.empty() && (_options.headless || _options.frames <= 0)) {
-    std::println(std::cerr, "--screenshot wymaga okna (bez --headless) i --frames N.");
+    std::println(std::cerr, "--screenshot needs a window (no --headless) and --frames N.");
     return 1;
   }
   Engine engine(_project, _options);

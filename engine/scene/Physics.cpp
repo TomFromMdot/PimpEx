@@ -6,7 +6,7 @@
 namespace PimpEx::scene {
 namespace {
 
-// Oś po osi: 0 = x, 1 = y, 2 = z.
+// Axis by axis: 0 = x, 1 = y, 2 = z.
 float &position(Transform &t, int axis) { return axis == 0 ? t.x : axis == 1 ? t.y : t.z; }
 float size(const Transform &t, int axis) { return axis == 0 ? t.w : axis == 1 ? t.h : t.d; }
 float &velocity(Body &b, int axis) { return axis == 0 ? b.vx : axis == 1 ? b.vy : b.vz; }
@@ -21,7 +21,7 @@ bool overlap(const Transform &a, const Transform &b) {
 std::vector<Contact> step_physics(World &world) {
   auto &registry = world.registry();
   const bool is3d = world.mode() == SceneMode::Mode3D;
-  // „W dół” to +y w 2D (ekran) i -y w 3D (świat).
+  // "Down" is +y in 2D (screen) and -y in 3D (world).
   const float down = is3d ? -1.0f : 1.0f;
 
   std::vector<entt::entity> solids;
@@ -48,7 +48,7 @@ std::vector<Contact> step_physics(World &world) {
         const auto &ot = registry.get<Transform>(other);
         if (!overlap(t, ot))
           continue;
-        // Cofamy się dokładnie do krawędzi przeszkody.
+        // Step back exactly to the obstacle's edge.
         const float gap = (size(t, axis) + size(ot, axis)) / 2;
         const float otherPos = axis == 0 ? ot.x : axis == 1 ? ot.y : ot.z;
         position(t, axis) = v > 0 ? otherPos - gap : otherPos + gap;
@@ -61,19 +61,17 @@ std::vector<Contact> step_physics(World &world) {
       t.z += body.vz;
   }
 
-  // Styki: każda para Colliderów, która na siebie nachodzi albo się dotyka.
   std::vector<Contact> contacts;
   std::vector<entt::entity> colliders;
   for (auto [e, collider] : registry.view<Collider>().each())
     colliders.push_back(e);
-  // Para dwóch nieruchomych aktorów (np. sąsiednie ściany mapy) nikogo nie
-  // interesuje – liczymy tylko pary, w których co najmniej jeden może się
-  // ruszać (ma Body albo zachowanie Lua). Ruchome są na początku listy,
-  // więc para ruchomy–ruchomy liczy się raz.
+  // Two static actors (e.g. neighbouring map walls) do not matter – only pairs
+  // with at least one actor that can move (Body or a Lua behavior). Movers are
+  // first in the list, so a mover–mover pair is counted once.
   auto dynamic = [&](entt::entity e) { return registry.any_of<Body, Behaviors>(e); };
   std::stable_partition(colliders.begin(), colliders.end(), dynamic);
   for (std::size_t i = 0; i < colliders.size() && dynamic(colliders[i]); ++i) {
-    // Margines 0.01 – aktor stojący dokładnie na podłodze też ją „dotyka”.
+    // 0.01 margin – an actor standing exactly on the floor also "touches" it.
     Transform grown = registry.get<Transform>(colliders[i]);
     grown.w += 0.02f;
     grown.h += 0.02f;

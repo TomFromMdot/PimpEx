@@ -1,0 +1,5 @@
+<!-- Win and lose screens – <Scene gui="game_over">. -->
+<Gui>
+  <Button anchor="center" y="100" w="340" text="Play again" key="ENTER" click="SCENE level1"
+          color="#5a3a1a" hover="#7a5226"/>
+</Gui>

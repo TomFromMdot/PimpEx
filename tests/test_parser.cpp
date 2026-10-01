@@ -14,8 +14,8 @@ std::string errors_of(const ParseResult &r) {
 }
 } // namespace
 
-TEST_CASE("parser: prosta PROC z ruchem i warunkiem") {
-  const auto r = parse_program(R"(# ruch gracza
+TEST_CASE("parser: a simple PROC with movement and a condition") {
+  const auto r = parse_program(R"(# player movement
 PROC move_player
   IF KEY W : MOVE Player 0 -2
   IF key s : move Player 0 2
@@ -42,7 +42,7 @@ END
   CHECK(proc.body[1].guard[0].key == Key::S);
 }
 
-TEST_CASE("parser: tryby ONCE i EVERY") {
+TEST_CASE("parser: ONCE and EVERY modes") {
   const auto r = parse_program("PROC a ONCE\nEND\nPROC b EVERY 30\nEND\n", "t");
   INFO(errors_of(r));
   REQUIRE(r.ok());
@@ -51,7 +51,7 @@ TEST_CASE("parser: tryby ONCE i EVERY") {
   CHECK(r.program.procs[1].every == 30);
 }
 
-TEST_CASE("parser: wszystkie instrukcje") {
+TEST_CASE("parser: all instructions") {
   const auto r = parse_program(R"(PROC all
   SET Ball.vx -Ball.vx
   ADD Game.score 1
@@ -61,8 +61,8 @@ TEST_CASE("parser: wszystkie instrukcje") {
   DESTROY Enemy
   FOLLOW Enemy Player 1.5
   TEXT Score "Wynik: {Game.score}"
-  LOG "Cześć!"
-  LOG bez cudzysłowu też działa
+  LOG "Hello!"
+  LOG works without quotes too
   CALL on_hit Enemy 3
   PROC_ADD shoot
   PROC_REMOVE shoot
@@ -85,7 +85,7 @@ END)",
   CHECK(b[3].values.size() == 2);
   CHECK(b[4].values.empty());
   CHECK(b[7].text == "Wynik: {Game.score}");
-  CHECK(b[9].text == "bez cudzysłowu też działa");
+  CHECK(b[9].text == "works without quotes too");
   CHECK(b[10].args == std::vector<std::string>{"Enemy", "3"});
   CHECK(b[14].guard.size() == 2);
   CHECK(b[14].guard[1].negate);
@@ -95,7 +95,7 @@ END)",
   CHECK(b[16].guard[1].key == Key::Num1);
 }
 
-TEST_CASE("parser: błędy mają numer linii i podpowiedź") {
+TEST_CASE("parser: errors have a line number and a hint") {
   const auto r = parse_program(R"(PROC a
   MOOVE Player 1 1
   MOVE Player 1
@@ -111,29 +111,29 @@ PROC b
   const auto text = errors_of(r);
   INFO(text);
   CHECK(r.diagnostics.size() == 7);
-  CHECK(text.find("scene.swap:2: błąd: nieznana instrukcja 'MOOVE'. Czy chodziło o MOVE?") !=
+  CHECK(text.find("scene.swap:2: error: unknown instruction 'MOOVE'. Did you mean MOVE?") !=
         std::string::npos);
   CHECK(text.find("scene.swap:3:") != std::string::npos);
-  CHECK(text.find("scene.swap:4: błąd: po warunku IF potrzebny jest dwukropek") !=
+  CHECK(text.find("scene.swap:4: error: the IF condition needs a colon") !=
         std::string::npos);
   CHECK(text.find("scene.swap:5:") != std::string::npos);
-  CHECK(text.find("scene.swap:7: błąd: instrukcja poza PROC") != std::string::npos);
-  CHECK(text.find("scene.swap:8: błąd: END bez PROC") != std::string::npos);
-  CHECK(text.find("scene.swap:9: błąd: PROC b nie ma END") != std::string::npos);
+  CHECK(text.find("scene.swap:7: error: instruction outside a PROC") != std::string::npos);
+  CHECK(text.find("scene.swap:8: error: END without PROC") != std::string::npos);
+  CHECK(text.find("scene.swap:9: error: PROC b has no END") != std::string::npos);
 }
 
-TEST_CASE("parser: powtórzona nazwa PROC i zły klawisz") {
+TEST_CASE("parser: duplicate PROC name and a bad key") {
   const auto r = parse_program("PROC a\nIF KEY FOO : LOG x\nEND\nPROC a\nEND\n", "t");
   CHECK(r.diagnostics.size() == 2);
 }
 
-TEST_CASE("parser: niezamknięty cudzysłów") {
+TEST_CASE("parser: unclosed quote") {
   const auto r = parse_program("PROC a\nLOG \"ups\nEND\n", "t");
   REQUIRE(r.diagnostics.size() == 1);
   CHECK(r.diagnostics[0].line == 2);
 }
 
-TEST_CASE("parser: FOR, @tagi, pola komponentów i tekst w SET") {
+TEST_CASE("parser: FOR, @tags, component fields and text in SET") {
   const auto r = parse_program(R"(PROC s FOR @enemy EVERY 10
   IF TOUCH SELF @coin : SET SELF.Health.hp 3
   SET Player.Text.value "Hej {Game.score}"
@@ -152,7 +152,7 @@ END)",
   REQUIRE(r.diagnostics.size() == 3);
   CHECK(r.diagnostics[0].line == 8);
   CHECK(r.diagnostics[1].line == 10);
-  CHECK(r.diagnostics[2].message.find("nieznane słowo 'NOW'") != std::string::npos);
+  CHECK(r.diagnostics[2].message.find("unknown word 'NOW'") != std::string::npos);
   const auto &s = r.program.procs[0];
   CHECK(s.forEach == "@enemy");
   CHECK(s.every == 10);
@@ -166,22 +166,22 @@ END)",
   CHECK(r.program.procs[1].forEach == "Health");
 }
 
-TEST_CASE("parser: GUI_SHOW, GUI_HIDE i GUI_TOGGLE") {
-  const auto r = parse_program("PROC menu\n  IF PRESSED ESCAPE : GUI_TOGGLE pauza\n  GUI_SHOW hud\n  GUI_HIDE menu\nEND\n",
+TEST_CASE("parser: GUI_SHOW, GUI_HIDE and GUI_TOGGLE") {
+  const auto r = parse_program("PROC menu\n  IF PRESSED ESCAPE : GUI_TOGGLE pause\n  GUI_SHOW hud\n  GUI_HIDE menu\nEND\n",
                                "scene.swap");
   INFO(errors_of(r));
   REQUIRE(r.ok());
   const auto &body = r.program.procs[0].body;
   REQUIRE(body.size() == 3);
   CHECK(body[0].op == Op::GuiToggle);
-  CHECK(body[0].target == "pauza");
+  CHECK(body[0].target == "pause");
   CHECK(body[1].op == Op::GuiShow);
   CHECK(body[2].op == Op::GuiHide);
   CHECK_FALSE(parse_program("PROC a\n  GUI_SHOW\nEND\n", "s").ok());
 }
 
-TEST_CASE("parser: instrukcje oddzielone średnikiem (kliknięcie przycisku GUI)") {
-  const auto r = parse_instructions(R"(SET Game.level 2; TEXT Hud "a;b" ; GUI_HIDE menu; SCENE poziom)", "gui/menu.xml", 7);
+TEST_CASE("parser: instructions separated by semicolons (GUI button click)") {
+  const auto r = parse_instructions(R"(SET Game.level 2; TEXT Hud "a;b" ; GUI_HIDE menu; SCENE level)", "gui/menu.xml", 7);
   REQUIRE(r.ok());
   REQUIRE(r.instructions.size() == 4);
   CHECK(r.instructions[0].op == Op::Set);
@@ -191,8 +191,8 @@ TEST_CASE("parser: instrukcje oddzielone średnikiem (kliknięcie przycisku GUI)
   CHECK(r.instructions[3].line == 7);
   CHECK(parse_instructions("", "f", 1).instructions.empty());
 
-  const auto bad = parse_instructions("SCENE poziom; SKOK 3", "gui/menu.xml", 4);
+  const auto bad = parse_instructions("SCENE level; JUMPP 3", "gui/menu.xml", 4);
   REQUIRE_FALSE(bad.ok());
-  CHECK(bad.diagnostics[0].format().starts_with("gui/menu.xml:4: błąd: nieznana instrukcja 'SKOK'"));
+  CHECK(bad.diagnostics[0].format().starts_with("gui/menu.xml:4: error: unknown instruction 'JUMPP'"));
   CHECK_FALSE(parse_instructions("PROC x", "f", 1).ok());
 }

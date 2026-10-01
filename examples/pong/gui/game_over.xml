@@ -1,0 +1,4 @@
+<!-- Game over screen – shown when the game_over scene starts (<Scene gui="game_over">). -->
+<Gui>
+  <Button anchor="center" y="90" w="320" text="Play again" key="ENTER" click="SCENE main"/>
+</Gui>

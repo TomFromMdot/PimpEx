@@ -35,7 +35,7 @@ void FileWatcher::poll_once() {
       std::error_code ec;
       const auto time = fs::last_write_time(path, ec);
       if (ec) {
-        entry.exists = false; // plik zniknął – czekamy, aż wróci
+        entry.exists = false; // gone – wait until it returns
         continue;
       }
       if (entry.exists && time == entry.time)
@@ -47,7 +47,7 @@ void FileWatcher::poll_once() {
       entry.exists = true;
       const auto hash = content_hash(*content);
       if (hash == entry.hash)
-        continue; // ta sama treść (np. zapis silnika albo „zapisz” bez zmian)
+        continue; // same content (an engine write or a no-op save)
       entry.hash = hash;
       changed.emplace_back(path, std::move(*content));
     }

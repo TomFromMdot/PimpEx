@@ -16,7 +16,7 @@ bool parse_float(std::string_view text, float &out) {
   return ec == std::errc{} && ptr == text.data() + text.size();
 }
 
-// "10" albo "10-20".
+// "10" or "10-20".
 bool parse_range(std::string_view range, long &from, long &to) {
   const auto dash = range.find('-');
   const bool ok = dash == std::string_view::npos
@@ -41,7 +41,7 @@ std::string ScriptedInput::parse(std::string_view spec) {
 
     const auto colon = item.find(':');
     if (colon == std::string_view::npos)
-      return std::format("'{}': użyj KLAWISZ:klatka, KLAWISZ:od-do albo CLICK@x/y:klatka", item);
+      return std::format("'{}': use KEY:frame, KEY:from-to or CLICK@x/y:frame", item);
     const auto head = item.substr(0, colon);
     const auto range = item.substr(colon + 1);
     if (head.starts_with("CLICK@") || head.starts_with("click@")) {
@@ -50,18 +50,18 @@ std::string ScriptedInput::parse(std::string_view spec) {
       Click click{0, 0, 0, 0};
       if (slash == std::string_view::npos || !parse_float(position.substr(0, slash), click.x) ||
           !parse_float(position.substr(slash + 1), click.y))
-        return std::format("'{}': pozycję kliknięcia pisz jako CLICK@x/y, np. CLICK@400/300:10", item);
+        return std::format("'{}': write the click position as CLICK@x/y, e.g. CLICK@400/300:10", item);
       if (!parse_range(range, click.from, click.to))
-        return std::format("'{}': zły zakres klatek", item);
+        return std::format("'{}': bad frame range", item);
       _clicks.push_back(click);
       continue;
     }
     const auto key = key_from_name(head);
     if (!key)
-      return std::format("'{}': nieznany klawisz", item);
+      return std::format("'{}': unknown key", item);
     Press press{*key, 0, 0};
     if (!parse_range(range, press.from, press.to))
-      return std::format("'{}': zły zakres klatek", item);
+      return std::format("'{}': bad frame range", item);
     _presses.push_back(press);
   }
   return {};
@@ -83,7 +83,7 @@ void ScriptedInput::update(long frame) {
   for (const auto &c : _clicks) {
     if (frame < c.from)
       continue;
-    set_mouse(c.x, c.y); // kursor zostaje tam, gdzie było ostatnie kliknięcie
+    set_mouse(c.x, c.y); // the cursor stays at the last click
     if (frame <= c.to)
       set_mouse_down(MouseButton::Left, true);
     if (frame == c.from)

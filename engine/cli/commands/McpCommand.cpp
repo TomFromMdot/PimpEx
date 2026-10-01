@@ -6,9 +6,9 @@
 namespace PimpEx::cli {
 
 CLI::App *McpCommand::setup(CLI::App &app) {
-  auto *sub = app.add_subcommand("mcp", "Serwer MCP (stdio) dla agentów AI – narzędzia do sprawdzania, "
-                                        "uruchamiania i sterowania grą.");
-  sub->add_option("project", _project, "Katalog projektu")->capture_default_str();
+  auto *sub = app.add_subcommand("mcp", "MCP server (stdio) for AI agents – tools to check, "
+                                        "run and drive the game.");
+  sub->add_option("project", _project, "Project directory")->capture_default_str();
   return sub;
 }
 

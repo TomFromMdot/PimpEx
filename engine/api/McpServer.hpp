@@ -5,9 +5,9 @@
 #include <filesystem>
 #include <optional>
 
-// Serwer MCP (Model Context Protocol) po stdio: `pimpex mcp [projekt]`.
-// Agent AI (np. Claude Code) dostaje narzędzia do sprawdzania, uruchamiania
-// i sterowania grą – offline oraz na żywo przez API działającego `pimpex dev`.
+// MCP (Model Context Protocol) server over stdio: `pimpex mcp [project]`.
+// Gives AI agents tools to check, run and drive the game – offline and live
+// through the API of a running `pimpex dev`.
 namespace PimpEx::api {
 
 class McpServer {
@@ -16,11 +16,10 @@ class McpServer {
 public:
   explicit McpServer(std::filesystem::path projectRoot);
 
-  // Obsługuje jedną wiadomość JSON-RPC. Zwraca odpowiedź albo nullopt
-  // (powiadomienia nie dostają odpowiedzi).
+  // nullopt for notifications, which get no response.
   std::optional<nlohmann::json> handle(const nlohmann::json &message);
 
-  // Pętla stdio: wiadomość w linii na wejściu, odpowiedź w linii na wyjściu.
+  // One JSON message per line in, one per line out.
   int run();
 };
 

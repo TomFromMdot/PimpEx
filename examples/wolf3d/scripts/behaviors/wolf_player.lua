@@ -1,19 +1,18 @@
--- Gracz: strzałki/W/S – chodzenie i obrót, A/D – krok w bok, SHIFT – bieg,
--- mysz – obrót, SPACJA – strzał, E – otwieranie drzwi.
--- Parametry: speed (0.12), turn – stopnie na klatkę (3), mouse – czułość myszy (0.12).
+-- Player: arrows/W/S – walk and turn, A/D – strafe, SHIFT – run,
+-- mouse – turn, SPACE – shoot, E – open doors.
+-- Parameters: speed (0.12), turn – degrees per frame (3), mouse – mouse sensitivity (0.12).
 return {
   on_start = function(self)
     self.cooldown = 0
   end,
 
   on_update = function(self)
-    -- Obrót.
     local turn = self.turn or 3
     if key("LEFT") then self.ry = self.ry + turn end
     if key("RIGHT") then self.ry = self.ry - turn end
     self.ry = self.ry - get("Mouse", "dx") * (self.mouse or 0.12)
 
-    -- Ruch przez prędkość, żeby ściany (Collider) zatrzymywały gracza.
+    -- Move through velocity so walls (Colliders) stop the player.
     local f, s = 0, 0
     if key("UP") or key("W") then f = f + 1 end
     if key("DOWN") or key("S") then f = f - 1 end
@@ -24,13 +23,13 @@ return {
     self.vx = (-math.sin(yaw) * f + math.cos(yaw) * s) * speed
     self.vz = (-math.cos(yaw) * f - math.sin(yaw) * s) * speed
 
-    -- Strzał: promień prosto przed siebie, pierwszy trafiony aktor.
+    -- Shooting: a ray straight ahead, the first actor hit.
     if self.cooldown > 0 then self.cooldown = self.cooldown - 1 end
     if pressed("SPACE") and self.cooldown == 0 then
       self.cooldown = 12
       local ammo = get("Game", "ammo")
       if ammo <= 0 then
-        message("Brak amunicji!")
+        message("Out of ammo!")
       else
         set("Game", "ammo", ammo - 1)
         set("Game", "muzzle", 6)
@@ -38,13 +37,13 @@ return {
         local hit, dist = self:look(40)
         if hit and has(hit, "Health") then
           local damage = math.random(8, 16)
-          if dist < 4 then damage = damage + 8 end -- z bliska boli bardziej
+          if dist < 4 then damage = damage + 8 end -- close range hurts more
           set(hit, "Health.hp", get(hit, "Health.hp") - damage)
         end
       end
     end
 
-    -- Drzwi: E, gdy stoją tuż przed graczem.
+    -- Doors: E when one is right in front of the player.
     if pressed("E") then
       local hit = self:look(3)
       if hit and has_tag(hit, "door") then

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-// Szablony wbudowane w binarkę: projekt, sceny i biblioteka zachowań.
+// Templates embedded in the binary: project, scenes and the behavior library.
 namespace PimpEx::cli {
 
 struct SceneTemplate {
@@ -16,16 +16,16 @@ std::vector<SceneTemplate> scene_templates();
 bool scene_template_exists(const std::string &name);
 
 struct TemplateResult {
-  std::vector<std::string> created; // ścieżki względem katalogu projektu
-  std::vector<std::string> skipped; // już istniały – zostawione bez zmian
-  std::string error;                // pusty = sukces
+  std::vector<std::string> created; // relative to the project root
+  std::vector<std::string> skipped; // already existed – left untouched
+  std::string error;                // empty = success
 };
 
-// Pliki projektu (pimpex.xml, AGENTS.md, docs/...) i biblioteka zachowań.
+// Project files (pimpex.xml, AGENTS.md, docs/...) and the behavior library.
 TemplateResult apply_project_template(const std::filesystem::path &root, const std::string &projectName);
 
-// Nowa scena scenes/<sceneName>/ z szablonu + brakujące pliki projektu,
-// których szablon potrzebuje (zachowania, skrypty). Istniejących nie nadpisuje.
+// scenes/<sceneName>/ from a template plus missing project files it needs
+// (behaviors, scripts). Never overwrites.
 TemplateResult apply_scene_template(const std::filesystem::path &root, const std::string &templateName,
                                     const std::string &sceneName, const std::string &projectName);
 

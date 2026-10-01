@@ -11,7 +11,7 @@ namespace {
 
 namespace fs = std::filesystem;
 
-// Kopiuje projekt bez katalogu .pimpex (dzienniki i zrzuty stanu).
+// Copies the project without .pimpex (logs and state dumps).
 void copy_project(const fs::path &from, const fs::path &to) {
   for (auto it = fs::recursive_directory_iterator(from); it != fs::recursive_directory_iterator();
        ++it) {
@@ -30,9 +30,9 @@ void copy_project(const fs::path &from, const fs::path &to) {
 } // namespace
 
 CLI::App *BuildCommand::setup(CLI::App &app) {
-  auto *sub = app.add_subcommand("build", "Pakuje grę razem z silnikiem do katalogu --out.");
-  sub->add_option("project", _project, "Katalog projektu")->capture_default_str();
-  sub->add_option("--out", _out, "Katalog wynikowy")->capture_default_str();
+  auto *sub = app.add_subcommand("build", "Packages the game with the engine into --out.");
+  sub->add_option("project", _project, "Project directory")->capture_default_str();
+  sub->add_option("--out", _out, "Output directory")->capture_default_str();
   return sub;
 }
 
@@ -43,7 +43,7 @@ int BuildCommand::run() {
   for (const auto &d : diagnostics)
     std::println(std::cerr, "{}", d.format());
   if (has_errors(diagnostics)) {
-    std::println(std::cerr, "Najpierw popraw błędy – gra z błędami nie zostanie spakowana.");
+    std::println(std::cerr, "Fix the errors first – a game with errors is not packaged.");
     return 1;
   }
 
@@ -56,11 +56,11 @@ int BuildCommand::run() {
   std::error_code ec;
   const auto self = fs::read_symlink("/proc/self/exe", ec);
   if (ec) {
-    std::println(std::cerr, "Nie mogę znaleźć pliku silnika: {}", ec.message());
+    std::println(std::cerr, "Cannot find the engine binary: {}", ec.message());
     return 1;
   }
   if (target.lexically_relative(paths.root).begin()->string() != "..") {
-    std::println(std::cerr, "--out nie może leżeć wewnątrz projektu.");
+    std::println(std::cerr, "--out cannot be inside the project.");
     return 1;
   }
 
@@ -70,20 +70,20 @@ int BuildCommand::run() {
     copy_project(paths.root, target / "game");
     fs::copy_file(self, target / "pimpex", fs::copy_options::overwrite_existing);
 
-    const auto launcher = target / "graj.sh";
+    const auto launcher = target / "play.sh";
     std::ofstream(launcher) << "#!/bin/sh\n"
-                               "# Uruchamia grę " << name << "\n"
+                               "# Starts the game " << name << "\n"
                                "cd \"$(dirname \"$0\")\" && exec ./pimpex play game \"$@\"\n";
     fs::permissions(launcher,
                     fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
                     fs::perm_options::add);
   } catch (const fs::filesystem_error &e) {
-    std::println(std::cerr, "Błąd podczas pakowania: {}", e.what());
+    std::println(std::cerr, "Packaging failed: {}", e.what());
     return 1;
   }
 
-  std::println("Gotowe: {}", target.string());
-  std::println("  {}/graj.sh – uruchom grę", target.string());
+  std::println("Done: {}", target.string());
+  std::println("  {}/play.sh – start the game", target.string());
   return 0;
 }
 

@@ -1,35 +1,37 @@
-# Wolf 3D na PimpEx
+# Wolf 3D on PimpEx
 
-Prosty klon Wolfensteina 3D: jeden poziom, 7 strażników, drzwi, apteczki,
-amunicja, skarby i winda (zielone pole) na końcu.
+A simple Wolfenstein 3D clone: one level, 7 guards, doors, medkits, ammo,
+treasure and a lift (the green square) at the end.
 
 ```
 pimpex dev examples/wolf3d
 ```
 
-| Klawisz                  | Akcja                         |
-|--------------------------|-------------------------------|
-| strzałki góra/dół, W/S   | przód / tył                   |
-| strzałki lewo/prawo, mysz| obrót                         |
-| A / D                    | krok w bok                    |
-| SHIFT                    | bieg                          |
-| SPACJA                   | strzał                        |
-| E                        | otwieranie drzwi              |
-| klik w okno              | mysz steruje kamerą (na starcie kursor jest wolny) |
-| ESC                      | pauza (`gui/pauza.xml`) i wolny kursor |
-| 9 / 8                    | kody: nieśmiertelność / amunicja (z `library.swap`) |
+| Key                       | Action                         |
+|---------------------------|--------------------------------|
+| up/down arrows, W/S       | forward / back                 |
+| left/right arrows, mouse  | turn                           |
+| A / D                     | strafe                         |
+| SHIFT                     | run                            |
+| SPACE                     | shoot                          |
+| E                         | open doors                     |
+| click the window          | mouse look (the cursor starts free) |
+| ESC                       | pause (`gui/pause.xml`) and a free cursor |
+| 9 / 8                     | cheats: god mode / ammo (from `library.swap`) |
 
-## Jak to jest zrobione
+## How it is made
 
-- **Poziom** to mapa ASCII w `scenes/poziom1/scene.xml` (`<Tilemap>`). `#`
-  i `B` to ściany, `D` drzwi, `G` strażnik, `+` apteczka, `a` amunicja,
-  `$` skarb, `E` winda, `P` gracz. Zmień mapę i zapisz, a gra wczyta ją na nowo.
-- **Gracz** (`scripts/behaviors/wolf_player.lua`) chodzi przez prędkość
-  (`Body`), więc ściany z `Collider` go zatrzymują. Strzela promieniem:
-  `self:look(40)` zwraca pierwszego trafionego aktora.
-- **Strażnik** (`guard.lua`) patrzy przez `self:sees("Player")`, więc ściany
-  zasłaniają widok. Słyszy strzały w promieniu 14 m, podchodzi, obraca się
-  (`self:face`) i strzela. Po śmierci zostawia ciało i amunicję.
-- **Drzwi** (`door.lua`) wjeżdżają w sufit po naciśnięciu E, a na czas
-  otwarcia usuwają swój `Collider`.
-- **HUD i koniec gry** są w `scenes/poziom1/scene.swap`, zwykłe procedury `.swap`.
+- **The level** is an ASCII map in `scenes/level1/scene.xml` (`<Tilemap>`). `#`
+  and `B` are walls, `D` doors, `G` guards, `+` medkits, `a` ammo, `$`
+  treasure, `E` the lift, `P` the player. Change the map and save – the game
+  reloads it.
+- **The player** (`scripts/behaviors/wolf_player.lua`) moves through velocity
+  (`Body`), so walls with a `Collider` stop it. It shoots a ray:
+  `self:look(40)` returns the first actor hit.
+- **Guards** (`guard.lua`) look with `self:sees("Player")`, so walls block the
+  view. They hear shots within 14 m, walk over, turn (`self:face`) and shoot.
+  A dead guard leaves a body and ammo.
+- **Doors** (`door.lua`) slide into the ceiling when E is pressed and remove
+  their `Collider` while open.
+- **The HUD and the end of the game** are plain `.swap` procedures in
+  `scenes/level1/scene.swap`; the pause and end menus are in `gui/`.

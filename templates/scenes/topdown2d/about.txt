@@ -1,1 +1,1 @@
-Gra z góry: ruch WASD, ściany, kamera śledząca, monety i goniący duch
+Top-down game: WASD movement, walls, a follow camera, coins and a chasing ghost

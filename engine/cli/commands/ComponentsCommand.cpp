@@ -9,9 +9,9 @@
 namespace PimpEx::cli {
 
 CLI::App *ComponentsCommand::setup(CLI::App &app) {
-  auto *sub = app.add_subcommand("components", "Lista komponentów: wbudowane i z components.xml projektu.");
-  sub->add_option("project", _project, "Katalog projektu (opcjonalnie – dla components.xml)");
-  sub->add_flag("--markdown", _markdown, "Pełny opis w Markdown (docs/components.md)");
+  auto *sub = app.add_subcommand("components", "Lists components: built-in and from the project's components.xml.");
+  sub->add_option("project", _project, "Project directory (optional – for components.xml)");
+  sub->add_flag("--markdown", _markdown, "Full Markdown reference (docs/components.md)");
   return sub;
 }
 

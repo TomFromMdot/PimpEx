@@ -1,32 +1,32 @@
 # PimpEx – The Game Engine
 
-> **PimpEx** to silnik gier dla najmłodszego pokolenia twórców. Cała gra to
-> pliki tekstowe. Nie ma edytora GUI: to, co dzieje się „pod maską”, widać
-> w plikach i można to zmieniać w trakcie gry.
+> **PimpEx** is a game engine for the youngest generation of creators. The
+> whole game is text files. There is no GUI editor: what happens "under the
+> hood" is visible in the files and can be changed while the game runs.
 
-- **Twórca:** Tommy · **Start projektu:** 26.03.2026 · **Status:** wczesny rozwój (0.2)
+- **Author:** Tommy · **Started:** 26.03.2026 · **Status:** early development (0.2)
 
 ```
-pimpex init moja_gra     # nowy projekt z gotową mini-grą
-pimpex dev moja_gra      # gra w oknie + hot-reload: zapisz plik → zmiana od razu
+pimpex init my_game     # a new project with a ready mini-game
+pimpex dev my_game      # the game in a window + hot-reload: save a file → see the change
 ```
 
-## Jak to działa
+## How it works
 
-Gra składa się z czterech warstw. Żadna nie wymaga kompilowania silnika:
+A game has five layers. None of them needs the engine to be compiled:
 
-| Warstwa           | Plik                          | Co opisuje                                                  |
+| Layer             | File                          | What it describes                                           |
 |-------------------|-------------------------------|-------------------------------------------------------------|
-| **Aktorzy (ECS)** | `scenes/<scena>/scene.xml`    | GameObjecty = nazwa + komponenty (wygląd, ruch, kolizje, kamera, światło, dane) |
-| **Dane**          | `components.xml`              | własne komponenty, np. `Health` z polem `hp`                |
-| **Proces sceny**  | `scenes/<scena>/scene.swap`   | procedury (`PROC`) wykonywane w każdej klatce, bez końca    |
-| **Zachowania**    | `scripts/behaviors/*.lua`, `scripts/*.lua` | Lua: `<Behavior>` na aktorze, `system()`, funkcje dla `CALL` |
-| **GUI**           | `gui/<nazwa>.xml`             | menu, pauza, przyciski – włączane po nazwie: `GUI_SHOW pauza` |
+| **Actors (ECS)**  | `scenes/<scene>/scene.xml`    | GameObjects = a name + components (looks, movement, collisions, camera, light, data) |
+| **Data**          | `components.xml`              | your own components, e.g. `Health` with an `hp` field       |
+| **Scene process** | `scenes/<scene>/scene.swap`   | procedures (`PROC`) run every frame, forever                |
+| **Behaviors**     | `scripts/behaviors/*.lua`, `scripts/*.lua` | Lua: `<Behavior>` on actors, `system()`, functions for `CALL` |
+| **GUI**           | `gui/<name>.xml`              | menus, pause, buttons – turned on by name: `GUI_SHOW pause` |
 
 ```xml
 <!-- scene.xml -->
 <Actor name="Ghost" x="400" y="300" tags="enemy">
-  <Circle color="różowy"/>
+  <Circle color="pink"/>
   <Collider kind="trigger"/>
   <Health hp="3"/>
   <Behavior name="chase" target="Player" speed="1.5"/>
@@ -34,127 +34,125 @@ Gra składa się z czterech warstw. Żadna nie wymaga kompilowania silnika:
 ```
 
 ```
-# scene.swap – system dla wszystkich wrogów
-PROC wrogowie FOR @enemy
+# scene.swap – a system for all enemies
+PROC enemies FOR @enemy
   IF TOUCH SELF Player : ADD Game.lives -1
   IF SELF.Health.hp <= 0 : DESTROY SELF
 END
 ```
 
-### Sceny 2D i 3D
+### 2D and 3D scenes
 
-`<Scene mode="3d">` włącza tryb 3D. Do dyspozycji są bryły (`Cube`, `Sphere`,
-`Cylinder`, `Plane`), modele `.glb`/`.obj`, światła (`Light`), kamera
-(`fixed`, `follow`, `orbit`, `fps`) i fizyka AABB z grawitacją. W 2D są
-kształty, obrazki, kamera śledząca i HUD (`space="screen"`). Gotowe sceny
-tworzy się jedną komendą:
+`<Scene mode="3d">` turns on 3D. There are shapes (`Cube`, `Sphere`,
+`Cylinder`, `Plane`), `.glb`/`.obj` models, lights (`Light`), cameras
+(`fixed`, `follow`, `orbit`, `fps`) and AABB physics with gravity. 2D has
+shapes, images, a follow camera and a HUD (`space="screen"`). A ready scene
+is one command away:
 
 ```
-pimpex scene new poziom2 --template platformer2d   # empty2d, topdown2d, platformer2d, empty3d, arena3d, starter2d
+pimpex scene new level2 --template platformer2d   # empty2d, topdown2d, platformer2d, empty3d, arena3d, starter2d
 ```
 
-### GUI: menu i pauza po nazwie
+### GUI: menus and pause by name
 
-Każdy plik `gui/<nazwa>.xml` to scena GUI z panelami, napisami, obrazkami
-i przyciskami, rysowana nad grą. Przycisk wykonuje instrukcje `.swap`:
+Every `gui/<name>.xml` file is a GUI scene with panels, labels, images and
+buttons, drawn on top of the game. Buttons run `.swap` instructions:
 
 ```xml
-<!-- gui/pauza.xml -->
+<!-- gui/pause.xml -->
 <Gui pause="true" dim="#00000099">
-  <Label  anchor="center" y="-80" text="Pauza" size="44"/>
-  <Button anchor="center" text="Wróć" key="ESCAPE" click="GUI_HIDE pauza"/>
+  <Label  anchor="center" y="-80" text="Paused" size="44"/>
+  <Button anchor="center" text="Resume" key="ESCAPE" click="GUI_HIDE pause"/>
   <Button anchor="center" y="70" text="Menu" click="SCENE menu"/>
 </Gui>
 ```
 
-`GUI_SHOW pauza` w `.swap`, `gui.show("pauza")` w Lua albo
-`<Scene gui="hud">` pokazuje GUI, a `pause="true"` zatrzymuje grę, dopóki
-GUI jest widoczne (docs/gui.md).
+`GUI_SHOW pause` in `.swap`, `gui.show("pause")` in Lua or
+`<Scene gui="hud">` shows a GUI, and `pause="true"` stops the game while the
+GUI is visible (docs/gui.md).
 
-### Scena to nieskończony proces opcodów
+### A scene is an endless opcode process
 
-Plik `scene.swap` to program pętli sceny, który działa przez cały czas gry.
-Procedury można do niego **wklejać i z niego wycinać w trakcie gry**:
+`scene.swap` is the scene loop program that runs for the whole game.
+Procedures can be **pasted in and cut out while the game runs**:
 
-- człowiek albo agent AI dopisuje `PROC ... END` i zapisuje plik, a silnik
-  podmienia program między klatkami;
-- `PROC nazwa ONCE` wykonuje się raz, a potem silnik sam usuwa ją z pliku;
-- `PROC_ADD nazwa` (albo `swap.add()` w Lua) wkleja gotową procedurę
-  z `library.swap`, a `PROC_REMOVE` ją wycina.
+- a person or an AI agent appends `PROC ... END` and saves the file, and the
+  engine swaps the program between frames;
+- `PROC name ONCE` runs once and then the engine removes it from the file;
+- `PROC_ADD name` (or `swap.add()` in Lua) pastes a ready procedure from
+  `library.swap`, and `PROC_REMOVE` cuts it out.
 
-Wszystkimi tymi zmianami zarządza **Boot**. Trzyma w pamięci dane sceny
-(świat EnTT, program, bibliotekę, stan Lua) i jako jedyny zapisuje `.swap`:
-atomowo i bez ruszania komentarzy ani reszty pliku. Jeśli w pliku jest błąd,
-gra działa dalej na poprzedniej wersji, a błąd z numerem linii trafia do
-`.pimpex/runtime.log`.
+**Boot** manages all of these changes. It holds the scene data in memory (the
+EnTT world, the program, the library, the Lua state, the GUI) and is the only
+one that writes `.swap` files: atomically, without touching comments or the
+rest of the file. If a file has an error, the game keeps running the previous
+version and the error, with its line number, goes to `.pimpex/runtime.log`.
 
-### Wątki i klatka
+### Threads and the frame
 
 ```
-wątek zasobów:  FileWatcher → parsowanie (.swap / XML / Lua) → Mailbox
-wątek API:      HTTP JSON-RPC (127.0.0.1) → Mailbox
-wątek główny:   Mailboxy → Boot → .swap (VM) → zachowania i systemy Lua → fizyka → on_touch → render
+asset thread:  FileWatcher → parsing (.swap / XML / Lua / GUI) → Mailbox
+API thread:    HTTP JSON-RPC (127.0.0.1) → Mailbox
+main thread:   Mailboxes → Boot → GUI clicks → .swap (VM) → Lua behaviors and systems → physics → on_touch → render
 ```
 
-Dane i polecenia z API podmieniają się zawsze **między klatkami**, więc
-w trakcie klatki nic nie zmienia się pod nogami.
+Data and API commands are always swapped **between frames**, so nothing
+changes under your feet during a frame.
 
-## Komendy
+## Commands
 
-| Komenda                                        | Co robi                                                   |
+| Command                                        | What it does                                              |
 |------------------------------------------------|-----------------------------------------------------------|
-| `pimpex init <nazwa> [--template t]`           | nowy projekt (z `.mcp.json`, `AGENTS.md`, docs i zachowaniami) |
-| `pimpex scene new <nazwa> [--template t]`      | nowa scena z szablonu; `pimpex scene list` – szablony     |
-| `pimpex check [projekt]`                       | sprawdza XML, `.swap`, Lua i komponenty (`plik:linia: opis`) |
-| `pimpex components [projekt] [--markdown]`     | wszystkie komponenty i ich pola                           |
-| `pimpex dev [projekt]`                         | gra z hot-reloadem i API na żywo                          |
-| `pimpex play [projekt]`                        | sama gra (zmiany `.swap` tylko w pamięci)                 |
-| `pimpex build [projekt] [--out dist]`          | paczka: silnik + gra + `graj.sh`                          |
-| `pimpex mcp [projekt]`                         | serwer MCP dla agentów AI                                 |
+| `pimpex init <name> [--template t]`            | a new project (with `.mcp.json`, `AGENTS.md`, docs and behaviors) |
+| `pimpex scene new <name> [--template t]`       | a new scene from a template; `pimpex scene list` – templates |
+| `pimpex check [project]`                       | checks XML, `.swap`, Lua, components and GUI (`file:line: error: message`) |
+| `pimpex components [project] [--markdown]`     | every component and its fields                            |
+| `pimpex dev [project]`                         | the game with hot-reload and the live API                 |
+| `pimpex play [project]`                        | just the game (`.swap` changes stay in memory)            |
+| `pimpex build [project] [--out dist]`          | a package: engine + game + `play.sh`                      |
+| `pimpex mcp [project]`                         | an MCP server for AI agents                               |
 
-Opcje `dev` i `play`:
+`dev` and `play` options:
 
-- `--scene nazwa` – scena startowa;
-- `--headless` – sama logika, bez okna (z `--frames N`; `dev --headless`
-  działa do `quit`);
-- `--input "RIGHT:0-60 SPACE:10 CLICK@400/300:20"` – zaplanowane klawisze
-  i kliknięcia;
-- `--screenshot shot.png` – zrzut ostatniej klatki;
-- `--no-api` / `--api` – API na żywo.
+- `--scene name` – the start scene;
+- `--headless` – logic only, no window (with `--frames N`; `dev --headless`
+  runs until `quit`);
+- `--input "RIGHT:0-60 SPACE:10 CLICK@400/300:20"` – scripted keys and clicks;
+- `--screenshot shot.png` – a screenshot of the last frame;
+- `--no-api` / `--api` – the live API.
 
-## Agenci AI
+## AI agents
 
-PimpEx nie ma wbudowanego modelu. Za to każdy projekt jest od razu gotowy
-dla agenta:
+PimpEx has no built-in model. Instead every project is ready for an agent:
 
-- **`.mcp.json`** – Claude Code (i inni klienci MCP) dostaje narzędzia
-  `pimpex_check`, `pimpex_run`, `pimpex_docs`, `pimpex_scene_new` oraz `live_*`
-  do działającej gry: stan, pola aktorów, wklejanie procedur, klawisze,
-  zrzut ekranu, Lua;
-- **API na żywo** – JSON-RPC na `127.0.0.1` (port i token w
-  `.pimpex/api.json`) dla skryptów i własnych narzędzi (docs/api.md);
-- **`AGENTS.md` / `CLAUDE.md`** – mapa projektu, pętla pracy, zasady;
-- **pętla sprawdzania** – `check` → `play --headless --input` →
+- **`.mcp.json`** – Claude Code (and other MCP clients) get the tools
+  `pimpex_check`, `pimpex_run`, `pimpex_docs`, `pimpex_scene_new` and `live_*`
+  for the running game: state, actor fields, pasting procedures, keys,
+  screenshots, Lua;
+- **the live API** – JSON-RPC on `127.0.0.1` (port and token in
+  `.pimpex/api.json`) for scripts and your own tools (docs/api.md);
+- **`AGENTS.md` / `CLAUDE.md`** – the project map, the work loop, the rules;
+- **the check loop** – `check` → `play --headless --input` →
   `state.txt` / `runtime.log` → `--screenshot`.
 
-Spróbuj: `pimpex init gra --template arena3d && cd gra && claude "dodaj trzeciego wroga, który patroluje przy ścianie"`.
+Try: `pimpex init game --template arena3d && cd game && claude "add a third enemy that patrols along a wall"`.
 
-## Dokumentacja
+## Documentation
 
-- [docs/opcodes.md](docs/opcodes.md) – język `.swap`
-- [docs/scene-xml.md](docs/scene-xml.md) – `pimpex.xml` i `scene.xml`
-- [docs/lua-api.md](docs/lua-api.md) – API skryptów Lua
-- [docs/components.md](docs/components.md) – komponenty ECS (generowane z kodu)
-- [docs/behaviors.md](docs/behaviors.md) – zachowania i systemy
-- [docs/gui.md](docs/gui.md) – GUI: menu, pauza, przyciski
-- [docs/api.md](docs/api.md) – API na żywo i serwer MCP
-- [examples/pong](examples/pong) – Pong: dwie sceny, komputer wklejany z biblioteki
-- [examples/wolf3d](examples/wolf3d) – Wolf 3D: mapa ASCII, strażnicy z wzrokiem (raycast), drzwi, znajdźki
+- [docs/opcodes.md](docs/opcodes.md) – the `.swap` language
+- [docs/scene-xml.md](docs/scene-xml.md) – `pimpex.xml` and `scene.xml`
+- [docs/lua-api.md](docs/lua-api.md) – the Lua scripting API
+- [docs/components.md](docs/components.md) – ECS components (generated from code)
+- [docs/behaviors.md](docs/behaviors.md) – behaviors and systems
+- [docs/gui.md](docs/gui.md) – GUI: menus, pause, buttons
+- [docs/api.md](docs/api.md) – the live API and the MCP server
+- [examples/pong](examples/pong) – Pong: two scenes, a pause menu, a computer player pasted from the library
+- [examples/wolf3d](examples/wolf3d) – Wolf 3D: an ASCII map, guards with sight (raycasts), doors, pickups
 
-## Budowanie silnika
+## Building the engine
 
-Wymagania: CMake ≥ 3.28, Ninja, kompilator z C++23 (GCC 14+ / Clang 18+),
-[vcpkg](https://vcpkg.io) (w `$VCPKG_ROOT` albo w `~/vcpkg`).
+Requirements: CMake ≥ 3.28, Ninja, a C++23 compiler (GCC 14+ / Clang 18+),
+[vcpkg](https://vcpkg.io) (in `$VCPKG_ROOT` or `~/vcpkg`).
 
 ```
 cmake --preset linux-debug
@@ -163,25 +161,25 @@ ctest --test-dir build --output-on-failure
 ./build/pimpex dev examples/pong
 ```
 
-Zależności (vcpkg): raylib (+ GLFW), EnTT, pugixml, Lua + sol2, CLI11,
-cpp-httplib, nlohmann-json, doctest. Czcionka: Anonymous Pro (SIL OFL,
+Dependencies (vcpkg): raylib (+ GLFW), EnTT, pugixml, Lua + sol2, CLI11,
+cpp-httplib, nlohmann-json, doctest. Font: Anonymous Pro (SIL OFL,
 `third_party/fonts/`).
 
-## Struktura repozytorium
+## Repository layout
 
 ```
-engine/core     Engine (pętla), Log, Mailbox, Diagnostic
-engine/boot     Boot, ładowanie XML, SwapFile, FileWatcher, pimpex check
-engine/vm       Lexer, Parser, Program, VM, klawisze i input
-engine/scene    ComponentRegistry, komponenty, World (EnTT), fizyka, docs komponentów
-engine/script   Lua (sol2): runtime, zachowania, systemy, sprawdzanie skryptów
-engine/gui      sceny GUI: elementy, układ (kotwice), GuiSystem – pokazywanie po nazwie, kliknięcia
-engine/render   raylib: Renderer 2D/3D, GUI, shader światła, czcionka, RaylibInput
-engine/api      API na żywo (JSON-RPC/HTTP) i serwer MCP
-engine/cli      komendy CLI (wzorzec Command) + szablony
+engine/core     Engine (the loop), Log, Mailbox, Diagnostic
+engine/boot     Boot, XML loading, SwapFile, FileWatcher, pimpex check
+engine/vm       Lexer, Parser, Program, VM, keys and input
+engine/scene    ComponentRegistry, components, World (EnTT), physics, component docs
+engine/script   Lua (sol2): runtime, behaviors, systems, script checking
+engine/gui      GUI scenes: elements, anchored layout, GuiSystem – show by name, clicks
+engine/render   raylib: 2D/3D renderer, GUI, lighting shader, font, RaylibInput
+engine/api      the live API (JSON-RPC/HTTP) and the MCP server
+engine/cli      CLI commands (Command pattern) + templates
 apps/pimpex     main()
-templates/      szablony: projekt, sceny, biblioteka zachowań
-docs/           specyfikacje (kopiowane też do każdego projektu)
-examples/       przykładowe gry
-tests/          testy doctest + testy end-to-end w ctest
+templates/      templates: project, scenes, behavior library
+docs/           specifications (also copied into every project)
+examples/       example games
+tests/          doctest tests + end-to-end tests in ctest
 ```

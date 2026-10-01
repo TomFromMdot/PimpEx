@@ -6,7 +6,7 @@
 
 namespace PimpEx::cli {
 
-// pimpex check [projekt] – sprawdza pliki projektu bez uruchamiania gry.
+// pimpex check [project]
 class CheckCommand : public ICommand {
   std::string _project = ".";
 

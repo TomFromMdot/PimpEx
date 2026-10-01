@@ -1,94 +1,94 @@
-# Skrypty Lua
+# Lua scripts
 
-Skrypty leżą w katalogu `scripts/` (pliki `*.lua`). Silnik wczytuje je
-wszystkie na starcie, a po zapisaniu pliku wczytuje go ponownie w trakcie gry.
+Scripts live in `scripts/` (`*.lua` files). The engine loads all of them at
+start, and reloads a file while the game runs after you save it.
 
-Funkcje Lua wywołuje się z `scene.swap` instrukcją `CALL`:
+Lua functions are called from `scene.swap` with `CALL`:
 
 ```
-PROC zbieranie
+PROC collecting
   IF TOUCH Player Coin : CALL coin_collected
   IF KEY SPACE : CALL shoot Player 10
 END
 ```
 
 ```lua
-function shoot(who, speed)      -- argumenty z CALL: "Player", 10
+function shoot(who, speed)      -- arguments from CALL: "Player", 10
   local name = spawn("Bullet", nil, get(who, "x"), get(who, "y"))
   set(name, "vy", -speed)
 end
 ```
 
-Argumenty z `CALL`, które wyglądają jak liczby, trafiają do Lua jako liczby.
-Pozostałe przychodzą jako tekst.
+`CALL` arguments that look like numbers reach Lua as numbers. The rest come
+as text.
 
-## Zasady
+## Rules
 
-- Na górnym poziomie pliku tylko **definiuj funkcje i zmienne**.
-  `pimpex check` wykonuje skrypty w pustym środowisku, bez API silnika.
-- Wszystkie skrypty dzielą jeden stan Lua. Funkcje z `a.lua` widać w `b.lua`.
-- Zmienne globalne przetrwają przeładowanie skryptu i zmianę sceny. Zapis
-  `lista = lista or {}` zachowuje dane po zapisaniu pliku.
-- Błąd w skrypcie nie zatrzymuje gry. Trafia do konsoli i do
-  `.pimpex/runtime.log` jako `scripts/plik.lua:linia: błąd: Lua: ...`.
+- At the top level of a file only **define functions and variables**.
+  `pimpex check` runs scripts in an empty environment, without the engine API.
+- All scripts share one Lua state. Functions from `a.lua` are visible in `b.lua`.
+- Globals survive script reloads and scene changes. Writing
+  `list = list or {}` keeps the data after the file is saved.
+- An error in a script does not stop the game. It goes to the console and to
+  `.pimpex/runtime.log` as `scripts/file.lua:line: error: Lua: ...`.
 
 ## API
 
-### Aktorzy
+### Actors
 
-| Funkcja                               | Zwraca / robi                                                |
+| Function                              | Returns / does                                               |
 |---------------------------------------|--------------------------------------------------------------|
-| `get(aktor, pole)`                    | liczba, tekst albo `nil`, gdy aktor nie istnieje; pole jak w `.swap`: `"x"`, `"Health.hp"`; też `get("Mouse", "dx")` |
-| `set(aktor, pole, wartość)`           | ustawia liczbę, tekst albo true/false; brakujący komponent zostaje dodany; błąd = wyjątek Lua |
-| `move(aktor, dx, dy, [dz])`           | przesuwa aktora                                              |
-| `exists(aktor)`                       | `true`, jeśli aktor istnieje                                 |
-| `touching(a, b)`                      | `true`, jeśli aktorzy się stykają                            |
-| `spawn(archetyp, [nazwa], [x], [y], [z])` | nazwa nowego aktora albo `nil`, gdy nie ma archetypu     |
-| `destroy(aktor)`                      | usuwa aktora                                                 |
-| `text(aktor, "tekst {pole}")`         | ustawia napis aktora                                         |
-| `actors([selektor])`                  | tabela nazw aktorów: wszystkich, z komponentem (`"Health"`) albo z tagiem (`"@enemy"`) |
-| `has(aktor, komponent)`               | `true`, jeśli aktor ma komponent                             |
-| `add(aktor, komponent)`               | dodaje komponent z wartościami domyślnymi                    |
-| `remove(aktor, komponent)`            | usuwa komponent                                              |
-| `has_tag(aktor, tag)`                 | `true`, jeśli aktor ma tag                                   |
-| `system(selektor, funkcja)`           | rejestruje system: `funkcja(e)` co klatkę dla każdego pasującego aktora (docs/behaviors.md) |
-| `raycast(x, y, z, dx, dy, dz, max, [pomiń])` | promień: nazwa pierwszego aktora z solidnym `Collider` i odległość (albo `nil`); `pomiń` – np. strzelający |
-| `distance(a, b)`                      | odległość między środkami aktorów                            |
-| `is3d()`                              | `true` w scenie `mode="3d"`                                  |
+| `get(actor, field)`                   | a number, text, or `nil` when the actor does not exist; fields as in `.swap`: `"x"`, `"Health.hp"`; also `get("Mouse", "dx")` |
+| `set(actor, field, value)`            | sets a number, text or true/false; a missing component is added; errors raise a Lua error |
+| `move(actor, dx, dy, [dz])`           | moves the actor                                              |
+| `exists(actor)`                       | `true` if the actor exists                                   |
+| `touching(a, b)`                      | `true` if the actors touch                                   |
+| `spawn(archetype, [name], [x], [y], [z])` | the new actor's name, or `nil` without such an archetype |
+| `destroy(actor)`                      | removes the actor                                            |
+| `text(actor, "text {field}")`         | sets the actor's text                                        |
+| `actors([selector])`                  | a table of actor names: all, with a component (`"Health"`) or with a tag (`"@enemy"`) |
+| `has(actor, component)`               | `true` if the actor has the component                        |
+| `add(actor, component)`               | adds a component with default values                         |
+| `remove(actor, component)`            | removes a component                                          |
+| `has_tag(actor, tag)`                 | `true` if the actor has the tag                              |
+| `system(selector, function)`          | registers a system: `function(e)` every frame for each matching actor (docs/behaviors.md) |
+| `raycast(x, y, z, dx, dy, dz, max, [ignore])` | a ray: the name of the first actor with a solid `Collider` and its distance (or `nil`); `ignore` – e.g. the shooter |
+| `distance(a, b)`                      | the distance between the actors' centres                     |
+| `is3d()`                              | `true` in a `mode="3d"` scene                                |
 
-Pola są takie same jak w `.swap`: skróty (`x`, `y`, `z`, `vx`, `rotation`…),
-`Komponent.pole` (docs/components.md) i własne zmienne. Zachowania aktorów
-(`<Behavior>`) opisuje docs/behaviors.md.
+Fields are the same as in `.swap`: shortcuts (`x`, `y`, `z`, `vx`,
+`rotation`…), `Component.field` (docs/components.md) and your own variables.
+Actor behaviors (`<Behavior>`) are described in docs/behaviors.md.
 
-### Wejście i czas
+### Input and time
 
-| Funkcja          | Zwraca                                           |
+| Function         | Returns                                          |
 |------------------|--------------------------------------------------|
-| `key("W")`       | klawisz trzymany                                 |
-| `pressed("SPACE")` | klawisz wciśnięty w tej klatce                 |
-| `frame()`        | numer bieżącej klatki                            |
+| `key("W")`       | the key is held                                  |
+| `pressed("SPACE")` | the key went down this frame                   |
+| `frame()`        | the current frame number                         |
 
-### Silnik
+### Engine
 
-| Funkcja                  | Robi                                                              |
+| Function                 | Does                                                              |
 |--------------------------|-------------------------------------------------------------------|
-| `log(...)`               | wypisuje wartości w konsoli i w `.pimpex/runtime.log`             |
-| `scene("menu")`          | przełącza scenę po tej klatce                                     |
-| `swap.add("nazwa")`      | wkleja PROC z `library.swap` do `scene.swap`                      |
-| `swap.remove("nazwa")`   | usuwa PROC z `scene.swap`                                         |
-| `swap.paste("PROC ... END")` | wkleja dowolny kod `.swap` (zastępuje PROC o tej samej nazwie) |
-| `swap.has("nazwa")`      | `true`, jeśli PROC jest teraz w `scene.swap`                      |
-| `gui.show("pauza")`      | pokazuje scenę GUI z `gui/pauza.xml` (docs/gui.md)                |
-| `gui.hide("pauza")`      | chowa scenę GUI                                                   |
-| `gui.toggle("pauza")`    | pokazuje albo chowa; zwraca `true`, gdy GUI jest teraz widoczne   |
-| `gui.shown("pauza")`     | `true`, jeśli GUI jest widoczne                                   |
+| `log(...)`               | prints values to the console and `.pimpex/runtime.log`            |
+| `scene("menu")`          | switches the scene after this frame                               |
+| `swap.add("name")`       | pastes a PROC from `library.swap` into `scene.swap`               |
+| `swap.remove("name")`    | removes a PROC from `scene.swap`                                  |
+| `swap.paste("PROC ... END")` | pastes any `.swap` code (replaces a PROC with the same name)  |
+| `swap.has("name")`       | `true` if the PROC is in `scene.swap` right now                   |
+| `gui.show("pause")`      | shows the GUI scene from `gui/pause.xml` (docs/gui.md)            |
+| `gui.hide("pause")`      | hides the GUI scene                                               |
+| `gui.toggle("pause")`    | shows or hides it; returns `true` when the GUI is now visible     |
+| `gui.shown("pause")`     | `true` if the GUI is visible                                      |
 
-`swap.*` i `scene()` działają po zakończeniu klatki, a `gui.*` od razu.
-Nieznana nazwa GUI to błąd Lua. Boot zapisuje wtedy
-zmieniony `scene.swap` na dysku, więc widać go w edytorze.
+`swap.*` and `scene()` take effect after the frame ends; Boot then writes the
+changed `scene.swap` to disk, so you see it in your editor. `gui.*` works at
+once, and an unknown GUI name raises a Lua error.
 
 ```lua
--- Lua pisze procedurę dla sceny: przeciwnik goni gracza przez 5 sekund
+-- Lua writes a procedure for the scene: an enemy chases the player for 5 seconds
 function enrage(enemy)
   swap.paste(string.format([[
 PROC rage_%s

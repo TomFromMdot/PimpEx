@@ -22,8 +22,7 @@ std::string replace_all(std::string_view text, std::string_view from, std::strin
   }
 }
 
-// Pełna ścieżka do binarki silnika – trafia do .mcp.json, żeby agent
-// uruchomił właściwy `pimpex` nawet bez niego w PATH.
+// Goes into .mcp.json so agents start the right `pimpex` even without it in PATH.
 std::string engine_executable() {
   std::error_code ec;
   const auto self = fs::read_symlink("/proc/self/exe", ec);
@@ -39,7 +38,7 @@ struct Variables {
   }
 };
 
-// Kopiuje pliki z prefiksem `prefix` do `target`. Istniejących nie nadpisuje.
+// Copies files under `prefix` to `target`, never overwriting existing ones.
 void copy_prefix(std::string_view prefix, const fs::path &root, const fs::path &target,
                  const Variables &vars, TemplateResult &result) {
   for (const auto &file : embedded_template()) {
@@ -55,7 +54,7 @@ void copy_prefix(std::string_view prefix, const fs::path &root, const fs::path &
     fs::create_directories(destination.parent_path(), ec);
     std::ofstream out(destination, std::ios::binary);
     if (!out) {
-      result.error = std::format("nie mogę zapisać {}", destination.string());
+      result.error = std::format("cannot write {}", destination.string());
       return;
     }
     out << vars.apply(file.content);
@@ -110,13 +109,13 @@ TemplateResult apply_scene_template(const fs::path &root, const std::string &tem
                                     const std::string &sceneName, const std::string &projectName) {
   TemplateResult result;
   if (!scene_template_exists(templateName)) {
-    result.error = std::format("nie ma szablonu sceny '{}' (lista: pimpex scene list)", templateName);
+    result.error = std::format("no scene template '{}' (list: pimpex scene list)", templateName);
     return result;
   }
   const auto sceneDir = root / "scenes" / sceneName;
   std::error_code ec;
   if (fs::exists(sceneDir, ec) && !fs::is_empty(sceneDir, ec)) {
-    result.error = std::format("scena '{}' już istnieje (scenes/{})", sceneName, sceneName);
+    result.error = std::format("scene '{}' already exists (scenes/{})", sceneName, sceneName);
     return result;
   }
   const Variables vars{projectName, sceneName};

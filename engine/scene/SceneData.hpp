@@ -8,25 +8,24 @@
 #include <utility>
 #include <vector>
 
-// Dane wczytane z plików XML – jeszcze nie „żywe” w rejestrze EnTT.
+// Data loaded from XML – not yet live in the EnTT registry.
 namespace PimpEx::scene {
 
-// Jeden komponent aktora z XML z już sprawdzonymi wartościami pól.
+// One actor component from XML with validated field values.
 struct ComponentInit {
   std::string component;
   std::vector<std::pair<std::string, FieldValue>> values;
   int line = 0;
 };
 
-// Opis aktora (albo archetypu) z scene.xml.
 struct ActorDef {
   std::string name;
   int line = 0;
   std::vector<std::string> tags;
-  std::vector<ComponentInit> components; // zawsze zaczyna się od Transform
+  std::vector<ComponentInit> components; // always starts with Transform
   Vars vars;
   std::vector<BehaviorRef> behaviors;
-  std::string archetype;    // aktor z <Tilemap>: z jakiego archetypu powstał
+  std::string archetype;    // <Tilemap> actors: their archetype
   bool fromTilemap = false;
 
   bool has(std::string_view component) const {
@@ -39,7 +38,7 @@ struct ActorDef {
 
 struct Resource {
   std::string id;
-  std::string path; // względem katalogu projektu
+  std::string path; // relative to the project root
 };
 
 enum class SceneMode { Mode2D, Mode3D };
@@ -52,7 +51,7 @@ struct SceneData {
   std::map<std::string, ActorDef> archetypes;
   std::map<std::string, Resource> textures;
   std::map<std::string, Resource> models;
-  std::vector<std::string> gui; // <Scene gui="hud pauza">: GUI widoczne po wczytaniu sceny
+  std::vector<std::string> gui; // <Scene gui="hud pause">: shown when the scene loads
   int guiLine = 0;
 };
 
@@ -65,7 +64,7 @@ struct ProjectConfig {
   int fps = 60;
   Rgba background{16, 16, 24, 255};
   std::string startScene = "main";
-  bool keepStateOnReload = true; // hot-reload scene.xml nie resetuje pozycji
+  bool keepStateOnReload = true; // hot-reloading scene.xml keeps positions
 };
 
 } // namespace PimpEx::scene

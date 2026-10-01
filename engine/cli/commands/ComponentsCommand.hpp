@@ -6,7 +6,7 @@
 
 namespace PimpEx::cli {
 
-// pimpex components [projekt] [--markdown] – lista komponentów (z components.xml projektu).
+// pimpex components [project] [--markdown]
 class ComponentsCommand : public ICommand {
   std::string _project;
   bool _markdown = false;

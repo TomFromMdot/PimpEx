@@ -7,8 +7,8 @@
 namespace PimpEx::cli {
 
 CLI::App *CheckCommand::setup(CLI::App &app) {
-  auto *sub = app.add_subcommand("check", "Sprawdza pliki projektu (XML, .swap, Lua) bez uruchamiania gry.");
-  sub->add_option("project", _project, "Katalog projektu")->capture_default_str();
+  auto *sub = app.add_subcommand("check", "Checks the project files (XML, .swap, Lua, GUI) without running the game.");
+  sub->add_option("project", _project, "Project directory")->capture_default_str();
   return sub;
 }
 
@@ -23,10 +23,10 @@ int CheckCommand::run() {
     d.severity == Diagnostic::Severity::Error ? ++errors : ++warnings;
   }
   if (errors > 0) {
-    std::println(std::cerr, "Znaleziono błędy: {}, ostrzeżenia: {}.", errors, warnings);
+    std::println(std::cerr, "Errors: {}, warnings: {}.", errors, warnings);
     return 1;
   }
-  std::println("OK – sceny: {}, procedury: {}, aktorzy: {}, skrypty: {}, GUI: {}, ostrzeżenia: {}.",
+  std::println("OK – scenes: {}, procs: {}, actors: {}, scripts: {}, GUI: {}, warnings: {}.",
                summary.scenes, summary.procs, summary.actors, summary.scripts, summary.guis, warnings);
   return 0;
 }

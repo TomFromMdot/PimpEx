@@ -8,8 +8,7 @@ namespace {
 
 bool is_digit(char c) { return c >= '0' && c <= '9'; }
 
-// Znaki, z których może składać się słowo. Bajty >= 0x80 to UTF-8,
-// więc aktor może nazywać się np. „Żaba”.
+// Bytes >= 0x80 are UTF-8, so names like "Żaba" are valid words.
 bool is_word_char(char c) {
   const auto u = static_cast<unsigned char>(c);
   return std::isalnum(u) || c == '_' || c == '.' || c == '/' || c == '@' || u >= 0x80;
@@ -40,7 +39,7 @@ LineTokens tokenize_line(std::string_view line) {
     if (c == '"') {
       const auto end = line.find('"', i + 1);
       if (end == std::string_view::npos) {
-        result.error = "brakuje zamykającego cudzysłowu \"";
+        result.error = "missing closing quote \"";
         return result;
       }
       result.tokens.push_back(
@@ -57,7 +56,7 @@ LineTokens tokenize_line(std::string_view line) {
       }
       ++i;
       if (op == "=" || op == "!") {
-        result.error = "nieznany operator '" + op + "' (użyj ==, !=, <, <=, >, >=)";
+        result.error = "unknown operator '" + op + "' (use ==, !=, <, <=, >, >=)";
         return result;
       }
       result.tokens.push_back({Token::Kind::Compare, op});
@@ -76,7 +75,7 @@ LineTokens tokenize_line(std::string_view line) {
       const auto [ptr, ec] =
           std::from_chars(text.data(), text.data() + text.size(), value);
       if (ec != std::errc{} || ptr != text.data() + text.size()) {
-        result.error = "niepoprawna liczba '" + std::string(text) + "'";
+        result.error = "invalid number '" + std::string(text) + "'";
         return result;
       }
       result.tokens.push_back({Token::Kind::Number, std::string(text), value});
@@ -100,7 +99,7 @@ LineTokens tokenize_line(std::string_view line) {
       continue;
     }
 
-    result.error = std::string("niespodziewany znak '") + c + "'";
+    result.error = std::string("unexpected character '") + c + "'";
     return result;
   }
   return result;

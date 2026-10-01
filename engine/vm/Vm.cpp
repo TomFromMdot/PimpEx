@@ -25,7 +25,7 @@ std::optional<scene::FieldValue> read_value(const scene::World &world, const Fra
     if (actor == "Mouse" && field == "right") value = ctx.input.mouse_down(MouseButton::Right) ? 1 : 0;
     if (actor == "Scene" && field == "frame") value = static_cast<double>(ctx.frame);
     if (!value && error)
-      *error = std::format("{} nie ma pola '{}'", actor, field);
+      *error = std::format("{} has no field '{}'", actor, field);
     if (!value)
       return std::nullopt;
     return *value;
@@ -35,7 +35,7 @@ std::optional<scene::FieldValue> read_value(const scene::World &world, const Fra
   if (value)
     return value;
   if (message.empty() && world.exists(actor))
-    return 0.0; // zmienna, której jeszcze nie ustawiono
+    return 0.0; // a variable that was never set
   if (error)
     *error = message;
   return std::nullopt;
@@ -68,7 +68,7 @@ std::string format_text(const scene::World &world, const FrameContext &ctx,
     }
     out.append(text.substr(pos, open - pos));
     const std::string inside(text.substr(open + 1, close - open - 1));
-    // {Aktor.pole}, {Aktor.Komponent.pole} albo pole tego aktora: {pole}, {Komponent.pole}.
+    // {Actor.field}, {Actor.Component.field}, or a field of self: {field}, {Component.field}.
     const auto dot = inside.find('.');
     std::string actor = self, field = inside;
     if (dot != std::string::npos) {
@@ -98,12 +98,12 @@ double Vm::random(double min, double max) {
 std::string Vm::actor(const std::string &name, int line) {
   if (name == "SELF") {
     if (_self.empty())
-      report(line, "SELF działa tylko w PROC ... FOR");
+      report(line, "SELF only works in PROC ... FOR");
     return _self;
   }
   if (name == "OTHER") {
     if (_other.empty())
-      report(line, "OTHER jest pusty – najpierw TOUCH z @tagiem albo komponentem");
+      report(line, "OTHER is empty – use TOUCH with a @tag or a component first");
     return _other;
   }
   return name;
@@ -121,7 +121,7 @@ double Vm::read(const Ref &ref, int line) {
   }
   if (const auto *number = std::get_if<double>(&*value))
     return *number;
-  report(line, std::format("{}.{} to tekst, a nie liczba", name, ref.field));
+  report(line, std::format("{}.{} is text, not a number", name, ref.field));
   return 0.0;
 }
 
@@ -136,14 +136,14 @@ double Vm::eval(const Value &value, int line) {
   case Value::Kind::Random:
     return random(value.min, value.max);
   case Value::Kind::Text:
-    report(line, "tekst w cudzysłowie można użyć tylko w SET");
+    report(line, "quoted text can only be used in SET");
     return 0.0;
   }
   return 0.0;
 }
 
-// TOUCH a b: a i b mogą być aktorami (też SELF/OTHER) albo grupami (@tag, Komponent).
-// Gdy b jest grupą, pierwszy dotknięty aktor z tej grupy staje się OTHER.
+// a and b are actors (also SELF/OTHER) or groups (@tag, Component).
+// When b is a group, the first touched member becomes OTHER.
 bool Vm::touch(const std::string &a, const std::string &b, int line) {
   auto members = [&](const std::string &selector) -> std::vector<entt::entity> {
     if (selector.starts_with('@') || _world->components().find(selector)) {
@@ -212,13 +212,12 @@ void Vm::execute(const Instr &instr) {
 
   auto &world = *_world;
   const int line = instr.line;
-  // Aktor z instrukcji (SELF/OTHER zamienione), który musi istnieć.
   auto target = [&](const std::string &name) -> std::string {
     const auto resolved = actor(name, line);
     if (resolved.empty())
       return {};
     if (!world.exists(resolved)) {
-      report(line, std::format("aktor '{}' nie istnieje", resolved));
+      report(line, std::format("actor '{}' does not exist", resolved));
       return {};
     }
     return resolved;
@@ -242,7 +241,7 @@ void Vm::execute(const Instr &instr) {
   case Op::Add:
   case Op::Mul: {
     if (is_builtin_actor(instr.ref.actor)) {
-      report(line, std::format("pola {} są tylko do odczytu", instr.ref.actor));
+      report(line, std::format("fields of {} are read-only", instr.ref.actor));
       return;
     }
     const auto who = target(instr.ref.actor);
@@ -269,7 +268,7 @@ void Vm::execute(const Instr &instr) {
                            static_cast<float>(eval(instr.values[1], line))};
     const auto name = world.spawn(instr.target, instr.other, position);
     if (!name) {
-      report(line, std::format("nie ma archetypu '{}'", instr.target));
+      report(line, std::format("no archetype '{}'", instr.target));
       return;
     }
     if (instr.values.size() == 3)
@@ -279,7 +278,7 @@ void Vm::execute(const Instr &instr) {
   case Op::Destroy: {
     const auto who = actor(instr.target, line);
     if (!who.empty())
-      world.destroy(who); // brak aktora to nie błąd – mógł już zniknąć
+      world.destroy(who); // a missing actor is fine – it may be gone already
     return;
   }
   case Op::Follow: {
@@ -312,7 +311,6 @@ void Vm::execute(const Instr &instr) {
     _host->log(format_text(world, *_ctx, instr.text, _self));
     return;
   case Op::Call: {
-    // SELF/OTHER jako argumenty CALL zamieniamy na nazwy aktorów.
     auto args = instr.args;
     for (auto &arg : args)
       if (arg == "SELF" || arg == "OTHER")
@@ -351,10 +349,9 @@ void Vm::run_frame(const Program &program, scene::World &world, const FrameConte
       for (const auto &instr : proc.body)
         execute(instr);
     } else {
-      // System: to samo ciało dla każdego pasującego aktora.
       for (const auto &name : world.query(proc.forEach)) {
         if (!world.exists(name))
-          continue; // zniszczony przez wcześniejszą iterację
+          continue; // destroyed by an earlier iteration
         _self = name;
         _other.clear();
         for (const auto &instr : proc.body) {

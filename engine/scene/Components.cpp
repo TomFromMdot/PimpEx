@@ -32,7 +32,7 @@ constexpr std::array<std::pair<std::string_view, Rgba>, 26> NamedColors = {{
     {"cyan", {0, 220, 230, 255}},
     {"gold", {255, 203, 0, 255}},
     {"transparent", {0, 0, 0, 0}},
-    // Polskie nazwy – dla najmłodszych twórców.
+    // Polish names for the youngest creators.
     {"biały", {255, 255, 255, 255}},
     {"czarny", {0, 0, 0, 255}},
     {"czerwony", {230, 41, 55, 255}},

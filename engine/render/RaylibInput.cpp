@@ -35,19 +35,18 @@ void RaylibInput::poll() {
     _down[i] = IsKeyDown(key);
     _pressed[i] = IsKeyPressed(key);
   }
-  // Prawy Shift też liczy się jako SHIFT.
   const auto shift = static_cast<std::size_t>(vm::Key::Shift);
   _down[shift] = _down[shift] || IsKeyDown(KEY_RIGHT_SHIFT);
   _pressed[shift] = _pressed[shift] || IsKeyPressed(KEY_RIGHT_SHIFT);
 
-  // Ruch myszy liczymy sami jako różnicę pozycji między klatkami. GetMouseDelta
-  // przy zablokowanym kursorze (kamera fps) zakłada, że kursor wraca na środek
-  // ekranu – pod WSLg tak nie jest i gracz kręciłby się bez końca.
+  // Mouse motion is the position difference between frames. With a locked
+  // cursor GetMouseDelta assumes the cursor is re-centred, which is not true
+  // under WSLg, and the player would spin forever.
   const auto mouse = GetMousePosition();
   if (_hasLastMouse) {
     _mouseDx = mouse.x - _mouseX;
     _mouseDy = mouse.y - _mouseY;
-    // Skok kursora (blokowanie, powrót do okna) to nie ruch gracza.
+    // A cursor jump (locking, returning to the window) is not player motion.
     if (std::abs(_mouseDx) > 200 || std::abs(_mouseDy) > 200)
       _mouseDx = _mouseDy = 0;
   }

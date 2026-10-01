@@ -15,7 +15,7 @@ Boot::~Boot() = default;
 bool Boot::start(const std::string &sceneOverride) {
   const auto projectXml = read_file(_paths.project_xml());
   if (!projectXml) {
-    _log.error(std::format("Nie ma pliku {} – to nie jest projekt PimpEx.",
+    _log.error(std::format("No {} – this is not a PimpEx project.",
                            _paths.project_xml().string()));
     return false;
   }
@@ -50,11 +50,11 @@ bool Boot::load_components(const std::string *text) {
 
 void Boot::apply_components_xml(const std::string &text) {
   if (!load_components(&text)) {
-    _log.error("components.xml ma błędy – komponenty się nie zmieniają.");
+    _log.error("components.xml has errors – components stay unchanged.");
     return;
   }
-  _log.info(std::format("hot-reload: components.xml (komponenty: {})", _components->all().size()));
-  // Scena mogła używać nowych komponentów – wczytujemy ją jeszcze raz.
+  _log.info(std::format("hot-reload: components.xml (components: {})", _components->all().size()));
+  // The scene may use the new components – reload it.
   const auto xmlPath = _paths.scene_xml(_sceneName);
   if (const auto xml = read_file(xmlPath)) {
     Diagnostics diagnostics;
@@ -86,23 +86,23 @@ void Boot::load_gui() {
   }
 }
 
-// Po wczytaniu sceny widać dokładnie te GUI, które podaje <Scene gui="...">.
+// After a scene load exactly the GUIs from <Scene gui="..."> are shown.
 void Boot::show_scene_gui() {
   _gui.hide_all();
   for (const auto &name : _sceneData.gui)
     if (!_gui.show(name))
       _log.diagnostic({Diagnostic::Severity::Error, _paths.display(_paths.scene_xml(_sceneName)),
                        _sceneData.guiLine,
-                       std::format("nie ma GUI '{}' (plik {})", name, _paths.display(_paths.gui_xml(name)))});
+                       std::format("no GUI '{}' (file {})", name, _paths.display(_paths.gui_xml(name)))});
 }
 
 void Boot::apply_gui_xml(gui::GuiScene scene, Diagnostics diagnostics) {
   _log.diagnostics(diagnostics);
   if (has_errors(diagnostics)) {
-    _log.error(std::format("{} ma błędy – GUI się nie zmienia.", scene.file));
+    _log.error(std::format("{} has errors – the GUI stays unchanged.", scene.file));
     return;
   }
-  _log.info(std::format("hot-reload: {} (elementy: {})", scene.file, scene.elements.size()));
+  _log.info(std::format("hot-reload: {} (elements: {})", scene.file, scene.elements.size()));
   _gui.set(std::move(scene));
 }
 
@@ -110,7 +110,7 @@ bool Boot::load_scene(const std::string &name) {
   const auto xmlPath = _paths.scene_xml(name);
   const auto xml = read_file(xmlPath);
   if (!xml) {
-    _log.error(std::format("Scena '{}' nie istnieje (brak {}).", name, _paths.display(xmlPath)));
+    _log.error(std::format("Scene '{}' does not exist (no {}).", name, _paths.display(xmlPath)));
     return false;
   }
   Diagnostics diagnostics;
@@ -140,15 +140,15 @@ bool Boot::load_scene(const std::string &name) {
   _program = {};
   apply_swap(std::move(swap), std::move(parsed));
 
-  _log.info(std::format("Scena '{}': aktorzy {}, procedury {}.", name, _world.size(),
+  _log.info(std::format("Scene '{}': {} actors, {} procs.", name, _world.size(),
                         _program.procs.size()));
   return true;
 }
 
 void Boot::run_frame(const vm::FrameContext &ctx) {
   _frame = &ctx;
-  // Pauzę sprawdzamy przed kliknięciami: „Wróć” z key="ESCAPE" nie może od
-  // razu oddać klawisza procedurze, która znów pokaże pauzę.
+  // Pause is read before clicks: a "Resume" button with key="ESCAPE" must not
+  // hand the same key press to a procedure that would show the pause again.
   const bool paused = _gui.pauses_game();
   for (const auto &click : _gui.update(ctx.input, ctx.screenWidth, ctx.screenHeight)) {
     _guiActionFile = click.file;
@@ -158,7 +158,7 @@ void Boot::run_frame(const vm::FrameContext &ctx) {
 
   if (!paused) {
     _vm.run_frame(_program, _world, ctx, *this);
-    _lua->update(_world); // zachowania (on_start/on_update/on_destroy) i systemy
+    _lua->update(_world);
 
     _contacts = scene::step_physics(_world);
     std::vector<std::pair<std::string, std::string>> touching;
@@ -167,11 +167,9 @@ void Boot::run_frame(const vm::FrameContext &ctx) {
     _lua->dispatch_contacts(_world, touching);
   }
 
-  apply_requests(); // na końcu: zmiany .swap i scena z VM, Lua i on_touch
+  apply_requests(); // last: .swap and scene requests from VM, Lua and on_touch
   _frame = nullptr;
 }
-
-// --- prośby z VM i Lua: zmiany pliku .swap ----------------------------------
 
 void Boot::request_proc_add(const std::string &name, int line) {
   _requests.push_back({Request::Kind::Add, name, line});
@@ -189,17 +187,16 @@ void Boot::request_scene(const std::string &name, int line) {
 bool Boot::commit_swap(std::string text, const std::string &reason) {
   auto parsed = vm::parse_program(text, swap_display());
   if (!parsed.ok()) {
-    // Nie powinno się zdarzyć – wklejamy tylko sparsowane procedury.
+    // Should not happen – only parsed procedures are pasted.
     _log.diagnostics(parsed.diagnostics);
     return false;
   }
   const auto path = _paths.scene_swap(_sceneName);
-  // Najpierw uprzedzamy watchera, potem zapisujemy – żeby nie wziął
-  // naszego własnego zapisu za zmianę od użytkownika.
+  // Tell the watcher first, then write, so our own write is not taken for a user edit.
   if (_onSelfWrite)
     _onSelfWrite(path, content_hash(text));
   if (_persistSwap && !write_file_atomic(path, text))
-    _log.error(std::format("Nie mogę zapisać {} – zmiana działa tylko w pamięci.", swap_display()));
+    _log.error(std::format("Cannot write {} – the change lives only in memory.", swap_display()));
   _swapText = std::move(text);
   _program = std::move(parsed.program);
   _vm.reset_reports();
@@ -209,7 +206,7 @@ bool Boot::commit_swap(std::string text, const std::string &reason) {
 
 void Boot::remove_in_memory(const std::string &name) {
   std::erase_if(_program.procs, [&](const vm::Proc &p) { return p.name == name; });
-  _log.info(std::format("boot: PROC {} zmieniona tylko w pamięci – {} ma błędy", name,
+  _log.info(std::format("boot: PROC {} changed only in memory – {} has errors", name,
                         swap_display()));
 }
 
@@ -220,10 +217,10 @@ void Boot::apply_requests() {
     switch (request.kind) {
     case Request::Kind::Add: {
       if (_program.find(request.value))
-        break; // już jest w scene.swap
+        break; // already in scene.swap
       const auto *proc = _library.find(request.value);
       if (!proc) {
-        runtime_error(request.line, std::format("nie ma procedury '{}' w library.swap", request.value));
+        runtime_error(request.line, std::format("no procedure '{}' in library.swap", request.value));
         break;
       }
       if (!_swapFileValid) {
@@ -232,7 +229,7 @@ void Boot::apply_requests() {
         break;
       }
       commit_swap(append_proc(_swapText, extract_proc_source(_libraryText, *proc)),
-                  std::format("boot: wklejono PROC {} do {}", request.value, swap_display()));
+                  std::format("boot: pasted PROC {} into {}", request.value, swap_display()));
       break;
     }
     case Request::Kind::Remove: {
@@ -244,13 +241,13 @@ void Boot::apply_requests() {
         break;
       }
       commit_swap(remove_proc(_swapText, *proc),
-                  std::format("boot: usunięto PROC {} z {}", request.value, swap_display()));
+                  std::format("boot: removed PROC {} from {}", request.value, swap_display()));
       break;
     }
     case Request::Kind::Paste: {
       auto parsed = vm::parse_program(request.value, "swap.paste");
       if (!parsed.ok() || parsed.program.procs.empty()) {
-        _log.error("swap.paste: tekst musi zawierać poprawną PROC ... END");
+        _log.error("swap.paste: the text must contain a valid PROC ... END");
         _log.diagnostics(parsed.diagnostics);
         break;
       }
@@ -264,26 +261,24 @@ void Boot::apply_requests() {
       std::string text = _swapText;
       for (const auto &proc : parsed.program.procs)
         if (const auto *existing = vm::parse_program(text, "").program.find(proc.name))
-          text = remove_proc(text, *existing); // wklejona wersja zastępuje starą
+          text = remove_proc(text, *existing); // the pasted version replaces the old one
       commit_swap(append_proc(text, request.value),
-                  std::format("boot: wklejono kod (swap.paste) do {}", swap_display()));
+                  std::format("boot: pasted code (swap.paste) into {}", swap_display()));
       break;
     }
     case Request::Kind::Scene:
       if (!load_scene(request.value))
-        runtime_error(request.line, std::format("nie mogę wczytać sceny '{}'", request.value));
-      return; // po zmianie sceny pozostałe prośby dotyczą starej sceny
+        runtime_error(request.line, std::format("cannot load scene '{}'", request.value));
+      return; // the remaining requests belong to the old scene
     }
   }
 }
-
-// --- hot-reload ---------------------------------------------------------------
 
 void Boot::apply_swap(std::string text, vm::ParseResult parsed) {
   if (!parsed.ok()) {
     _swapFileValid = false;
     _log.diagnostics(parsed.diagnostics);
-    _log.error(std::format("{} ma błędy – działa poprzednia wersja procedur.", swap_display()));
+    _log.error(std::format("{} has errors – the previous procedures keep running.", swap_display()));
     return;
   }
   const bool reload = !_swapText.empty() || !_program.procs.empty();
@@ -292,14 +287,14 @@ void Boot::apply_swap(std::string text, vm::ParseResult parsed) {
   _program = std::move(parsed.program);
   _vm.reset_reports();
   if (reload)
-    _log.info(std::format("hot-reload: {} (procedury: {})", swap_display(), _program.procs.size()));
+    _log.info(std::format("hot-reload: {} (procs: {})", swap_display(), _program.procs.size()));
 }
 
 void Boot::apply_library(std::string text, vm::ParseResult parsed) {
   const auto display = _paths.display(_paths.library_swap(_sceneName));
   if (!parsed.ok()) {
     _log.diagnostics(parsed.diagnostics);
-    _log.error(std::format("{} ma błędy – działa poprzednia wersja biblioteki.", display));
+    _log.error(std::format("{} has errors – the previous library stays.", display));
     return;
   }
   _libraryText = std::move(text);
@@ -309,7 +304,7 @@ void Boot::apply_library(std::string text, vm::ParseResult parsed) {
 void Boot::apply_scene_xml(scene::SceneData data, Diagnostics diagnostics) {
   _log.diagnostics(diagnostics);
   if (has_errors(diagnostics)) {
-    _log.error(std::format("{} ma błędy – scena się nie zmienia.",
+    _log.error(std::format("{} has errors – the scene stays unchanged.",
                            _paths.display(_paths.scene_xml(_sceneName))));
     return;
   }
@@ -318,7 +313,7 @@ void Boot::apply_scene_xml(scene::SceneData data, Diagnostics diagnostics) {
   _world.reload(_sceneData, _config.keepStateOnReload);
   if (guiChanged)
     show_scene_gui();
-  _log.info(std::format("hot-reload: {} (aktorzy: {})",
+  _log.info(std::format("hot-reload: {} (actors: {})",
                         _paths.display(_paths.scene_xml(_sceneName)), _world.size()));
 }
 
@@ -330,11 +325,9 @@ void Boot::apply_script(const fs::path &path, const std::string &source) {
     _log.diagnostic(*error);
 }
 
-// --- reszta hosta ---------------------------------------------------------------
-
 void Boot::call_function(const std::string &name, const std::vector<std::string> &args, int line) {
   if (!_lua->has_function(name)) {
-    runtime_error(line, std::format("nie ma funkcji Lua '{}' w scripts/", name));
+    runtime_error(line, std::format("no Lua function '{}' in scripts/", name));
     return;
   }
   if (auto error = _lua->call(name, args))
@@ -356,7 +349,7 @@ void Boot::request_gui(vm::Op op, const std::string &name, int line) {
     break;
   }
   if (!known)
-    runtime_error(line, std::format("nie ma GUI '{}' (plik {})", name, _paths.display(_paths.gui_xml(name))));
+    runtime_error(line, std::format("no GUI '{}' (file {})", name, _paths.display(_paths.gui_xml(name))));
 }
 
 void Boot::log(const std::string &message) { _log.info("LOG: " + message); }
@@ -380,18 +373,18 @@ std::vector<fs::path> Boot::watched_files() const {
 
 void Boot::write_state(long frame) const {
   std::ostringstream out;
-  out << "# PimpEx – stan sceny. Plik nadpisywany w trakcie gry.\n";
-  out << "scena: " << _sceneName << '\n';
-  out << "klatka: " << frame << '\n';
-  out << "procedury:";
+  out << "# PimpEx – scene state. Rewritten while the game runs.\n";
+  out << "scene: " << _sceneName << '\n';
+  out << "frame: " << frame << '\n';
+  out << "procs:";
   for (const auto &proc : _program.procs)
     out << ' ' << proc.name;
   out << "\ngui:";
   for (const auto &name : _gui.shown())
     out << ' ' << name;
   if (_gui.pauses_game())
-    out << " (pauza)";
-  out << "\naktorzy: " << _world.size() << '\n';
+    out << " (paused)";
+  out << "\nactors: " << _world.size() << '\n';
   vm::ManualInput noInput;
   const vm::FrameContext ctx{noInput, _config.width, _config.height, frame};
   _world.dump(out, [&](const std::string &text, const std::string &self) {

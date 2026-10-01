@@ -57,7 +57,7 @@ struct ApiFixture {
 
 } // namespace
 
-TEST_CASE("API: stan, aktorzy i pola") {
+TEST_CASE("API: state, actors and fields") {
   ApiFixture f;
   const auto state = f.call("state.get");
   CHECK(state["scene"] == "main");
@@ -76,12 +76,12 @@ TEST_CASE("API: stan, aktorzy i pola") {
   CHECK(updated["components"]["Rect"]["color"] == "blue");
 
   CHECK_THROWS_WITH_AS(f.call("actor.set", {{"name", "Player"}, {"field", "Rect.colr"}, {"value", "x"}}),
-                       doctest::Contains("czy chodziło o color?"), api::ApiError);
+                       doctest::Contains("did you mean color?"), api::ApiError);
   CHECK_THROWS_AS(f.call("actor.get", {{"name", "Nope"}}), api::ApiError);
   CHECK_THROWS_AS(f.call("no.such.method"), api::ApiError);
 }
 
-TEST_CASE("API: spawn, komponenty, destroy") {
+TEST_CASE("API: spawn, components, destroy") {
   ApiFixture f;
   const auto dot = f.call("actor.spawn", {{"archetype", "Dot"}, {"x", 5}, {"y", 6}});
   CHECK(dot["name"] == "Dot_1");
@@ -95,7 +95,7 @@ TEST_CASE("API: spawn, komponenty, destroy") {
   CHECK_FALSE(f.boot->world().exists("Dot_1"));
 }
 
-TEST_CASE("API: swap.paste / add / remove zmieniają plik od razu") {
+TEST_CASE("API: swap.paste / add / remove change the file at once") {
   ApiFixture f;
   f.call("swap.paste", {{"source", "PROC hello ONCE\n  ADD Game.hello 1\nEND\n"}});
   CHECK(f.boot->program().find("hello"));
@@ -110,7 +110,7 @@ TEST_CASE("API: swap.paste / add / remove zmieniają plik od razu") {
   CHECK_THROWS_AS(f.call("swap.paste", {{"source", "PROC x\n MOOVE a 1 1\nEND"}}), api::ApiError);
 }
 
-TEST_CASE("API: input.press, pauza i krok, Lua, sceny, check") {
+TEST_CASE("API: input.press, pause and step, Lua, scenes, check") {
   ApiFixture f;
   f.call("input.press", {{"keys", {"SPACE"}}, {"frames", 3}});
   f.step(5);
@@ -131,15 +131,15 @@ TEST_CASE("API: input.press, pauza i krok, Lua, sceny, check") {
   CHECK(f.boot->scene_name() == "other");
 
   CHECK(f.call("check")["ok"] == true);
-  CHECK(f.call("components.list").size() == 14); // wbudowane
-  CHECK_THROWS_AS(f.call("screenshot"), api::ApiError); // bez okna
+  CHECK(f.call("components.list").size() == 14); // built-in
+  CHECK_THROWS_AS(f.call("screenshot"), api::ApiError); // no window
 }
 
-TEST_CASE("API: swap.paste odrzuca kod z błędnymi odwołaniami") {
+TEST_CASE("API: swap.paste rejects code with bad references") {
   ApiFixture f;
   CHECK_THROWS_WITH_AS(f.call("swap.paste", {{"source", "PROC x ONCE\n  SPAWN Nope\nEND"}}),
-                       doctest::Contains("swap.paste:2: błąd: nie ma archetypu 'Nope'"), api::ApiError);
+                       doctest::Contains("swap.paste:2: error: no archetype 'Nope'"), api::ApiError);
   const auto ok = f.call("swap.paste", {{"source", "PROC y ONCE\n  MOVE Ghost 1 1\nEND"}});
-  REQUIRE(ok["warnings"].size() == 1); // Ghost nie istnieje – tylko ostrzeżenie
+  REQUIRE(ok["warnings"].size() == 1); // Ghost does not exist – only a warning
   CHECK(ok["warnings"][0]["severity"] == "warning");
 }

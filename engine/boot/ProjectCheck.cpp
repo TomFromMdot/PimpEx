@@ -23,7 +23,7 @@ void check_program_references(const ProgramCheckInput &input, Diagnostics &diagn
   for (const auto &[name, def] : input.scene.archetypes)
     tags.insert(def.tags.begin(), def.tags.end());
 
-  // Nazwy nadawane przez SPAWN ... AS nazwa też są znane.
+  // Names given by SPAWN ... AS are known too.
   auto collectSpawnNames = [&](const vm::Program &program) {
     for (const auto &proc : program.procs)
       for (const auto &instr : proc.body)
@@ -45,31 +45,31 @@ void check_program_references(const ProgramCheckInput &input, Diagnostics &diagn
   };
 
   const vm::Proc *currentProc = nullptr;
-  // Aktor albo grupa (@tag / Komponent – tylko tam, gdzie wolno).
+  // An actor or, where allowed, a group (@tag / Component).
   auto checkActor = [&](int line, const std::string &actor, bool allowGroup = false) {
     if (actor.empty() || known.contains(actor) || is_builtin_actor(actor))
       return;
     if (actor == "SELF") {
       if (currentProc && currentProc->forEach.empty())
-        error(line, "SELF działa tylko w PROC ... FOR Komponent / FOR @tag");
+        error(line, "SELF only works in PROC ... FOR Component / FOR @tag");
       return;
     }
     if (actor == "OTHER")
       return;
     if (actor.starts_with('@')) {
       if (!allowGroup)
-        error(line, std::format("'{}' – tagu można użyć tylko w TOUCH, EXISTS i FOR", actor));
+        error(line, std::format("'{}' – tags only work in TOUCH, EXISTS and FOR", actor));
       else if (!tags.contains(actor.substr(1)))
-        warn(line, std::format("żaden aktor ani archetyp w scene.xml nie ma tagu '{}'", actor.substr(1)));
+        warn(line, std::format("no actor or archetype in scene.xml has the tag '{}'", actor.substr(1)));
       return;
     }
     if (allowGroup && registry.find(actor))
-      return; // TOUCH Player Health – dowolny aktor z komponentem
+      return; // TOUCH Player Health – any actor with the component
     if (input.scene.archetypes.contains(actor))
-      return; // np. FOLLOW po archetypie – nazwa nadana automatycznie
-    warn(line, std::format("aktor '{}' nie istnieje w scene.xml (chyba że powstanie przez SPAWN)", actor));
+      return; // e.g. FOLLOW an archetype – the name is generated
+    warn(line, std::format("actor '{}' is not in scene.xml (unless SPAWN creates it)", actor));
   };
-  // Pole: "x", "score" (zmienna) albo "Komponent.pole".
+  // "x", "score" (a variable) or "Component.field".
   auto checkField = [&](int line, const std::string &field) {
     const auto dot = field.find('.');
     if (dot == std::string::npos)
@@ -79,8 +79,8 @@ void check_program_references(const ProgramCheckInput &input, Diagnostics &diagn
     const auto *component = registry.find(componentName);
     if (!component) {
       const auto hint = scene::closest_name(componentName, registry.names());
-      error(line, std::format("nie ma komponentu '{}'{}", componentName,
-                              hint.empty() ? "" : std::format(" (czy chodziło o {}?)", hint)));
+      error(line, std::format("no component '{}'{}", componentName,
+                              hint.empty() ? "" : std::format(" (did you mean {}?)", hint)));
       return;
     }
     if (!component->field(fieldName)) {
@@ -88,8 +88,8 @@ void check_program_references(const ProgramCheckInput &input, Diagnostics &diagn
       for (const auto &f : component->fields)
         names.push_back(f.name);
       const auto hint = scene::closest_name(fieldName, names);
-      error(line, std::format("komponent {} nie ma pola '{}'{}", componentName, fieldName,
-                              hint.empty() ? "" : std::format(" (czy chodziło o {}?)", hint)));
+      error(line, std::format("component {} has no field '{}'{}", componentName, fieldName,
+                              hint.empty() ? "" : std::format(" (did you mean {}?)", hint)));
     }
   };
   auto checkValue = [&](int line, const vm::Value &value) {
@@ -106,9 +106,9 @@ void check_program_references(const ProgramCheckInput &input, Diagnostics &diagn
         checkActor(proc.firstLine, proc.forEach, true);
       else if (!registry.find(proc.forEach)) {
         const auto hint = scene::closest_name(proc.forEach, registry.names());
-        error(proc.firstLine, std::format("FOR {}: nie ma takiego komponentu{} (tag pisz jako @{})",
+        error(proc.firstLine, std::format("FOR {}: no such component{} (write tags as @{})",
                                           proc.forEach,
-                                          hint.empty() ? "" : std::format(" – czy chodziło o {}?", hint),
+                                          hint.empty() ? "" : std::format(" – did you mean {}?", hint),
                                           proc.forEach));
       }
     }
@@ -138,34 +138,34 @@ void check_program_references(const ProgramCheckInput &input, Diagnostics &diagn
       case vm::Op::Add:
       case vm::Op::Mul:
         if (is_builtin_actor(instr.ref.actor))
-          error(line, std::format("pola {} są tylko do odczytu", instr.ref.actor));
+          error(line, std::format("fields of {} are read-only", instr.ref.actor));
         else
           checkActor(line, instr.ref.actor);
         checkField(line, instr.ref.field);
         break;
       case vm::Op::Spawn:
         if (!input.scene.archetypes.contains(instr.target))
-          error(line, std::format("nie ma archetypu '{}' w scene.xml", instr.target));
+          error(line, std::format("no archetype '{}' in scene.xml", instr.target));
         break;
       case vm::Op::ProcAdd:
         if (!input.library || !input.library->find(instr.target))
-          error(line, std::format("nie ma procedury '{}' w library.swap", instr.target));
+          error(line, std::format("no procedure '{}' in library.swap", instr.target));
         break;
       case vm::Op::Scene:
         if (input.sceneNames &&
             std::find(input.sceneNames->begin(), input.sceneNames->end(), instr.target) ==
                 input.sceneNames->end())
-          error(line, std::format("nie ma sceny '{}' (katalog scenes/{})", instr.target, instr.target));
+          error(line, std::format("no scene '{}' (directory scenes/{})", instr.target, instr.target));
         break;
       case vm::Op::Call:
         if (input.luaFunctions && !input.luaFunctions->contains(instr.target))
-          error(line, std::format("nie ma funkcji Lua '{}' w katalogu scripts/", instr.target));
+          error(line, std::format("no Lua function '{}' in scripts/", instr.target));
         break;
       case vm::Op::GuiShow:
       case vm::Op::GuiHide:
       case vm::Op::GuiToggle:
         if (input.guiNames && !input.guiNames->contains(instr.target))
-          error(line, std::format("nie ma GUI '{}' (plik gui/{}.xml)", instr.target, instr.target));
+          error(line, std::format("no GUI '{}' (file gui/{}.xml)", instr.target, instr.target));
         break;
       case vm::Op::Log:
       case vm::Op::ProcRemove:
@@ -184,7 +184,7 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
 
   const auto projectXml = read_file(paths.project_xml());
   if (!projectXml) {
-    missing(paths.project_xml(), "brak pliku – to nie jest projekt PimpEx (użyj `pimpex init`)");
+    missing(paths.project_xml(), "missing file – this is not a PimpEx project (use `pimpex init`)");
     return diagnostics;
   }
   const auto config =
@@ -193,10 +193,9 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
   const auto sceneNames = paths.scene_names();
   if (std::find(sceneNames.begin(), sceneNames.end(), config.startScene) == sceneNames.end())
     missing(paths.project_xml(),
-            std::format("scena startowa '{}' nie istnieje (brak katalogu scenes/{})",
+            std::format("start scene '{}' does not exist (no directory scenes/{})",
                         config.startScene, config.startScene));
 
-  // Komponenty użytkownika.
   auto registry = scene::ComponentRegistry::with_builtins();
   if (const auto componentsXml = read_file(paths.components_xml())) {
     registry->load_custom(*componentsXml, paths.display(paths.components_xml()), diagnostics);
@@ -204,12 +203,11 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
       summary.components += c.builtin ? 0 : 1;
   }
 
-  // Lua: składnia skryptów i lista zdefiniowanych funkcji (dla CALL).
   const auto lua = script::check_scripts(paths, diagnostics);
   summary.scripts = static_cast<int>(paths.script_files().size());
   const std::set<std::string> *luaFunctions = lua.ok ? &lua.functions : nullptr;
 
-  // Sceny GUI. Najpierw nazwy (przycisk może włączać inne GUI), potem kliknięcia.
+  // GUI names first – a button may show another GUI.
   std::vector<gui::GuiScene> guis;
   std::set<std::string> guiNames;
   for (const auto &file : paths.gui_files()) {
@@ -227,14 +225,14 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
         };
         if (instr.op == vm::Op::Scene &&
             std::find(sceneNames.begin(), sceneNames.end(), instr.target) == sceneNames.end())
-          report(std::format("nie ma sceny '{}' (katalog scenes/{})", instr.target, instr.target));
+          report(std::format("no scene '{}' (directory scenes/{})", instr.target, instr.target));
         if (instr.op == vm::Op::Call && luaFunctions && !luaFunctions->contains(instr.target))
-          report(std::format("nie ma funkcji Lua '{}' w katalogu scripts/", instr.target));
+          report(std::format("no Lua function '{}' in scripts/", instr.target));
         if ((instr.op == vm::Op::GuiShow || instr.op == vm::Op::GuiHide || instr.op == vm::Op::GuiToggle) &&
             !guiNames.contains(instr.target))
-          report(std::format("nie ma GUI '{}' (plik gui/{}.xml)", instr.target, instr.target));
+          report(std::format("no GUI '{}' (file gui/{}.xml)", instr.target, instr.target));
         if (instr.op == vm::Op::ProcAdd)
-          report("PROC_ADD nie działa w GUI – przycisk nie wie, z której sceny wziąć library.swap");
+          report("PROC_ADD does not work in GUI – a button does not know which scene's library.swap to use");
       }
 
   for (const auto &sceneName : sceneNames) {
@@ -242,7 +240,7 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
     const auto xmlPath = paths.scene_xml(sceneName);
     const auto xml = read_file(xmlPath);
     if (!xml) {
-      missing(xmlPath, "brak pliku scene.xml");
+      missing(xmlPath, "missing scene.xml");
       continue;
     }
     const auto data =
@@ -251,14 +249,13 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
     for (const auto &name : data.gui)
       if (!guiNames.contains(name))
         diagnostics.push_back({Diagnostic::Severity::Error, paths.display(xmlPath), data.guiLine,
-                               std::format("<Scene gui>: nie ma GUI '{}' (plik gui/{}.xml)", name, name)});
+                               std::format("<Scene gui>: no GUI '{}' (file gui/{}.xml)", name, name)});
 
-    // Każde <Behavior name="x"> potrzebuje pliku scripts/behaviors/x.lua.
     auto checkBehaviors = [&](const scene::ActorDef &def) {
       for (const auto &behavior : def.behaviors)
         if (!fs::exists(paths.behavior_file(behavior.name)))
           diagnostics.push_back({Diagnostic::Severity::Error, paths.display(xmlPath), def.line,
-                                 std::format("'{}': nie ma zachowania '{}' (plik {})", def.name,
+                                 std::format("'{}': no behavior '{}' (file {})", def.name,
                                              behavior.name,
                                              paths.display(paths.behavior_file(behavior.name)))});
     };
@@ -277,7 +274,7 @@ Diagnostics check_project(const ProjectPaths &paths, CheckSummary &summary) {
     const auto swapPath = paths.scene_swap(sceneName);
     const auto swap = read_file(swapPath);
     if (!swap) {
-      missing(swapPath, "brak pliku scene.swap");
+      missing(swapPath, "missing scene.swap");
       continue;
     }
     auto parsed = vm::parse_program(*swap, paths.display(swapPath));

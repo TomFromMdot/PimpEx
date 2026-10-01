@@ -19,7 +19,7 @@ const char *SceneXml = R"(<Scene background="black">
     <Var name="lives" value="3"/>
   </Actor>
   <Actor name="Label" x="10" y="10">
-    <Text value="Życia: {Player.lives}" size="30" color="żółty"/>
+    <Text value="Lives: {Player.lives}" size="30" color="żółty"/>
   </Actor>
   <Archetype name="Bullet" w="4" h="8" vy="-5">
     <Circle color="white"/>
@@ -32,7 +32,7 @@ SceneData load_scene(const char *xml, Diagnostics &diagnostics) {
 
 } // namespace
 
-TEST_CASE("kolory: hex, nazwy angielskie i polskie") {
+TEST_CASE("colors: hex, English and Polish names") {
   CHECK(parse_color("#fff") == Rgba{255, 255, 255, 255});
   CHECK(parse_color("#102030") == Rgba{16, 32, 48, 255});
   CHECK(parse_color("#10203040") == Rgba{16, 32, 48, 64});
@@ -42,7 +42,7 @@ TEST_CASE("kolory: hex, nazwy angielskie i polskie") {
   CHECK_FALSE(parse_color("ups").has_value());
 }
 
-TEST_CASE("scene.xml: aktorzy, archetypy i zmienne") {
+TEST_CASE("scene.xml: actors, archetypes and variables") {
   Diagnostics diagnostics;
   const auto data = load_scene(SceneXml, diagnostics);
   CHECK(diagnostics.empty());
@@ -50,7 +50,7 @@ TEST_CASE("scene.xml: aktorzy, archetypy i zmienne") {
   const auto &player = data.actors[0];
   CHECK(player.name == "Player");
   CHECK(player.line == 2);
-  REQUIRE(player.components.size() == 3); // Transform, Body (z vx), Rect
+  REQUIRE(player.components.size() == 3); // Transform, Body (from vx), Rect
   CHECK(player.components[0].component == "Transform");
   CHECK(player.components[1].component == "Body");
   CHECK(player.components[2].component == "Rect");
@@ -61,7 +61,7 @@ TEST_CASE("scene.xml: aktorzy, archetypy i zmienne") {
   CHECK(data.background.has_value());
 }
 
-TEST_CASE("scene.xml: błędy z numerem linii") {
+TEST_CASE("scene.xml: errors with line numbers") {
   Diagnostics diagnostics;
   load_scene(R"(<Scene>
   <Actor name="A" x="abc"/>
@@ -74,35 +74,35 @@ TEST_CASE("scene.xml: błędy z numerem linii") {
   for (const auto &d : diagnostics)
     text += d.format() + "\n";
   INFO(text);
-  CHECK(text.find("scene.xml:2: błąd: x=\"abc\" musi być liczbą") != std::string::npos);
-  CHECK(text.find("scene.xml:3: błąd: aktor 'A' jest już zdefiniowany") != std::string::npos);
-  CHECK(text.find("scene.xml:4: błąd: <Actor> musi mieć atrybut name") != std::string::npos);
-  CHECK(text.find("scene.xml:5: ostrzeżenie: nieznany komponent <Foo>") != std::string::npos);
-  CHECK(text.find("scene.xml:5: błąd: 'B' używa tekstury 'nope'") != std::string::npos);
+  CHECK(text.find("scene.xml:2: error: x=\"abc\" must be a number") != std::string::npos);
+  CHECK(text.find("scene.xml:3: error: actor 'A' is already defined") != std::string::npos);
+  CHECK(text.find("scene.xml:4: error: <Actor> needs a name attribute") != std::string::npos);
+  CHECK(text.find("scene.xml:5: warning: unknown component <Foo>") != std::string::npos);
+  CHECK(text.find("scene.xml:5: error: 'B' uses texture 'nope'") != std::string::npos);
 }
 
-TEST_CASE("scene.xml: zepsuty XML") {
+TEST_CASE("scene.xml: broken XML") {
   Diagnostics diagnostics;
   load_scene("<Scene>\n<Actor name=\"A\">\n</Scene>", diagnostics);
   REQUIRE(diagnostics.size() == 1);
-  CHECK(diagnostics[0].message.starts_with("niepoprawny XML"));
+  CHECK(diagnostics[0].message.starts_with("invalid XML"));
 }
 
 TEST_CASE("pimpex.xml") {
   Diagnostics diagnostics;
   const auto config = boot::parse_project_xml(
-      R"(<Project name="gra"><Window title="Moja gra" width="640" height="480" fps="30"/>
+      R"(<Project name="game"><Window title="My game" width="640" height="480" fps="30"/>
 <StartScene name="menu"/><HotReload keepState="false"/></Project>)",
       "pimpex.xml", diagnostics);
   CHECK(diagnostics.empty());
-  CHECK(config.title == "Moja gra");
+  CHECK(config.title == "My game");
   CHECK(config.width == 640);
   CHECK(config.fps == 30);
   CHECK(config.startScene == "menu");
   CHECK_FALSE(config.keepStateOnReload);
 }
 
-TEST_CASE("World: pola, SPAWN, DESTROY, TOUCH i ruch") {
+TEST_CASE("World: fields, SPAWN, DESTROY, TOUCH and movement") {
   Diagnostics diagnostics;
   World world;
   world.load(load_scene(SceneXml, diagnostics));
@@ -142,7 +142,7 @@ TEST_CASE("World: pola, SPAWN, DESTROY, TOUCH i ruch") {
                         "lives=3 score=5") != std::string::npos);
 }
 
-TEST_CASE("World: hot-reload zachowuje stan") {
+TEST_CASE("World: hot-reload keeps state") {
   Diagnostics diagnostics;
   World world;
   world.load(load_scene(SceneXml, diagnostics));
@@ -156,20 +156,20 @@ TEST_CASE("World: hot-reload zachowuje stan") {
 </Scene>)",
                                   diagnostics);
   world.reload(changed, true);
-  CHECK(world.get("Player", "x") == 555); // pozycja została
-  CHECK(world.get("Player", "w") == 80);  // rozmiar z pliku
-  CHECK(world.get("Player", "lives") == 3); // stara wartość zmiennej
-  CHECK(world.get("Player", "ammo") == 10); // nowa zmienna
+  CHECK(world.get("Player", "x") == 555); // position kept
+  CHECK(world.get("Player", "w") == 80);  // size from the file
+  CHECK(world.get("Player", "lives") == 3); // old variable value
+  CHECK(world.get("Player", "ammo") == 10); // new variable
   CHECK(world.exists("New"));
-  CHECK_FALSE(world.exists("Label"));    // usunięty z pliku
-  CHECK(world.exists("Bullet_1"));       // SPAWN zostaje
+  CHECK_FALSE(world.exists("Label"));    // removed from the file
+  CHECK(world.exists("Bullet_1"));       // SPAWN stays
 
   world.reload(changed, false);
   CHECK(world.get("Player", "x") == 0);
   CHECK_FALSE(world.exists("Bullet_1"));
 }
 
-TEST_CASE("check: odwołania w programie") {
+TEST_CASE("check: references in the program") {
   Diagnostics diagnostics;
   const auto data = load_scene(SceneXml, diagnostics);
   const auto library = vm::parse_program("PROC boost\nEND\n", "library.swap");
@@ -196,10 +196,10 @@ END)",
     text += d.format() + "\n";
   INFO(text);
   CHECK(diagnostics.size() == 6);
-  CHECK(text.find("scene.swap:2: ostrzeżenie: aktor 'Ghost'") != std::string::npos);
-  CHECK(text.find("scene.swap:5: błąd: nie ma archetypu 'Rocket'") != std::string::npos);
-  CHECK(text.find("scene.swap:6: błąd: pola Screen są tylko do odczytu") != std::string::npos);
-  CHECK(text.find("scene.swap:8: błąd: nie ma procedury 'nope'") != std::string::npos);
-  CHECK(text.find("scene.swap:9: błąd: nie ma sceny 'menu'") != std::string::npos);
-  CHECK(text.find("scene.swap:10: błąd: nie ma funkcji Lua 'missing'") != std::string::npos);
+  CHECK(text.find("scene.swap:2: warning: actor 'Ghost'") != std::string::npos);
+  CHECK(text.find("scene.swap:5: error: no archetype 'Rocket'") != std::string::npos);
+  CHECK(text.find("scene.swap:6: error: fields of Screen are read-only") != std::string::npos);
+  CHECK(text.find("scene.swap:8: error: no procedure 'nope'") != std::string::npos);
+  CHECK(text.find("scene.swap:9: error: no scene 'menu'") != std::string::npos);
+  CHECK(text.find("scene.swap:10: error: no Lua function 'missing'") != std::string::npos);
 }

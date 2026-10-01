@@ -1,7 +1,7 @@
--- Drzwi: gracz naciska E (ustawia zmienną open = 1), drzwi wjeżdżają
--- w sufit i znika ich Collider. Po `stay` klatkach zjeżdżają – chyba że
--- ktoś stoi w przejściu.
--- Parametry: stay – ile klatek zostają otwarte (180 = 3 s).
+-- Door: the player presses E (sets the variable open = 1), the door slides
+-- into the ceiling and its Collider goes away. After `stay` frames it comes
+-- down again – unless someone stands in the doorway.
+-- Parameters: stay – frames it stays open (180 = 3 s).
 
 local function blocked(self)
   local reach = self.w / 2 + 0.4
@@ -29,7 +29,7 @@ return {
       if self.y >= self.base + self.h - 0.1 then
         self.state = "open"
         self.timer = self.stay or 180
-        remove(self.name, "Collider") -- można przejść
+        remove(self.name, "Collider") -- passable
       end
     elseif self.state == "open" then
       self.timer = self.timer - 1

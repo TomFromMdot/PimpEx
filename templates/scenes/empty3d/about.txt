@@ -1,1 +1,1 @@
-Pusta scena 3D: podłoga, światło, obracający się sześcian, kamera orbit
+Empty 3D scene: floor, light, spinning cube, orbit camera

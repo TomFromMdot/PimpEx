@@ -1,1 +1,1 @@
-Platformówka: grawitacja, skoki po platformach, ruchoma platforma, meta
+Platformer: gravity, jumping between platforms, a moving platform, a finish flag

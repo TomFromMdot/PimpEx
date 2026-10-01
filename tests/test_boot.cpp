@@ -14,7 +14,7 @@ using namespace PimpEx::boot;
 
 namespace {
 
-// Tymczasowy projekt gry w katalogu testowym, sprzątany po teście.
+// A temporary game project, removed after the test.
 struct TempProject {
   fs::path root;
 
@@ -28,7 +28,7 @@ struct TempProject {
   <Actor name="Game" w="0" h="0"/>
   <Archetype name="Dot" w="2" h="2"/>
 </Scene>)");
-    write("scenes/main/scene.swap", "# moje procedury\nPROC tick\n  ADD Game.frames 1\nEND\n");
+    write("scenes/main/scene.swap", "# my procs\nPROC tick\n  ADD Game.frames 1\nEND\n");
     write("scenes/main/library.swap", "PROC boost\n  ADD Player.x 10\nEND\n");
     write("scripts/game.lua", R"(
 function on_call(who, amount)
@@ -72,18 +72,18 @@ struct BootFixture {
 
 } // namespace
 
-TEST_CASE("SwapFile: wklejanie i wycinanie procedur zachowuje resztę pliku") {
-  const std::string text = "# komentarz\nPROC a\n  LOG a\nEND\n\nPROC b\n  LOG b\nEND\n";
+TEST_CASE("SwapFile: pasting and cutting procs keeps the rest of the file") {
+  const std::string text = "# comment\nPROC a\n  LOG a\nEND\n\nPROC b\n  LOG b\nEND\n";
   const auto parsed = vm::parse_program(text, "t");
   REQUIRE(parsed.ok());
   CHECK(extract_proc_source(text, *parsed.program.find("b")) == "PROC b\n  LOG b\nEND\n");
-  CHECK(remove_proc(text, *parsed.program.find("a")) == "# komentarz\nPROC b\n  LOG b\nEND\n");
-  CHECK(remove_proc(text, *parsed.program.find("b")) == "# komentarz\nPROC a\n  LOG a\nEND\n\n");
+  CHECK(remove_proc(text, *parsed.program.find("a")) == "# comment\nPROC b\n  LOG b\nEND\n");
+  CHECK(remove_proc(text, *parsed.program.find("b")) == "# comment\nPROC a\n  LOG a\nEND\n\n");
   CHECK(append_proc("PROC a\nEND", "PROC c\nEND\n") == "PROC a\nEND\n\nPROC c\nEND\n");
   CHECK(append_proc("", "PROC c\nEND\n") == "PROC c\nEND\n");
 }
 
-TEST_CASE("FileWatcher: zgłasza zmiany, pomija własne zapisy silnika") {
+TEST_CASE("FileWatcher: reports changes, skips the engine's own writes") {
   TempProject project("watcher");
   const auto file = project.root / "scenes/main/scene.swap";
   std::vector<std::string> changes;
@@ -93,15 +93,14 @@ TEST_CASE("FileWatcher: zgłasza zmiany, pomija własne zapisy silnika") {
   watcher.poll_once();
   CHECK(changes.empty());
 
-  // Zmiana od użytkownika (czas modyfikacji przesuwamy ręcznie – system
-  // plików może mieć zbyt grubą rozdzielczość czasu).
+  // A user change (the mtime is moved by hand – the file system clock may be coarse).
   project.write("scenes/main/scene.swap", "PROC x\nEND\n");
   fs::last_write_time(file, fs::last_write_time(file) + std::chrono::seconds(1));
   watcher.poll_once();
   REQUIRE(changes.size() == 1);
   CHECK(changes[0] == "PROC x\nEND\n");
 
-  // Zapis silnika: najpierw expect, potem plik – brak zdarzenia.
+  // An engine write: expect first, then the file – no event.
   const std::string own = "PROC y\nEND\n";
   watcher.expect(file, content_hash(own));
   write_file_atomic(file, own);
@@ -110,7 +109,7 @@ TEST_CASE("FileWatcher: zgłasza zmiany, pomija własne zapisy silnika") {
   CHECK(changes.size() == 1);
 }
 
-TEST_CASE("Boot: PROC_ADD i PROC_REMOVE edytują scene.swap na dysku") {
+TEST_CASE("Boot: PROC_ADD and PROC_REMOVE edit scene.swap on disk") {
   BootFixture f("proc_add");
   f.project.write("scenes/main/scene.swap", R"(PROC tick
   ADD Game.frames 1
@@ -118,18 +117,18 @@ TEST_CASE("Boot: PROC_ADD i PROC_REMOVE edytują scene.swap na dysku") {
   IF Game.frames == 4 : PROC_REMOVE boost
 END
 )");
-  // Wczytujemy scenę od nowa, żeby Boot zobaczył nowy plik.
+  // Reload the scene so Boot sees the new file.
   REQUIRE(f.boot.load_scene("main"));
   f.step(2);
   CHECK(f.project.read("scenes/main/scene.swap").find("PROC boost") != std::string::npos);
   CHECK(f.boot.program().find("boost"));
   f.step(2);
-  CHECK(f.get("Player", "x") == 120); // boost działał w klatkach 3 i 4
+  CHECK(f.get("Player", "x") == 120); // boost ran in frames 3 and 4
   CHECK(f.project.read("scenes/main/scene.swap").find("PROC boost") == std::string::npos);
   CHECK_FALSE(f.boot.program().find("boost"));
 }
 
-TEST_CASE("Boot: PROC ONCE wykonuje się raz i znika z pliku") {
+TEST_CASE("Boot: PROC ONCE runs once and leaves the file") {
   BootFixture f("once");
   f.project.write("scenes/main/scene.swap", "PROC tick\n  ADD Game.frames 1\nEND\n\n"
                                             "PROC hello ONCE\n  ADD Game.hello 1\nEND\n");
@@ -140,7 +139,7 @@ TEST_CASE("Boot: PROC ONCE wykonuje się raz i znika z pliku") {
   CHECK(f.project.read("scenes/main/scene.swap") == "PROC tick\n  ADD Game.frames 1\nEND\n\n");
 }
 
-TEST_CASE("Boot: CALL do Lua i swap.paste") {
+TEST_CASE("Boot: CALL into Lua and swap.paste") {
   BootFixture f("lua");
   f.project.write("scenes/main/scene.swap",
                   "PROC a\n  IF Scene.frame == 0 : CALL on_call Player 7\n"
@@ -150,14 +149,14 @@ TEST_CASE("Boot: CALL do Lua i swap.paste") {
   CHECK(f.get("Game", "called") == 7);
   CHECK(f.boot.world().exists("Kropka"));
   CHECK(f.get("Kropka", "x") == 100);
-  f.step(); // Lua wkleja PROC from_lua ONCE
+  f.step(); // Lua pastes PROC from_lua ONCE
   CHECK(f.project.read("scenes/main/scene.swap").find("PROC from_lua ONCE") != std::string::npos);
-  f.step(); // ONCE się wykonuje i znika
+  f.step(); // ONCE runs and disappears
   CHECK(f.get("Game", "pasted") == 1);
   CHECK(f.project.read("scenes/main/scene.swap").find("from_lua") == std::string::npos);
 }
 
-TEST_CASE("Boot: hot-reload z błędem zostawia poprzedni program i nie niszczy pliku") {
+TEST_CASE("Boot: a broken hot-reload keeps the old program and the file") {
   BootFixture f("broken");
   f.step();
   CHECK(f.get("Game", "frames") == 1);
@@ -165,10 +164,10 @@ TEST_CASE("Boot: hot-reload z błędem zostawia poprzedni program i nie niszczy 
   const std::string broken = "PROC tick\n  ADD Game.frames 1\n  PROC_ADD boost\n  MOOVE x\nEND\n";
   f.boot.apply_swap(broken, vm::parse_program(broken, "scene.swap"));
   f.step();
-  CHECK(f.get("Game", "frames") == 2); // stary program działa dalej
+  CHECK(f.get("Game", "frames") == 2); // the old program keeps running
   CHECK(f.boot.program().procs.size() == 1);
 
-  // Prośba o zmianę pliku, gdy użytkownik ma w nim błąd: tylko w pamięci.
+  // A file change request while the file has errors: memory only.
   f.boot.request_proc_add("boost", 0);
   f.step();
   CHECK(f.boot.program().find("boost"));
@@ -180,10 +179,10 @@ TEST_CASE("Boot: hot-reload z błędem zostawia poprzedni program i nie niszczy 
   const std::string fixed = "PROC tick\n  ADD Game.frames 10\nEND\n";
   f.boot.apply_swap(fixed, vm::parse_program(fixed, "scene.swap"));
   f.step();
-  CHECK(f.get("Game", "frames") == 14); // 4 klatki starego programu + 10
+  CHECK(f.get("Game", "frames") == 14); // 4 frames of the old program + 10
 }
 
-TEST_CASE("Boot: hot-reload scene.xml i skryptu Lua") {
+TEST_CASE("Boot: hot-reload of scene.xml and a Lua script") {
   BootFixture f("reload");
   f.boot.world().set("Player", "x", 300);
   Diagnostics diagnostics;
@@ -202,9 +201,9 @@ TEST_CASE("Boot: hot-reload scene.xml i skryptu Lua") {
   CHECK(f.get("Game", "v2") == 1);
 }
 
-TEST_CASE("Engine: gra bez okna z symulowanymi klawiszami zapisuje stan") {
+TEST_CASE("Engine: a headless run with scripted keys writes the state") {
   TempProject project("engine");
-  project.write("scenes/main/scene.swap", R"(PROC ruch
+  project.write("scenes/main/scene.swap", R"(PROC movement
   IF KEY RIGHT : MOVE Player 2 0
   IF PRESSED SPACE : ADD Game.jumps 1
 END
@@ -218,12 +217,12 @@ END
   CHECK(Engine(project.root, options).run() == 0);
   const auto state = project.read(".pimpex/state.txt");
   INFO(state);
-  CHECK(state.find("klatka: 30") != std::string::npos);
+  CHECK(state.find("frame: 30") != std::string::npos);
   CHECK(state.find("Player x=120 y=100") != std::string::npos);
   CHECK(state.find("jumps=2") != std::string::npos);
 }
 
-TEST_CASE("Boot: zachowania Lua (on_start/on_update/on_touch/on_destroy), systemy i hot-reload") {
+TEST_CASE("Boot: Lua behaviors (on_start/on_update/on_touch/on_destroy), systems and hot-reload") {
   BootFixture f("behaviors");
   f.project.write("components.xml", R"(<Components><Component name="Health">
   <Field name="hp" default="1"/></Component></Components>)");
@@ -259,7 +258,7 @@ system("@hero", function(e) e.y = e.y + 1 end)
   <Actor name="Game" w="0" h="0"/>
 </Scene>)");
   f.project.write("scenes/main/scene.swap", "PROC a\nEND\n");
-  // Nowy Boot, żeby wczytał components.xml i skrypty z dysku.
+  // A new Boot so it loads components.xml and scripts from disk.
   Log log;
   log.set_quiet(true);
   Boot boot(f.project.paths(), log, 1);
@@ -279,12 +278,12 @@ system("@hero", function(e) e.y = e.y + 1 end)
   CHECK(get("Enemy", "x") == 102);
   CHECK(get("Player", "Health.hp") == 2);
   CHECK(get("Player", "y") == 1);
-  step(14); // 102 -> 130 i zawraca (dir = -1)
+  step(14); // 102 -> 130 and turns back (dir = -1)
   CHECK(get("Enemy", "x") == 130);
-  CHECK(get("Game", "touched_Wall") == 1); // trigger dotknął ściany (135..145 vs 125..135)
-  CHECK(get("Game", "starts") == 1);       // on_start tylko raz
+  CHECK(get("Game", "touched_Wall") == 1); // the trigger touched the wall (135..145 vs 125..135)
+  CHECK(get("Game", "starts") == 1);       // on_start only once
 
-  // Hot-reload zachowania: nowe funkcje, stary stan `self` (dir = -1).
+  // Behavior hot-reload: new functions, old `self` state (dir = -1).
   boot.apply_script(f.project.root / "scripts/behaviors/patrol.lua", R"(
 return {
   on_update = function(self) self:move(10 * self.dir, 0) end,
@@ -299,7 +298,7 @@ return {
   CHECK(get("Game", "destroyed") == 1);
 }
 
-TEST_CASE("Lua: self:sees, self:look, self:face i distance") {
+TEST_CASE("Lua: self:sees, self:look, self:face and distance") {
   BootFixture f("sees");
   f.project.write("scripts/behaviors/watcher.lua", R"(
 return {
@@ -328,31 +327,31 @@ return {
   boot.run_frame(ctx);
   auto get = [&](const char *a, const char *field) { return boot.world().get(a, field).value_or(-999); };
   CHECK(get("Game", "sees") == 1);
-  CHECK(get("Game", "look_Wall") == doctest::Approx(3.5)); // ry=0 patrzy w -z
-  CHECK(get("Guard", "ry") == doctest::Approx(-90));       // obrócony do gracza (+x)
+  CHECK(get("Game", "look_Wall") == doctest::Approx(3.5)); // ry=0 looks towards -z
+  CHECK(get("Guard", "ry") == doctest::Approx(-90));       // turned to the player (+x)
   CHECK(get("Game", "dist") == doctest::Approx(10));
 
-  // Ściana między strażnikiem a graczem – już nie widzi.
+  // A wall between the guard and the player – no longer visible.
   boot.world().set("Wall", "x", 5);
   boot.world().set("Wall", "z", 0);
   boot.run_frame(ctx);
   CHECK(get("Game", "sees") == 0);
 }
 
-TEST_CASE("Boot: GUI – <Scene gui>, kliknięcie wykonuje instrukcje, pauza zatrzymuje logikę") {
+TEST_CASE("Boot: GUI – <Scene gui>, clicks run instructions, pause stops the logic") {
   TempProject project("gui");
   project.write("gui/hud.xml", R"(<Gui><Label text="Klatki: {Game.frames}"/></Gui>)");
-  project.write("gui/pauza.xml", R"(<Gui pause="true">
-  <Button anchor="center" text="Wróć" key="ESCAPE" click="GUI_HIDE pauza; ADD Game.resumed 1"/>
-  <Button anchor="center" y="80" text="Koniec" click="SCENE koniec"/>
+  project.write("gui/pause.xml", R"(<Gui pause="true">
+  <Button anchor="center" text="Resume" key="ESCAPE" click="GUI_HIDE pause; ADD Game.resumed 1"/>
+  <Button anchor="center" y="80" text="Quit" click="SCENE game_over"/>
 </Gui>)");
   project.write("scenes/main/scene.xml", R"(<Scene gui="hud">
   <Actor name="Game" w="0" h="0"/>
 </Scene>)");
   project.write("scenes/main/scene.swap",
-                "PROC tick\n  ADD Game.frames 1\n  IF PRESSED ESCAPE : GUI_TOGGLE pauza\nEND\n");
-  project.write("scenes/koniec/scene.xml", R"(<Scene><Actor name="Napis" w="0" h="0"/></Scene>)");
-  project.write("scenes/koniec/scene.swap", "");
+                "PROC tick\n  ADD Game.frames 1\n  IF PRESSED ESCAPE : GUI_TOGGLE pause\nEND\n");
+  project.write("scenes/game_over/scene.xml", R"(<Scene><Actor name="Title" w="0" h="0"/></Scene>)");
+  project.write("scenes/game_over/scene.swap", "");
 
   Log log;
   log.set_quiet(true);
@@ -370,43 +369,43 @@ TEST_CASE("Boot: GUI – <Scene gui>, kliknięcie wykonuje instrukcje, pauza zat
   step();
   CHECK(*boot.world().get("Game", "frames") == 1);
 
-  // ESC w procedurze pokazuje pauzę – logika stoi.
+  // ESC in a procedure shows the pause – the logic stops.
   input.set_pressed(vm::Key::Escape, true);
   step();
-  CHECK(boot.gui().is_shown("pauza"));
+  CHECK(boot.gui().is_shown("pause"));
   step();
   step();
   CHECK(*boot.world().get("Game", "frames") == 2);
 
-  // ESC = „Wróć” (key="ESCAPE"): pauza znika i nie wraca w tej samej klatce.
+  // ESC = "Resume" (key="ESCAPE"): the pause goes away and does not come back in the same frame.
   input.set_pressed(vm::Key::Escape, true);
   step();
-  CHECK_FALSE(boot.gui().is_shown("pauza"));
+  CHECK_FALSE(boot.gui().is_shown("pause"));
   CHECK(*boot.world().get("Game", "resumed") == 1);
   step();
   CHECK(*boot.world().get("Game", "frames") == 3);
 
-  // Klik myszką w „Koniec” zmienia scenę, a GUI z <Scene gui> się chowa.
-  REQUIRE(boot.gui().show("pauza"));
+  // A click on "Quit" changes the scene and the <Scene gui> GUIs hide.
+  REQUIRE(boot.gui().show("pause"));
   input.set_mouse(400, 380);
   input.set_mouse_down(vm::MouseButton::Left, true);
   step();
   input.set_mouse_down(vm::MouseButton::Left, false);
   step();
-  CHECK(boot.scene_name() == "koniec");
+  CHECK(boot.scene_name() == "game_over");
   CHECK(boot.gui().shown().empty());
 }
 
-TEST_CASE("Boot: GUI z Lua i błędy nieznanego GUI") {
+TEST_CASE("Boot: GUI from Lua and unknown GUI errors") {
   BootFixture f("gui_lua");
-  f.project.write("gui/menu.xml", R"(<Gui><Button text="x" click="GUI_SHOW nie_ma"/></Gui>)");
+  f.project.write("gui/menu.xml", R"(<Gui><Button text="x" click="GUI_SHOW missing"/></Gui>)");
   f.project.write("scripts/ui.lua", R"(
-function pokaz() gui.show("menu"); set("Game", "shown", gui.shown("menu") and 1 or 0) end
-function przelacz() set("Game", "state", gui.toggle("menu") and 1 or 0) end
-function zle() gui.show("nie_ma") end
+function show_menu() gui.show("menu"); set("Game", "shown", gui.shown("menu") and 1 or 0) end
+function toggle_menu() set("Game", "state", gui.toggle("menu") and 1 or 0) end
+function bad() gui.show("missing") end
 )");
   REQUIRE(f.boot.start());
-  f.project.write("scenes/main/scene.swap", "PROC a ONCE\n  CALL pokaz\n  CALL przelacz\n  GUI_SHOW brak\nEND\n");
+  f.project.write("scenes/main/scene.swap", "PROC a ONCE\n  CALL show_menu\n  CALL toggle_menu\n  GUI_SHOW nope\nEND\n");
   REQUIRE(f.boot.load_scene("main"));
   f.step();
   CHECK(f.get("Game", "shown") == 1);
@@ -420,20 +419,20 @@ function zle() gui.show("nie_ma") end
   };
   const auto errors = logText();
   INFO(errors);
-  CHECK(errors.find("scenes/main/scene.swap:4: błąd: nie ma GUI 'brak' (plik gui/brak.xml)") != std::string::npos);
-  CHECK(f.boot.lua().eval("zle()").output.find("gui.show: nie ma GUI 'nie_ma'") != std::string::npos);
+  CHECK(errors.find("scenes/main/scene.swap:4: error: no GUI 'nope' (file gui/nope.xml)") != std::string::npos);
+  CHECK(f.boot.lua().eval("bad()").output.find("gui.show: no GUI 'missing'") != std::string::npos);
 
-  // Błąd w kliknięciu wskazuje plik GUI, a nie scene.swap.
+  // An error in a click points at the GUI file, not scene.swap.
   f.boot.gui().show("menu");
   f.input.set_mouse(50, 10);
   f.input.set_mouse_down(vm::MouseButton::Left, true);
   f.step();
   f.input.set_mouse_down(vm::MouseButton::Left, false);
   f.step();
-  CHECK(logText().find("gui/menu.xml:1: błąd: nie ma GUI 'nie_ma'") != std::string::npos);
+  CHECK(logText().find("gui/menu.xml:1: error: no GUI 'missing'") != std::string::npos);
 }
 
-TEST_CASE("Engine: kliknięcie z --input CLICK@x/y i GUI w state.txt") {
+TEST_CASE("Engine: a click from --input CLICK@x/y and GUI in state.txt") {
   TempProject project("gui_engine");
   project.write("gui/menu.xml",
                 R"(<Gui><Button anchor="center" text="Graj" click="SET Game.started 1; GUI_HIDE menu"/></Gui>)");
@@ -455,17 +454,17 @@ TEST_CASE("Engine: kliknięcie z --input CLICK@x/y i GUI w state.txt") {
   CHECK(input.parse("CLICK@400:5").find("CLICK@x/y") != std::string::npos);
 }
 
-TEST_CASE("check: GUI – nieznane GUI, sceny i funkcje w kliknięciach") {
+TEST_CASE("check: GUI – unknown GUIs, scenes and functions in clicks") {
   TempProject project("gui_check");
   project.write("gui/menu.xml", R"(<Gui>
-  <Button text="a" click="SCENE nie_ma"/>
-  <Button text="b" click="GUI_SHOW brak; CALL nie_ma_fn"/>
+  <Button text="a" click="SCENE missing"/>
+  <Button text="b" click="GUI_SHOW nope; CALL missing_fn"/>
   <Button text="c" click="SCENE main; GUI_HIDE menu"/>
 </Gui>)");
   project.write("scenes/main/scene.xml", R"(<Scene gui="menu hud">
   <Actor name="Game" w="0" h="0"/>
 </Scene>)");
-  project.write("scenes/main/scene.swap", "PROC a\n  IF PRESSED ESCAPE : GUI_TOGGLE pauza\nEND\n");
+  project.write("scenes/main/scene.swap", "PROC a\n  IF PRESSED ESCAPE : GUI_TOGGLE pause\nEND\n");
   CheckSummary summary;
   const auto diagnostics = check_project(project.paths(), summary);
   std::string text;
@@ -473,10 +472,10 @@ TEST_CASE("check: GUI – nieznane GUI, sceny i funkcje w kliknięciach") {
     text += d.format() + "\n";
   INFO(text);
   CHECK(summary.guis == 1);
-  CHECK(text.find("gui/menu.xml:2: błąd: nie ma sceny 'nie_ma'") != std::string::npos);
-  CHECK(text.find("gui/menu.xml:3: błąd: nie ma GUI 'brak'") != std::string::npos);
-  CHECK(text.find("gui/menu.xml:3: błąd: nie ma funkcji Lua 'nie_ma_fn'") != std::string::npos);
+  CHECK(text.find("gui/menu.xml:2: error: no scene 'missing'") != std::string::npos);
+  CHECK(text.find("gui/menu.xml:3: error: no GUI 'nope'") != std::string::npos);
+  CHECK(text.find("gui/menu.xml:3: error: no Lua function 'missing_fn'") != std::string::npos);
   CHECK(text.find("gui/menu.xml:4") == std::string::npos);
-  CHECK(text.find("scenes/main/scene.xml:1: błąd: <Scene gui>: nie ma GUI 'hud'") != std::string::npos);
-  CHECK(text.find("scenes/main/scene.swap:2: błąd: nie ma GUI 'pauza'") != std::string::npos);
+  CHECK(text.find("scenes/main/scene.xml:1: error: <Scene gui>: no GUI 'hud'") != std::string::npos);
+  CHECK(text.find("scenes/main/scene.swap:2: error: no GUI 'pause'") != std::string::npos);
 }

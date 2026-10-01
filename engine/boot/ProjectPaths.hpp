@@ -12,10 +12,10 @@ namespace PimpEx::boot {
 
 namespace fs = std::filesystem;
 
-// Układ plików projektu gry – jedno miejsce, które zna wszystkie ścieżki.
+// The one place that knows the project layout.
 struct ProjectPaths {
   fs::path root;
-  fs::path runtimeOverride; // inny katalog na runtime.log/state.txt (np. przebiegi z MCP)
+  fs::path runtimeOverride; // for runtime.log/state.txt (e.g. MCP runs)
 
   ProjectPaths() = default;
   explicit ProjectPaths(fs::path projectRoot, fs::path runtime = {})
@@ -39,7 +39,7 @@ struct ProjectPaths {
   fs::path runtime_log() const { return runtime_dir() / "runtime.log"; }
   fs::path state_file() const { return runtime_dir() / "state.txt"; }
 
-  // Ścieżka do wyświetlania w komunikatach – względem katalogu projektu.
+  // Relative to the project root, for messages.
   std::string display(const fs::path &path) const {
     auto rel = path.lexically_relative(root);
     return rel.empty() ? path.generic_string() : rel.generic_string();
@@ -65,7 +65,6 @@ struct ProjectPaths {
     return files;
   }
 
-  // Sceny GUI: gui/<nazwa>.xml.
   std::vector<fs::path> gui_files() const {
     std::vector<fs::path> files;
     std::error_code ec;
@@ -76,7 +75,7 @@ struct ProjectPaths {
     return files;
   }
 
-  // Skrypty globalne (scripts/*.lua, bez podkatalogu behaviors/).
+  // scripts/*.lua without behaviors/.
   std::vector<fs::path> script_files() const {
     std::vector<fs::path> files;
     std::error_code ec;

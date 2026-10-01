@@ -1,7 +1,7 @@
-<!-- Scena {{SCENE}}: platformówka. Grawitacja + solidne Collidery = skakanie po platformach. -->
+<!-- Scene {{SCENE}}: platformer. Gravity + solid Colliders = jumping between platforms. -->
 <Scene background="#0f1a2b">
 
-  <!-- Gracz: gravity ciągnie w dół, Collider zatrzymuje na platformach -->
+  <!-- Player: gravity pulls down, the Collider stops it on platforms -->
   <Actor name="Player" x="100" y="480" w="24" h="32" gravity="0.6" layer="5" tags="hero">
     <Rect color="#ffcc00"/>
     <Collider/>
@@ -13,7 +13,7 @@
   <Actor name="P2" x="540" y="380" w="140" h="16"><Rect color="#6c757d"/><Collider/></Actor>
   <Actor name="P3" x="780" y="300" w="140" h="16"><Rect color="#6c757d"/><Collider/></Actor>
   <Actor name="P4" x="1040" y="390" w="160" h="16"><Rect color="#6c757d"/><Collider/></Actor>
-  <!-- Ruchoma platforma: zachowanie patrol w pionie -->
+  <!-- Moving platform: the patrol behavior on the y axis -->
   <Actor name="Lift" x="1300" y="420" w="120" h="16">
     <Rect color="#adb5bd"/>
     <Collider/>
@@ -30,7 +30,7 @@
   <Actor name="Game" w="0" h="0" visible="false"><Var name="coins" value="0"/></Actor>
   <Actor name="Cam"><Camera mode="follow" target="Player"/></Actor>
   <Actor name="Hud" x="20" y="20" w="0" h="0" space="screen">
-    <Text value="Monety: {Game.coins}   (strzałki + SPACJA)" size="24" color="white"/>
+    <Text value="Coins: {Game.coins}   (arrows + SPACE)" size="24" color="white"/>
   </Actor>
 
 </Scene>

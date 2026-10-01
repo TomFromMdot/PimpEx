@@ -8,8 +8,7 @@
 
 namespace PimpEx::script {
 
-// Lua zgłasza błędy jako "plik:linia: opis". Zamieniamy to na Diagnostic,
-// żeby wyglądały tak samo jak błędy z .swap i XML.
+// Lua reports "file:line: message"; turned into a Diagnostic like .swap and XML errors.
 inline Diagnostic lua_error_to_diagnostic(std::string_view message, const std::string &fallbackFile) {
   Diagnostic d{Diagnostic::Severity::Error, fallbackFile, 0, std::string(message)};
   const auto first = message.find(':');

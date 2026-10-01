@@ -6,8 +6,8 @@
 
 namespace PimpEx::cli {
 
-// pimpex build [projekt] [--out katalog] – pakuje grę do wysłania znajomym:
-// binarka silnika + pliki gry + skrypt uruchamiający.
+// pimpex build [project] [--out dir] – a package to send to friends:
+// the engine binary, the game files and a launcher script.
 class BuildCommand : public ICommand {
   std::string _project = ".";
   std::string _out = "dist";

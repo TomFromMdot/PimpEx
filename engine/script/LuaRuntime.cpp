@@ -24,8 +24,8 @@ sol::object to_lua_argument(sol::state &lua, const std::string &text) {
 
 } // namespace
 
-// Metody i pola `self` w zachowaniach. self.x czyta pole aktora, self.x = 5
-// je ustawia; inne klucze (self.timer, parametry z XML) to zwykłe dane Lua.
+// `self` in behaviors: self.x reads the actor field and self.x = 5 sets it;
+// other keys (self.timer, XML parameters) are plain Lua data.
 constexpr const char *SelfPrelude = R"(
 local fields = { x=true, y=true, z=true, w=true, h=true, d=true, rx=true, ry=true, rz=true,
   rotation=true, scale=true, layer=true, visible=true, vx=true, vy=true, vz=true,
@@ -41,7 +41,7 @@ function Self:has_tag(t) return has_tag(self.name, t) end
 function Self:touching(o) return touching(self.name, o) end
 function Self:text(t) return text(self.name, t) end
 function Self:distance(o) return distance(self.name, o) end
--- Kierunek patrzenia: w 3D z obrotu ry (0 = w stronę -z), w 2D z rotation (0 = w prawo).
+-- Facing: in 3D from ry (0 = towards -z), in 2D from rotation (0 = right).
 function Self:forward()
   if is3d() then
     local yaw = math.rad(self.ry)
@@ -50,12 +50,10 @@ function Self:forward()
   local a = math.rad(self.rotation)
   return math.cos(a), math.sin(a), 0
 end
--- Co widzę przed sobą (do max)? Zwraca nazwę aktora z solidnym Colliderem i odległość.
 function Self:look(max)
   local dx, dy, dz = self:forward()
   return raycast(self.x, self.y, self.z, dx, dy, dz, max or 1000, self.name)
 end
--- Czy widzę aktora `target` (nic solidnego pomiędzy)?
 function Self:sees(target, max)
   if not exists(target) then return false end
   local dx, dy, dz = get(target, "x") - self.x, get(target, "y") - self.y, get(target, "z") - self.z
@@ -64,7 +62,6 @@ function Self:sees(target, max)
   local hit = raycast(self.x, self.y, self.z, dx, dy, dz, dist + 1, self.name)
   return hit == target
 end
--- Obraca się przodem do aktora `target`.
 function Self:face(target)
   if not exists(target) then return end
   local dx, dy, dz = get(target, "x") - self.x, get(target, "y") - self.y, get(target, "z") - self.z
@@ -101,7 +98,7 @@ struct LuaRuntime::Impl {
   ILuaHost &host;
   sol::state lua;
 
-  // Zachowania: nazwa -> tabela z pliku; aktor -> jego instancje `self`.
+  // Behavior name -> table from its file; actor -> its `self` instances.
   struct Instance {
     std::string behavior;
     sol::table self;
@@ -114,7 +111,7 @@ struct LuaRuntime::Impl {
   std::map<std::string, sol::table> behaviors;
   std::map<entt::entity, Tracked> instances;
 
-  // Systemy z system(selektor, funkcja) – zapamiętane z plikiem, który je dodał.
+  // system(selector, fn) entries, remembered with the file that added them.
   struct System {
     std::string script;
     std::string selector;
@@ -122,14 +119,13 @@ struct LuaRuntime::Impl {
   };
   std::vector<System> systems;
   std::string loadingScript;
-  std::set<std::string> reported; // ten sam błąd Lua tylko raz
+  std::set<std::string> reported; // each Lua error once
 
   void report(const std::string &message, const std::string &fallbackFile) {
     if (reported.insert(message).second)
       host.lua_error(lua_error_to_diagnostic(message, fallbackFile));
   }
 
-  // Woła behavior.fn(self, args...), jeśli zachowanie ma taką funkcję.
   template <typename... Args> void invoke(const Instance &instance, const char *fn, Args &&...args) {
     const auto it = behaviors.find(instance.behavior);
     if (it == behaviors.end())
@@ -164,7 +160,7 @@ struct LuaRuntime::Impl {
     return input;
   }
 
-  // Kontekst klatki – poza klatką (np. przy wczytywaniu skryptu) pusty.
+  // Empty outside a frame (e.g. while a script loads).
   vm::FrameContext frame() {
     if (const auto *ctx = host.lua_frame())
       return *ctx;
@@ -178,7 +174,7 @@ struct LuaRuntime::Impl {
         return sol::lua_nil;
       if (const auto *text = std::get_if<std::string>(&*value))
         return sol::make_object(lua, *text);
-      // Pełne liczby jako całkowite: "Wynik: " .. 3 daje "3", a nie "3.0".
+      // Whole numbers as integers: "Score: " .. 3 gives "3", not "3.0".
       const double number = std::get<double>(*value);
       if (number == static_cast<double>(static_cast<long long>(number)))
         return sol::make_object(lua, static_cast<long long>(number));
@@ -193,7 +189,7 @@ struct LuaRuntime::Impl {
       else if (value.get_type() == sol::type::string)
         v = value.as<std::string>();
       else
-        throw sol::error("set: wartość musi być liczbą, tekstem albo true/false");
+        throw sol::error("set: the value must be a number, text or true/false");
       if (auto error = host.lua_world().set_field(actor, field, v))
         throw sol::error("set: " + *error);
       return true;
@@ -232,7 +228,6 @@ struct LuaRuntime::Impl {
     lua.set_function("text", [this](const std::string &actor, const std::string &value) {
       return !host.lua_world().set_field(actor, "Text.value", value).has_value();
     });
-    // Komponenty i zapytania (ECS).
     lua.set_function("actors", [this](sol::optional<std::string> selector) {
       return sol::as_table(host.lua_world().query(selector.value_or("")));
     });
@@ -252,7 +247,6 @@ struct LuaRuntime::Impl {
       auto &w = host.lua_world();
       return w.has_tag(w.find(actor), tag);
     });
-    // Promień: pierwszy aktor z solidnym Colliderem. Zwraca nazwę i odległość albo nil.
     lua.set_function("raycast", [this](double x, double y, double z, double dx, double dy, double dz,
                                        double maxDistance, sol::optional<std::string> ignore,
                                        sol::this_state state) -> std::tuple<sol::object, sol::object> {
@@ -291,7 +285,7 @@ struct LuaRuntime::Impl {
           text += ' ';
         const auto value = arg.get<sol::object>();
         if (value.get_type() == sol::type::number)
-          text += format_number(value.as<double>()); // 1 zamiast 1.0
+          text += format_number(value.as<double>()); // 1, not 1.0
         else
           text += lua["tostring"](value).get<std::string>();
       }
@@ -309,10 +303,9 @@ struct LuaRuntime::Impl {
     swap.set_function("paste", [this](const std::string &source) { host.request_proc_paste(source); });
     swap.set_function("has", [this](const std::string &name) { return host.lua_has_proc(name); });
 
-    // Sceny GUI z gui/<nazwa>.xml (docs/gui.md).
     auto gui = lua.create_named_table("gui");
     auto noGui = [](const std::string &fn, const std::string &name) {
-      return sol::error(std::format("gui.{}: nie ma GUI '{}' (plik gui/{}.xml)", fn, name, name));
+      return sol::error(std::format("gui.{}: no GUI '{}' (file gui/{}.xml)", fn, name, name));
     };
     gui.set_function("show", [this, noGui](const std::string &name) {
       if (!host.lua_gui().show(name))
@@ -340,7 +333,7 @@ LuaRuntime::~LuaRuntime() = default;
 
 std::optional<Diagnostic> LuaRuntime::load_script(const std::string &displayName,
                                                   std::string_view source) {
-  // Systemy z tego pliku rejestrują się od nowa.
+  // Systems from this file register again.
   std::erase_if(_impl->systems, [&](const Impl::System &s) { return s.script == displayName; });
   _impl->reported.clear();
   _impl->loadingScript = displayName;
@@ -361,7 +354,7 @@ std::optional<Diagnostic> LuaRuntime::call(const std::string &name,
   sol::protected_function fn = _impl->lua[name];
   if (!fn.valid())
     return Diagnostic{Diagnostic::Severity::Error, "scripts", 0,
-                      "nie ma funkcji Lua '" + name + "'"};
+                      "no Lua function '" + name + "'"};
   std::vector<sol::object> luaArgs;
   for (const auto &a : args)
     luaArgs.push_back(to_lua_argument(_impl->lua, a));
@@ -390,7 +383,7 @@ std::optional<Diagnostic> LuaRuntime::load_behavior(const std::string &name,
   sol::object value = result;
   if (value.get_type() != sol::type::table)
     return Diagnostic{Diagnostic::Severity::Error, displayName, 0,
-                      "zachowanie musi kończyć się `return { on_start = ..., on_update = ... }`"};
+                      "a behavior must end with `return { on_start = ..., on_update = ... }`"};
   _impl->behaviors[name] = value.as<sol::table>();
   _impl->reported.clear();
   return std::nullopt;
@@ -404,7 +397,7 @@ void LuaRuntime::update(scene::World &world) {
   auto &impl = *_impl;
   auto &registry = world.registry();
 
-  // 1. Aktorzy zniszczeni albo bez <Behavior>: on_destroy i koniec.
+  // 1. Destroyed actors or ones without <Behavior>: on_destroy.
   for (auto it = impl.instances.begin(); it != impl.instances.end();) {
     const auto e = it->first;
     const bool alive = registry.valid(e) && registry.all_of<scene::Behaviors>(e) &&
@@ -419,7 +412,7 @@ void LuaRuntime::update(scene::World &world) {
       impl.invoke(instance, "on_destroy");
   }
 
-  // 2. Nowi aktorzy (albo zmieniona lista zachowań po hot-reloadzie): on_start.
+  // 2. New actors (or a changed behavior list after hot-reload): on_start.
   std::vector<entt::entity> withBehaviors;
   for (auto [e, behaviors] : registry.view<scene::Behaviors>().each())
     withBehaviors.push_back(e);
@@ -437,7 +430,7 @@ void LuaRuntime::update(scene::World &world) {
     Impl::Tracked tracked{registry.get<scene::Name>(e).value, names, {}};
     for (const auto &ref : refs) {
       if (!impl.behaviors.contains(ref.name)) {
-        impl.report(std::format("{}: nie ma zachowania '{}' (plik scripts/behaviors/{}.lua)",
+        impl.report(std::format("{}: no behavior '{}' (file scripts/behaviors/{}.lua)",
                                 tracked.name, ref.name, ref.name),
                     "scene.xml");
         continue;
@@ -453,7 +446,7 @@ void LuaRuntime::update(scene::World &world) {
     }
   }
 
-  // 3. on_update – na kopii, bo zachowania mogą niszczyć i tworzyć aktorów.
+  // 3. on_update – on a copy, behaviors may create and destroy actors.
   std::vector<std::pair<entt::entity, Impl::Instance>> snapshot;
   for (const auto &[e, tracked] : impl.instances)
     for (const auto &instance : tracked.list)
@@ -462,7 +455,7 @@ void LuaRuntime::update(scene::World &world) {
     if (registry.valid(e))
       impl.invoke(instance, "on_update");
 
-  // 4. Systemy: funkcja dla każdego aktora z komponentem / tagiem.
+  // 4. Systems: the function for each actor with the component / tag.
   const auto systems = impl.systems;
   for (const auto &system : systems)
     for (const auto &name : world.query(system.selector)) {
@@ -497,7 +490,7 @@ void LuaRuntime::dispatch_contacts(scene::World &world,
 
 LuaRuntime::EvalResult LuaRuntime::eval(std::string_view code) {
   auto &lua = _impl->lua;
-  // Najpierw jako wyrażenie ("return ..."), żeby `get("Player", "x")` zwróciło wartość.
+  // Try as an expression first ("return ...") so `get("Player", "x")` returns a value.
   auto loaded = lua.load("return " + std::string(code), "@lua.eval");
   if (!loaded.valid())
     loaded = lua.load(code, "@lua.eval");

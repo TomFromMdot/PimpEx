@@ -10,9 +10,9 @@ struct Token {
   enum class Kind {
     Word,   // MOVE, Player, Player.x, W ...
     Number, // 10, -2.5
-    String, // "tekst w cudzysłowie"
+    String, // "quoted text"
     Colon,  // :
-    Minus,  // - przed nazwą pola: -Ball.vx
+    Minus,  // before a field: -Ball.vx
     Compare // < <= > >= == !=
   };
 
@@ -23,10 +23,10 @@ struct Token {
 
 struct LineTokens {
   std::vector<Token> tokens;
-  std::string error; // pusty, jeśli linia jest poprawna
+  std::string error; // empty when the line is valid
 };
 
-// Dzieli jedną linię pliku .swap na tokeny. Komentarz zaczyna się od `#`.
+// Splits one .swap line into tokens. Comments start with `#`.
 LineTokens tokenize_line(std::string_view line);
 
 } // namespace PimpEx::vm

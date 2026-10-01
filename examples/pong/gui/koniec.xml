@@ -1,4 +1,0 @@
-<!-- Ekran końca gry – widoczny od startu sceny koniec (<Scene gui="koniec">). -->
-<Gui>
-  <Button anchor="center" y="90" w="320" text="Zagraj jeszcze raz" key="ENTER" click="SCENE main"/>
-</Gui>

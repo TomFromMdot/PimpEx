@@ -21,7 +21,6 @@ namespace {
 
 namespace fs = std::filesystem;
 
-// Plik przygotowany na wątku zasobów – gotowy do podmiany w klatce.
 struct FileUpdate {
   enum class Kind { Swap, Library, SceneXml, Components, Script, Gui };
   Kind kind = Kind::Script;
@@ -33,7 +32,6 @@ struct FileUpdate {
   Diagnostics diagnostics;
 };
 
-// Wątek zasobów: zamienia surowy tekst pliku na gotowe dane.
 std::optional<FileUpdate> prepare(const boot::ProjectPaths &paths,
                                   const scene::ComponentRegistry &components, const fs::path &path,
                                   std::string content) {
@@ -64,7 +62,7 @@ std::optional<FileUpdate> prepare(const boot::ProjectPaths &paths,
 
 void apply(boot::Boot &boot, render::Renderer *renderer, FileUpdate update) {
   const auto &paths = boot.paths();
-  // Zmiany z innej sceny (np. tuż po SCENE) pomijamy.
+  // Changes from another scene (e.g. right after SCENE) are stale.
   if (update.kind != FileUpdate::Kind::Script && update.kind != FileUpdate::Kind::Components &&
       update.kind != FileUpdate::Kind::Gui && update.path.parent_path() != paths.scene_dir(boot.scene_name()))
     return;
@@ -78,7 +76,7 @@ void apply(boot::Boot &boot, render::Renderer *renderer, FileUpdate update) {
   case FileUpdate::Kind::SceneXml:
     boot.apply_scene_xml(std::move(update.scene), std::move(update.diagnostics));
     if (renderer)
-      renderer->unload_textures(); // <Resources> mogły się zmienić
+      renderer->unload_textures(); // <Resources> may have changed
     break;
   case FileUpdate::Kind::Components:
     boot.apply_components_xml(update.text);
@@ -94,7 +92,7 @@ void apply(boot::Boot &boot, render::Renderer *renderer, FileUpdate update) {
   }
 }
 
-// Ctrl+C / kill: kończymy pętlę porządnie (zapis state.txt, usunięcie api.json).
+// Ctrl+C / kill: leave the loop cleanly (write state.txt, remove api.json).
 struct StopSignal {
   static inline std::atomic<bool> flag{false};
   static void handler(int) { flag = true; }
@@ -135,14 +133,14 @@ int Engine::run() {
   boot::Boot boot(paths, log);
   boot.set_persist_swap(_options.watch);
   if (!boot.start(_options.scene)) {
-    log.error("Nie udało się uruchomić gry. Popraw błędy i spróbuj ponownie (pimpex check).");
+    log.error("The game could not start. Fix the errors and try again (pimpex check).");
     return 1;
   }
   const auto &config = boot.config();
 
   Mailbox<FileUpdate> mailbox;
-  // Wątek zasobów parsuje scene.xml z aktualnym rejestrem komponentów.
-  // Rejestr jest niezmienny, a wskaźnik podmieniamy atomowo.
+  // The asset thread parses scene.xml with the current component registry.
+  // Registries are immutable; only the pointer is swapped atomically.
   std::atomic<std::shared_ptr<const scene::ComponentRegistry>> components{boot.components()};
   boot::FileWatcher watcher([&](const fs::path &path, std::string content) {
     const auto registry = components.load();
@@ -154,7 +152,7 @@ int Engine::run() {
         [&](const fs::path &path, std::size_t hash) { watcher.expect(path, hash); });
     watcher.watch(boot.watched_files());
     watcher.start();
-    log.info("Hot-reload włączony – zapisz plik, a gra podmieni dane w locie.");
+    log.info("Hot-reload on – save a file and the game picks it up live.");
   }
 
   std::unique_ptr<render::Renderer> renderer;
@@ -163,16 +161,14 @@ int Engine::run() {
     SetTraceLogLevel(LOG_WARNING);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(config.width, config.height, config.title.c_str());
-    SetExitKey(KEY_NULL); // ESC to zwykły klawisz w grze; okno zamyka się krzyżykiem
+    SetExitKey(KEY_NULL); // ESC is a game key; the window closes with its X button
     SetTargetFPS(config.fps);
     renderer = std::make_unique<render::Renderer>(paths.root);
   }
-  // Prawdziwy input + klawisze wciśnięte przez API (input.press).
   vm::OverlayInput input;
   input.set_base(_options.headless ? static_cast<const vm::IInput *>(&scriptedInput)
                                    : static_cast<const vm::IInput *>(&raylibInput));
 
-  // API na żywo dla agentów (pimpex dev): JSON-RPC na 127.0.0.1.
   api::ApiMailbox apiMailbox;
   api::GameControl control;
   control.input = &input;
@@ -180,9 +176,9 @@ int Engine::run() {
   api::LiveServer server(apiMailbox, paths.runtime_dir() / "api.json");
   if (_options.api) {
     if (const int port = server.start(paths.root.string(), _options.apiPort))
-      log.info(std::format("API na żywo: http://127.0.0.1:{} (token w .pimpex/api.json)", port));
+      log.info(std::format("Live API: http://127.0.0.1:{} (token in .pimpex/api.json)", port));
     else
-      log.error("Nie udało się uruchomić API na żywo.");
+      log.error("Could not start the live API.");
   }
 
   StopSignal::install();
@@ -201,7 +197,6 @@ int Engine::run() {
     if (components.load() != boot.components())
       components.store(boot.components());
 
-    // Żądania API wykonujemy między klatkami, na wątku głównym.
     control.frame = frame;
     input.set_frame(frame);
     for (auto &request : apiMailbox.drain()) {
@@ -241,16 +236,16 @@ int Engine::run() {
 
     if (renderer) {
       renderer->draw(boot.world(), boot.scene_data(), boot.gui(), config, ctx);
-      // Kamera fps bez złapanego kursora (GUI, ESC, inne okno): mysz nie obraca gracza.
+      // A free cursor (GUI, ESC, another window) must not turn the fps camera.
       raylibInput.set_ignore_motion(renderer->mouse_look_suspended());
       const bool lastFrame = frame + 1 == _options.frames;
       if ((!_options.screenshot.empty() && lastFrame && runLogic) || !control.screenshots.empty()) {
         Image image = LoadImageFromScreen();
         if (!_options.screenshot.empty() && lastFrame) {
           if (ExportImage(image, _options.screenshot.c_str()))
-            log.info("Zrzut ekranu: " + _options.screenshot);
+            log.info("Screenshot: " + _options.screenshot);
           else
-            log.error("Nie mogę zapisać zrzutu ekranu " + _options.screenshot);
+            log.error("Cannot save screenshot " + _options.screenshot);
         }
         if (!control.screenshots.empty()) {
           int size = 0;
@@ -267,7 +262,7 @@ int Engine::run() {
         UnloadImage(image);
       }
     } else if (_options.api) {
-      // Bez okna nikt nie ogranicza tempa – przy API gra chodzi w swoim fps.
+      // Without a window nothing limits the pace; with the API keep the game at its fps.
       nextTick += frameTime;
       std::this_thread::sleep_until(nextTick);
       if (std::chrono::steady_clock::now() - nextTick > std::chrono::seconds(1))
@@ -287,7 +282,7 @@ int Engine::run() {
   renderer.reset();
   if (!_options.headless)
     CloseWindow();
-  log.info("Koniec gry.");
+  log.info("Game over.");
   return 0;
 }
 

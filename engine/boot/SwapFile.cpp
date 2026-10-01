@@ -7,7 +7,7 @@
 namespace PimpEx::boot {
 namespace {
 
-// Dzieli tekst na linie (bez znaków końca linii).
+// Lines without line terminators.
 std::vector<std::string_view> split_lines(std::string_view text) {
   std::vector<std::string_view> lines;
   std::size_t start = 0;
@@ -18,7 +18,7 @@ std::vector<std::string_view> split_lines(std::string_view text) {
     lines.push_back(text.substr(start, end - start));
     start = end + 1;
   }
-  // "a\nb\n" daje na końcu pustą linię, której w pliku nie ma
+  // "a\nb\n" would give a trailing empty line that is not in the file
   if (!lines.empty() && lines.back().empty() && !text.empty() && text.back() == '\n')
     lines.pop_back();
   return lines;
@@ -57,7 +57,7 @@ std::string remove_proc(std::string_view text, const vm::Proc &proc) {
   std::string out;
   int skipUntil = proc.lastLine;
   if (skipUntil < static_cast<int>(lines.size()) && is_blank(lines[skipUntil]))
-    ++skipUntil; // pusta linia po END
+    ++skipUntil; // the empty line after END
   for (int i = 1; i <= static_cast<int>(lines.size()); ++i) {
     if (i >= proc.firstLine && i <= skipUntil)
       continue;

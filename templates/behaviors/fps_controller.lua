@@ -1,6 +1,6 @@
--- Widok z oczu (FPS): mysz – rozglądanie się, WASD – chodzenie, SPACJA – skok.
--- Parametry: speed (0.12), sensitivity – czułość myszy (0.15), jump (0.3),
---            camera – nazwa aktora z <Camera mode="fps" target="ten aktor"/>.
+-- First-person view: mouse – look around, WASD – walk, SPACE – jump.
+-- Parameters: speed (0.12), sensitivity – mouse sensitivity (0.15), jump (0.3),
+--             camera – the actor with <Camera mode="fps" target="this actor"/>.
 --   <Behavior name="fps_controller" camera="Cam"/>
 return {
   on_update = function(self)

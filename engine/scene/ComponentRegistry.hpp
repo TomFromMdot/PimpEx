@@ -23,23 +23,23 @@ struct FieldDesc {
   std::string name;
   FieldType type = FieldType::Number;
   FieldValue defaultValue = 0.0;
-  std::vector<std::string> choices; // dozwolone wartości tekstu (puste = dowolny)
+  std::vector<std::string> choices; // allowed text values (empty = any)
   std::string doc;
-  bool readOnly = false; // np. Body.grounded – ustawia silnik
+  bool readOnly = false; // e.g. Body.grounded – set by the engine
 };
 
-// Opis jednego komponentu: nazwa (= tag w XML), pola i operacje na encji.
-// Dzięki temu XML, .swap, Lua, `check`, zrzut stanu i API działają dla
-// każdego komponentu tak samo – także dla komponentów z components.xml.
+// A component's name (= XML tag), fields and entity operations. XML, .swap,
+// Lua, `check`, the state dump and the API all work through this, so
+// components from components.xml behave exactly like built-in ones.
 struct ComponentDesc {
   std::string name;
   std::string doc;
-  std::string group; // "ogólne", "2D", "3D", "użytkownika"...
+  std::string group; // "general", "2D", "3D", "user"...
   bool builtin = true;
   std::vector<FieldDesc> fields;
 
   std::function<bool(const entt::registry &, entt::entity)> has;
-  std::function<void(entt::registry &, entt::entity)> add; // z wartościami domyślnymi
+  std::function<void(entt::registry &, entt::entity)> add; // with default values
   std::function<void(entt::registry &, entt::entity)> remove;
   std::function<FieldValue(const entt::registry &, entt::entity, const FieldDesc &)> get;
   std::function<void(entt::registry &, entt::entity, const FieldDesc &, const FieldValue &)> set;
@@ -47,18 +47,17 @@ struct ComponentDesc {
   const FieldDesc *field(std::string_view fieldName) const;
 };
 
-// Zamiana tekstu z XML ("4", "true", "#ff0000") na wartość pola.
-// Zwraca nullopt i wypełnia `error`, gdy tekst nie pasuje do typu.
+// XML text ("4", "true", "#ff0000") -> field value; nullopt and `error` on mismatch.
 std::optional<FieldValue> parse_field_text(const FieldDesc &field, std::string_view text,
                                            std::string &error);
 
-// Dopasowanie wartości z .swap / Lua / API do typu pola (np. 1 -> true).
+// Fits a value from .swap / Lua / API to the field type (e.g. 1 -> true).
 std::optional<FieldValue> coerce_field(const FieldDesc &field, const FieldValue &value,
                                        std::string &error);
 
 std::string field_value_to_string(const FieldValue &value);
 
-// Podpowiedź literówki: "Heath" -> "Health".
+// Typo hint: "Heath" -> "Health".
 std::string closest_name(std::string_view word, const std::vector<std::string> &candidates);
 
 class ComponentRegistry {
@@ -66,7 +65,6 @@ class ComponentRegistry {
   std::map<std::string, std::size_t, std::less<>> _byName;
 
 public:
-  // Rejestr z komponentami wbudowanymi w silnik.
   static std::shared_ptr<ComponentRegistry> with_builtins();
 
   void add(ComponentDesc desc);
@@ -74,7 +72,6 @@ public:
   const std::vector<ComponentDesc> &all() const { return _components; }
   std::vector<std::string> names() const;
 
-  // Wczytuje components.xml (komponenty użytkownika).
   void load_custom(std::string_view xml, const std::string &file, Diagnostics &diagnostics);
 };
 

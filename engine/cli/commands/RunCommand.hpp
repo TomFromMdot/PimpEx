@@ -7,8 +7,8 @@
 
 namespace PimpEx::cli {
 
-// pimpex dev  [projekt] – gra z hot-reloadem (tryb tworzenia)
-// pimpex play [projekt] – sama gra, bez obserwowania plików
+// pimpex dev  [project] – the game with hot-reload (making mode)
+// pimpex play [project] – just the game, no file watching
 class RunCommand : public ICommand {
   bool _dev;
   std::string _project = ".";

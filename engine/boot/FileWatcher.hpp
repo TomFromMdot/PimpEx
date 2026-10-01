@@ -13,9 +13,9 @@ namespace PimpEx::boot {
 
 namespace fs = std::filesystem;
 
-// Obserwuje pliki projektu na osobnym wątku (sprawdza czas modyfikacji).
-// Gdy treść pliku naprawdę się zmieni, woła `onChange` – także na tym wątku.
-// Zmiany zapisane przez sam silnik (expect) są pomijane.
+// Polls project files on its own thread (modification time). Calls `onChange`
+// on that thread when the content really changed; the engine's own writes
+// (expect) are skipped.
 class FileWatcher {
 public:
   using ChangeCallback = std::function<void(const fs::path &, std::string content)>;
@@ -39,16 +39,16 @@ public:
       : _onChange(std::move(onChange)), _interval(interval) {}
   ~FileWatcher() { stop(); }
 
-  // Zastępuje listę obserwowanych plików. Obecna treść to punkt odniesienia.
+  // Replaces the watched files; their current content is the baseline.
   void watch(const std::vector<fs::path> &files);
 
-  // Silnik sam zapisał plik – zmiana o tym hashu nie jest „nowa”.
+  // The engine wrote the file itself – a change with this hash is not new.
   void expect(const fs::path &path, std::size_t hash);
 
   void start();
   void stop();
 
-  // Jedno sprawdzenie wszystkich plików (używane przez wątek i testy).
+  // One pass over all files (the thread and tests).
   void poll_once();
 };
 

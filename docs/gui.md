@@ -1,101 +1,103 @@
-# GUI – menu, pauza, przyciski
+# GUI – menus, pause, buttons
 
-GUI to ekrany z przyciskami i napisami rysowane **nad grą**, w pikselach
-okna. Każdy plik `gui/<nazwa>.xml` w katalogu projektu to jedna **scena GUI**,
-np. `gui/menu.xml`, `gui/pauza.xml`, `gui/hud.xml`. Włącza się ją po nazwie:
+GUI screens with buttons and text are drawn **on top of the game**, in window
+pixels. Every file `gui/<name>.xml` in the project directory is one **GUI
+scene**, e.g. `gui/menu.xml`, `gui/pause.xml`, `gui/hud.xml`. You turn one on
+by name:
 
-| Skąd                     | Jak                                                   |
+| From                     | How                                                   |
 |--------------------------|-------------------------------------------------------|
-| `scene.swap`             | `GUI_SHOW pauza`, `GUI_HIDE pauza`, `GUI_TOGGLE pauza` |
-| przycisk GUI             | `click="GUI_HIDE pauza; SCENE menu"`                  |
-| Lua                      | `gui.show("pauza")`, `gui.hide`, `gui.toggle`, `gui.shown` |
-| `scene.xml`              | `<Scene gui="hud">` – GUI widoczne od startu sceny    |
+| `scene.swap`             | `GUI_SHOW pause`, `GUI_HIDE pause`, `GUI_TOGGLE pause` |
+| a GUI button             | `click="GUI_HIDE pause; SCENE menu"`                  |
+| Lua                      | `gui.show("pause")`, `gui.hide`, `gui.toggle`, `gui.shown` |
+| `scene.xml`              | `<Scene gui="hud">` – GUIs shown when the scene starts |
 
-Sceny GUI należą do całego projektu, a nie do jednej sceny gry. Może być
-widocznych kilka naraz (np. `hud` i `pauza`). Ostatnio pokazana jest na
-wierzchu. Przy każdym wczytaniu sceny (`SCENE`) widać dokładnie te GUI, które
-podaje jej `<Scene gui="...">`, a pozostałe się chowają.
+GUI scenes belong to the whole project, not to one game scene. Several can be
+visible at once (e.g. `hud` and `pause`); the last one shown is on top. Every
+time a scene loads (`SCENE`), exactly the GUIs listed in its
+`<Scene gui="...">` are shown and the rest are hidden.
 
 ```xml
-<!-- gui/pauza.xml -->
+<!-- gui/pause.xml -->
 <Gui pause="true" dim="#00000099">
   <Panel  anchor="center" w="340" h="280" color="#1c1c2c" border="#ffffff40"/>
-  <Label  anchor="center" y="-90" text="Pauza" size="44" color="gold"/>
-  <Button anchor="center" y="-10" text="Wróć" key="ESCAPE" click="GUI_HIDE pauza"/>
-  <Button anchor="center" y="60"  text="Od nowa" click="GUI_HIDE pauza; SCENE main"/>
+  <Label  anchor="center" y="-90" text="Paused" size="44" color="gold"/>
+  <Button anchor="center" y="-10" text="Resume" key="ESCAPE" click="GUI_HIDE pause"/>
+  <Button anchor="center" y="60"  text="Restart" click="GUI_HIDE pause; SCENE main"/>
 </Gui>
 ```
 
 ```
 # scene.swap
-PROC menu_pauzy
-  IF PRESSED ESCAPE : GUI_SHOW pauza
+PROC pause_menu
+  IF PRESSED ESCAPE : GUI_SHOW pause
 END
 ```
 
 ## `<Gui>`
 
-| Atrybut | Znaczenie                                                                 |
-|---------|---------------------------------------------------------------------------|
-| `pause` | `true` – gdy to GUI jest widoczne, gra stoi (procedury, Lua i fizyka). Kliknięcia działają dalej. |
-| `dim`   | kolor przyciemnienia całego okna pod GUI, np. `#00000099`                 |
+| Attribute | Meaning                                                                  |
+|-----------|--------------------------------------------------------------------------|
+| `pause`   | `true` – while this GUI is visible the game stops (procedures, Lua and physics). Clicks still work. |
+| `dim`     | a color that dims the whole window below the GUI, e.g. `#00000099`       |
 
-## Elementy
+## Elements
 
-Elementy rysują się w kolejności z pliku (późniejszy na wierzchu).
+Elements are drawn in file order (later ones on top).
 
-| Element    | Co to jest                       | Własne atrybuty                                      |
+| Element    | What it is                       | Its own attributes                                   |
 |------------|----------------------------------|------------------------------------------------------|
-| `<Panel>`  | prostokąt (tło okienka)          | `color` (domyślnie półprzezroczysty czarny), `border` |
-| `<Label>`  | napis                            | `text`, `size`, `color`, `align` (`left`, `center`, `right`) |
-| `<Button>` | przycisk                         | `text`, `size`, `color`, `hover`, `text_color`, `border`, `click`, `key` |
-| `<Image>`  | obrazek                          | `src` (plik względem katalogu projektu), `color` (odcień) |
+| `<Panel>`  | a rectangle (a window background) | `color` (default: translucent black), `border`      |
+| `<Label>`  | text                             | `text`, `size`, `color`, `align` (`left`, `center`, `right`) |
+| `<Button>` | a button                         | `text`, `size`, `color`, `hover`, `text_color`, `border`, `click`, `key` |
+| `<Image>`  | an image                         | `src` (a file relative to the project), `color` (tint) |
 
-Wspólne atrybuty:
+Common attributes:
 
-| Atrybut  | Znaczenie                                                                |
-|----------|--------------------------------------------------------------------------|
-| `anchor` | punkt okna, od którego liczy się pozycja: `top-left` (domyślnie), `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right` |
-| `x`, `y` | pozycja **środka** elementu względem kotwicy (piksele, `y` rośnie w dół) |
-| `w`, `h` | szerokość i wysokość (przycisk: domyślnie 220 × 56)                      |
-| `name`   | nazwa elementu (tylko do opisu)                                          |
+| Attribute | Meaning                                                                  |
+|-----------|--------------------------------------------------------------------------|
+| `anchor`  | the window point the position is measured from: `top-left` (default), `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right` |
+| `x`, `y`  | the element's **centre** relative to the anchor (pixels, `y` grows down) |
+| `w`, `h`  | width and height (buttons: 220 × 56 by default)                         |
+| `name`    | the element's name (for descriptions only)                               |
 
-Kotwica trzyma układ po zmianie rozmiaru okna: `anchor="center"` zostaje na
-środku, a `anchor="bottom-right" x="-80" y="-30"` w prawym dolnym rogu.
+The anchor keeps the layout when the window is resized: `anchor="center"`
+stays in the middle and `anchor="bottom-right" x="-80" y="-30"` in the
+bottom-right corner.
 
-`text` może zawierać wartości pól, tak jak `TEXT` w `.swap`:
-`text="Punkty: {Game.score}"`.
+`text` can contain field values, just like `TEXT` in `.swap`:
+`text="Points: {Game.score}"`.
 
-## Przyciski
+## Buttons
 
-- `click` – instrukcje `.swap` oddzielone średnikiem, wykonywane po
-  kliknięciu: `click="SET Game.level 2; GUI_HIDE menu; SCENE poziom"`.
-  Działa każda instrukcja z docs/opcodes.md oprócz `PROC_ADD`, także `CALL`
-  do Lua. Bez `SELF` i `OTHER`.
-- `key` – klawisz, który działa jak kliknięcie, np. `key="ESCAPE"` na
-  przycisku „Wróć” albo `key="ENTER"` na „Graj”.
-- Kliknięcie to wciśnięcie i puszczenie lewego przycisku myszy na tym samym
-  przycisku. Pod kursorem przycisk dostaje kolor `hover`.
-- Panel i przycisk zasłaniają to, co pod nimi. GUI z `pause="true"`
-  przykrywa wszystkie niższe GUI.
+- `click` – `.swap` instructions separated by semicolons, run on click:
+  `click="SET Game.level 2; GUI_HIDE menu; SCENE level"`. Every instruction
+  from docs/opcodes.md works except `PROC_ADD`, including `CALL` into Lua.
+  No `SELF` or `OTHER`.
+- `key` – a key that acts as a click, e.g. `key="ESCAPE"` on "Resume" or
+  `key="ENTER"` on "Play".
+- A click is pressing and releasing the left mouse button on the same button.
+  Under the cursor the button gets the `hover` color.
+- Panels and buttons cover what is below them. A GUI with `pause="true"`
+  covers every GUI below it.
 
-Gdy widać GUI z przyciskami, kamera fps oddaje kursor, żeby dało się
-w nie klikać.
+While a GUI with buttons is visible, an fps camera frees the cursor so you
+can click.
 
-## Testy bez okna
+## Headless tests
 
-`--input` przyjmuje kliknięcia: `CLICK@x/y:klatka` (albo `CLICK@x/y:od-do`)
-stawia kursor w `(x, y)` i trzyma lewy przycisk myszy:
+`--input` accepts clicks: `CLICK@x/y:frame` (or `CLICK@x/y:from-to`) puts the
+cursor at `(x, y)` and holds the left mouse button:
 
 ```
 pimpex play . --headless --frames 30 --input "CLICK@400/300:5"
 ```
 
-Linia `gui:` w `.pimpex/state.txt` pokazuje widoczne GUI (z dopiskiem
-`(pauza)`, gdy gra stoi).
+The `gui:` line in `.pimpex/state.txt` lists the visible GUIs (with
+`(paused)` while the game is stopped).
 
-## Sprawdzanie
+## Checking
 
-`pimpex check` sprawdza pliki `gui/*.xml`, instrukcje w `click`, nazwy GUI
-w `GUI_SHOW`/`GUI_HIDE`/`GUI_TOGGLE` i w `<Scene gui>`. Po zapisaniu pliku
-GUI w trakcie gry (`pimpex dev`) silnik podmienia je w locie.
+`pimpex check` checks `gui/*.xml` files, the instructions in `click`, and GUI
+names in `GUI_SHOW`/`GUI_HIDE`/`GUI_TOGGLE` and `<Scene gui>`. When a GUI file
+is saved while the game runs (`pimpex dev`), the engine swaps it live.

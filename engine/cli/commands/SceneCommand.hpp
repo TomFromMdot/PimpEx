@@ -6,7 +6,7 @@
 
 namespace PimpEx::cli {
 
-// pimpex scene new <nazwa> [--template szablon] [--project katalog]
+// pimpex scene new <name> [--template template] [--project dir]
 // pimpex scene list
 class SceneCommand : public ICommand {
   CLI::App *_new = nullptr;

@@ -6,7 +6,7 @@
 
 namespace PimpEx::cli {
 
-// pimpex init <nazwa> [--dir katalog] [--template szablon] – nowy projekt gry.
+// pimpex init <name> [--dir dir] [--template template]
 class InitCommand : public ICommand {
   std::string _name;
   std::string _dir = ".";

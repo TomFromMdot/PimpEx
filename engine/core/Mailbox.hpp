@@ -4,10 +4,6 @@
 #include <vector>
 
 namespace PimpEx {
-
-// Skrzynka pocztowa między wątkami. Wątek zasobów wrzuca gotowe dane
-// (post), a wątek główny odbiera je wszystkie naraz między klatkami (drain).
-// Dzięki temu dane w grze podmieniają się zawsze w bezpiecznym momencie.
 template <typename T> class Mailbox {
   std::mutex _mutex;
   std::vector<T> _items;

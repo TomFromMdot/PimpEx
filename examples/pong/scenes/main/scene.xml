@@ -1,34 +1,34 @@
-<!-- Pong: lewa paletka W/S, prawa paletka strzałki. Do 5 punktów. -->
+<!-- Pong: left paddle W/S, right paddle arrows. First to 5 points. -->
 <Scene background="#0b0b14">
 
-  <Actor name="Linia" x="400" y="300" w="4" h="600" layer="-1">
+  <Actor name="Line" x="400" y="300" w="4" h="600" layer="-1">
     <Rect color="#2a2a3a"/>
   </Actor>
 
-  <Actor name="Lewa" x="30" y="300" w="14" h="100">
+  <Actor name="Left" x="30" y="300" w="14" h="100">
     <Rect color="#4cc9f0"/>
   </Actor>
 
-  <Actor name="Prawa" x="770" y="300" w="14" h="100">
+  <Actor name="Right" x="770" y="300" w="14" h="100">
     <Rect color="#f72585"/>
   </Actor>
 
-  <Actor name="Pilka" x="400" y="300" w="16" h="16" vx="5" vy="2">
+  <Actor name="Ball" x="400" y="300" w="16" h="16" vx="5" vy="2">
     <Circle color="white"/>
   </Actor>
 
-  <!-- Stan gry: punkty obu graczy -->
+  <!-- Game state: both players' points -->
   <Actor name="Game" w="0" h="0" visible="false">
-    <Var name="lewy" value="0"/>
-    <Var name="prawy" value="0"/>
+    <Var name="left" value="0"/>
+    <Var name="right" value="0"/>
   </Actor>
 
-  <Actor name="Wynik" x="340" y="20" w="0" h="0" layer="10" space="screen">
-    <Text value="{Game.lewy}      {Game.prawy}" size="40" color="white"/>
+  <Actor name="Score" x="340" y="20" w="0" h="0" layer="10" space="screen">
+    <Text value="{Game.left}      {Game.right}" size="40" color="white"/>
   </Actor>
 
-  <Actor name="Pomoc" x="200" y="570" w="0" h="0" layer="10" space="screen">
-    <Text value="C = gra z komputerem   V = dwoje graczy" size="16" color="gray"/>
+  <Actor name="Help" x="190" y="570" w="0" h="0" layer="10" space="screen">
+    <Text value="C = play the computer   V = two players" size="16" color="gray"/>
   </Actor>
 
 </Scene>

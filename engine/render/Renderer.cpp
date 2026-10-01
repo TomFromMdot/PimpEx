@@ -25,11 +25,11 @@ constexpr int MaxLights = 4;
 
 struct Renderer::Impl {
   std::filesystem::path root;
-  std::map<std::string, Texture2D> textures; // klucz: ścieżka pliku
-  std::map<std::string, ::Model> models;     // klucz: ścieżka pliku
+  std::map<std::string, Texture2D> textures; // by file path
+  std::map<std::string, ::Model> models;     // by file path
   std::set<std::string> failed;
 
-  // 3D: jednostkowe bryły (rozmiar 1) skalowane do w × h × d, z normalnymi.
+  // Unit primitives scaled to w × h × d.
   bool ready3d = false;
   ::Model cube{}, sphere{}, cylinder{}, plane{};
   Shader lighting{};
@@ -39,16 +39,16 @@ struct Renderer::Impl {
   };
   LightLocs lightLocs[MaxLights]{};
   bool cursorLocked = false;
-  bool cursorFreed = true; // kursor wolny (start, ESC, inne okno); klik w okno go łapie
+  bool cursorFreed = true;
   bool fpsCamera = false;
   Font font{};
 
-  // Czcionka z polskimi znakami. Rozmiar bazowy duży, żeby napisy były ostre.
+  // A large base size keeps scaled text sharp.
   void load_font() {
     std::vector<int> codepoints;
     for (int c = 32; c < 127; ++c)
       codepoints.push_back(c);
-    for (int c = 0xA0; c <= 0x17F; ++c) // Latin-1 + Latin Extended-A (ą, ć, ę, ł, ń, ś, ź, ż...)
+    for (int c = 0xA0; c <= 0x17F; ++c) // Latin-1 + Latin Extended-A (Polish letters)
       codepoints.push_back(c);
     for (int c : {0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x201E, 0x2022, 0x2026, 0x20AC})
       codepoints.push_back(c);
@@ -66,7 +66,6 @@ struct Renderer::Impl {
     return texture_file(res->second.path);
   }
 
-  // Obrazek po ścieżce względem projektu (np. <Image src> w GUI).
   const Texture2D *texture_file(const std::string &path) {
     if (auto it = textures.find(path); it != textures.end())
       return &it->second;
@@ -74,7 +73,7 @@ struct Renderer::Impl {
       return nullptr;
     Texture2D tex = LoadTexture((root / path).string().c_str());
     if (tex.id == 0) {
-      failed.insert(path); // raylib sam wypisze ostrzeżenie; rysujemy zastępczy kształt
+      failed.insert(path); // raylib logs a warning; we draw a placeholder
       return nullptr;
     }
     return &textures.emplace(path, tex).first->second;
@@ -136,8 +135,6 @@ struct Renderer::Impl {
     }
   }
 
-  // --- kamera -------------------------------------------------------------------------
-
   static entt::entity active_camera(const World &world) {
     for (auto [e, camera] : world.registry().view<Camera>().each())
       if (camera.active)
@@ -155,7 +152,7 @@ struct Renderer::Impl {
     cam.zoom = 1;
     const auto e = active_camera(world);
     if (e == entt::null)
-      return cam; // bez kamery: współrzędne świata = piksele ekranu
+      return cam; // no camera: world units = screen pixels
     const auto &camera = world.registry().get<Camera>(e);
     const auto &own = world.registry().get<Transform>(e);
     const auto *target = camera.mode == "follow" ? target_of(world, camera) : nullptr;
@@ -174,7 +171,7 @@ struct Renderer::Impl {
     fps = false;
     const auto e = active_camera(world);
     if (e == entt::null) {
-      // Bez kamery: powolny obrót wokół środka sceny.
+      // No camera: slowly orbit the scene centre.
       const float angle = static_cast<float>(ctx.frame) * 0.004f;
       cam.position = {std::sin(angle) * 12, 8, std::cos(angle) * 12};
       cam.target = {0, 0, 0};
@@ -188,7 +185,7 @@ struct Renderer::Impl {
     const Vector3 targetPos = target ? Vector3{target->x, target->y, target->z} : Vector3{0, 0, 0};
 
     if (camera.mode == "follow" && target) {
-      // Za plecami celu, obróconego o ry.
+      // Behind the target, rotated by its ry.
       const float yaw = target->ry * DEG2RAD;
       cam.position = {targetPos.x + std::sin(yaw) * camera.distance, targetPos.y + camera.height,
                       targetPos.z + std::cos(yaw) * camera.distance};
@@ -200,7 +197,7 @@ struct Renderer::Impl {
                       center.z + std::cos(yaw) * camera.distance};
       cam.target = center;
     } else if (camera.mode == "fps") {
-      // Oczy aktora-celu (albo samej kamery); kierunek z ry (obrót) i rx (patrzenie w górę/dół).
+      // From the target's eyes (or the camera itself); ry turns, rx looks up/down.
       const Transform &body = target ? *target : own;
       const float yaw = body.ry * DEG2RAD, pitch = own.rx * DEG2RAD;
       cam.position = {body.x, body.y + body.h * 0.4f, body.z};
@@ -216,15 +213,13 @@ struct Renderer::Impl {
     return cam;
   }
 
-  // --- światło -------------------------------------------------------------------------
-
   void update_lights(const World &world, const Camera3D &cam) {
     int index = 0;
     bool customAmbient = false;
     float ambient[4] = {0, 0, 0, 1};
     for (auto [e, light, t] : world.registry().view<Light, Transform>().each()) {
       if (light.kind == "ambient") {
-        // Światła otoczenia się sumują i nie zajmują miejsca wśród 4 świateł.
+        // Ambient lights add up and do not take one of the 4 light slots.
         customAmbient = true;
         ambient[0] += light.color.r / 255.f * light.intensity;
         ambient[1] += light.color.g / 255.f * light.intensity;
@@ -247,7 +242,7 @@ struct Renderer::Impl {
       ++index;
     }
     if (index == 0) {
-      // Brak świateł w scenie: domyślne „słońce”, żeby nic nie było czarne.
+      // No lights: a default sun so nothing is black.
       const int enabled = 1, type = 0;
       const float position[3] = {4, 10, 6}, target[3] = {0, 0, 0}, color[4] = {0.8f, 0.8f, 0.8f, 1};
       SetShaderValue(lighting, lightLocs[0].enabled, &enabled, SHADER_UNIFORM_INT);
@@ -270,13 +265,10 @@ struct Renderer::Impl {
     SetShaderValue(lighting, viewPosLoc, view, SHADER_UNIFORM_VEC3);
   }
 
-  // --- kursor ----------------------------------------------------------------------------
-
-  // Kursor złapany przez okno (DisableCursor) to pod X11/WSLg też brak dostępu
-  // do paska tytułu: krzyżyka i przesuwania okna. Dlatego gra startuje z wolnym
-  // kursorem, a łapie go dopiero kliknięcie w okno przy kamerze fps (jak
-  // „kliknij, aby grać” w przeglądarce). ESC, inne okno i GUI z przyciskami
-  // go uwalniają.
+  // A grabbed cursor (DisableCursor) also blocks the title bar under X11/WSLg:
+  // no close button, no moving the window. So the game starts with a free
+  // cursor and only a click in the window grabs it (like "click to play" in a
+  // browser). ESC, focus loss and a GUI with buttons release it.
   void update_cursor(bool fps, const gui::GuiSystem &gui) {
     fpsCamera = fps;
     const bool focused = IsWindowFocused();
@@ -290,8 +282,6 @@ struct Renderer::Impl {
       cursorLocked = lock;
     }
   }
-
-  // --- GUI ---------------------------------------------------------------------------------
 
   void draw_gui_text(const gui::Element &e, const std::string &value, const gui::Rect &r, Color color) {
     const auto size = static_cast<float>(e.size);
@@ -338,7 +328,7 @@ struct Renderer::Impl {
         case gui::ElementKind::Image:
           if (const auto *tex = texture_file(e.image)) {
             const Rectangle source{0, 0, static_cast<float>(tex->width), static_cast<float>(tex->height)};
-            if (e.w <= 0 || e.h <= 0) { // bez w/h: rozmiar obrazka
+            if (e.w <= 0 || e.h <= 0) { // no w/h: image size
               r.w = source.width;
               r.h = source.height;
               r.x -= r.w / 2;
@@ -346,15 +336,13 @@ struct Renderer::Impl {
             }
             DrawTexturePro(*tex, source, {r.x, r.y, r.w, r.h}, {0, 0}, 0, to_color(e.color));
           } else {
-            DrawRectangleRec(rect, MAGENTA); // brak obrazka
+            DrawRectangleRec(rect, MAGENTA); // missing image
           }
           break;
         }
       }
     }
   }
-
-  // --- rysowanie --------------------------------------------------------------------------
 
   void draw_text(const World &world, const vm::FrameContext &ctx, entt::entity e, const std::string &name,
                  Vector2 topLeft) {
@@ -374,7 +362,7 @@ struct Renderer::Impl {
         const Rectangle source{0, 0, static_cast<float>(tex->width), static_cast<float>(tex->height)};
         DrawTexturePro(*tex, source, rect, origin, t.rz, to_color(sprite->tint));
       } else {
-        DrawRectanglePro(rect, origin, t.rz, MAGENTA); // brak obrazka
+        DrawRectanglePro(rect, origin, t.rz, MAGENTA); // missing image
       }
     }
     if (const auto *r = registry.try_get<Rect>(e))
@@ -399,7 +387,7 @@ struct Renderer::Impl {
     if (const auto *s = registry.try_get<Sphere>(e))
       draw_model(sphere, pos, {t.w, t.w, t.w}, t, to_color(s->color), s->wire);
     if (const auto *c = registry.try_get<Cylinder>(e))
-      // GenMeshCylinder zaczyna się na y=0 – przesuwamy, żeby środek był w (x, y, z).
+      // GenMeshCylinder starts at y=0 – shift so the centre is at (x, y, z).
       draw_model(cylinder, {t.x, t.y - t.h / 2, t.z}, {t.w, t.h, t.w}, t, to_color(c->color), c->wire);
     if (const auto *p = registry.try_get<Plane>(e))
       draw_model(plane, pos, {t.w, 1, t.d}, t, to_color(p->color), false);
@@ -407,7 +395,7 @@ struct Renderer::Impl {
       if (auto *loaded = model(data, m->model))
         draw_model(*loaded, pos, {t.scale, t.scale, t.scale}, t, to_color(m->tint), false);
       else
-        DrawCubeWires(pos, t.w, t.h, t.d, MAGENTA); // brak modelu
+        DrawCubeWires(pos, t.w, t.h, t.d, MAGENTA); // missing model
     }
   }
 };
@@ -436,7 +424,7 @@ void Renderer::draw(const World &world, const SceneData &data, const gui::GuiSys
   const auto &registry = world.registry();
   const bool is3d = world.mode() == SceneMode::Mode3D;
 
-  // Kolejność: layer rosnąco, potem nazwa (stabilnie).
+  // By layer, then by name for a stable order.
   struct Item {
     int layer;
     const std::string *name;
@@ -465,7 +453,7 @@ void Renderer::draw(const World &world, const SceneData &data, const gui::GuiSys
     for (const auto &item : worldItems)
       _impl->draw_3d(world, data, item.entity, registry.get<Transform>(item.entity));
     EndMode3D();
-    // Napisy przypięte do aktorów 3D: rysowane w miejscu, gdzie aktor jest na ekranie.
+    // Text on 3D actors is drawn where the actor appears on screen.
     for (const auto &item : worldItems)
       if (registry.all_of<Text>(item.entity)) {
         const auto &t = registry.get<Transform>(item.entity);
@@ -483,7 +471,7 @@ void Renderer::draw(const World &world, const SceneData &data, const gui::GuiSys
     EndMode2D();
   }
 
-  // HUD: space="screen" – pozycja w pikselach ekranu, niezależnie od kamery.
+  // HUD: space="screen" is in screen pixels, independent of the camera.
   for (const auto &item : screenItems) {
     const auto &t = registry.get<Transform>(item.entity);
     _impl->draw_2d(world, data, item.entity, t);
@@ -492,7 +480,7 @@ void Renderer::draw(const World &world, const SceneData &data, const gui::GuiSys
   }
   _impl->draw_gui(gui, world, ctx);
   if (fps && !_impl->cursorLocked && !gui.wants_mouse()) {
-    const char *hint = "Kliknij w okno, aby sterować myszą (ESC uwalnia kursor)";
+    const char *hint = "Click the window to look around (ESC frees the cursor)";
     const auto size = MeasureTextEx(_impl->font, hint, 22, 22.f / 16);
     const Vector2 at{std::round((ctx.screenWidth - size.x) / 2), 16};
     DrawRectangle(static_cast<int>(at.x) - 10, 10, static_cast<int>(size.x) + 20, static_cast<int>(size.y) + 12,
@@ -500,7 +488,7 @@ void Renderer::draw(const World &world, const SceneData &data, const gui::GuiSys
     DrawTextEx(_impl->font, hint, at, 22, 22.f / 16, RAYWHITE);
   }
   EndDrawing();
-  // Także w 2D: po przejściu ze sceny fps (np. ekran „przegrana”) kursor wraca.
+  // Also in 2D: leaving an fps scene must give the cursor back.
   _impl->update_cursor(fps, gui);
 }
 

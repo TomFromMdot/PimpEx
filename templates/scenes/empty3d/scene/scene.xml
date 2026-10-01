@@ -1,4 +1,4 @@
-<!-- Scena {{SCENE}} (3D). Jednostki to „metry”, y rośnie w górę. docs/components.md -->
+<!-- Scene {{SCENE}} (3D). Units are "metres", y grows up. docs/components.md -->
 <Scene mode="3d" background="#87ceeb">
 
   <Actor name="Ground" y="-0.5" w="30" h="1" d="30"><Cube color="#3a7d44"/><Collider/></Actor>
@@ -12,7 +12,7 @@
   <Actor name="Cam"><Camera mode="orbit" target="Box" distance="8" height="4"/></Actor>
 
   <Actor name="Title" x="20" y="20" w="0" h="0" space="screen">
-    <Text value="Scena {{SCENE}}" size="28" color="black"/>
+    <Text value="Scene {{SCENE}}" size="28" color="black"/>
   </Actor>
 
 </Scene>

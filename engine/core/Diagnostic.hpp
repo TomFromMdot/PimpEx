@@ -6,8 +6,7 @@
 
 namespace PimpEx {
 
-// Komunikat o problemie w pliku projektu, w formacie „plik:linia: opis”.
-// Taki format rozumieją edytory, terminale i agenci AI.
+// "file:line: error: message" – the format editors, terminals and AI agents understand.
 struct Diagnostic {
   enum class Severity { Error, Warning };
 
@@ -17,7 +16,7 @@ struct Diagnostic {
   std::string message;
 
   std::string format() const {
-    const char *kind = severity == Severity::Error ? "błąd" : "ostrzeżenie";
+    const char *kind = severity == Severity::Error ? "error" : "warning";
     if (line > 0)
       return std::format("{}:{}: {}: {}", file, line, kind, message);
     return std::format("{}: {}: {}", file, kind, message);

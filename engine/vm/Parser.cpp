@@ -10,7 +10,7 @@
 namespace PimpEx::vm {
 namespace {
 
-// Błąd w jednej linii – łapany przez parser i zamieniany na Diagnostic.
+// An error in one line; the parser turns it into a Diagnostic.
 struct LineError : std::runtime_error {
   using std::runtime_error::runtime_error;
 };
@@ -24,8 +24,8 @@ const std::vector<std::string_view> Instructions = {
 
 std::string suggestion(std::string_view word) {
   const std::vector<std::string> names(Instructions.begin(), Instructions.end());
-  const auto best = closest_match(word, names); // tylko bliskie literówki
-  return best.empty() ? "" : std::format(" Czy chodziło o {}?", best);
+  const auto best = closest_match(word, names); // close typos only
+  return best.empty() ? "" : std::format(" Did you mean {}?", best);
 }
 
 class Cursor {
@@ -40,11 +40,11 @@ public:
 
   const Token &next(std::string_view what) {
     if (done())
-      throw LineError(std::format("brakuje: {}", what));
+      throw LineError(std::format("missing: {}", what));
     return _tokens[_pos++];
   }
 
-  // Sprawdza (bez względu na wielkość liter), czy następne słowo to `keyword`.
+  // Case-insensitive.
   bool accept(std::string_view keyword) {
     const auto *t = peek();
     if (t && t->kind == Token::Kind::Word && to_upper(t->text) == keyword) {
@@ -57,31 +57,31 @@ public:
   std::string word(std::string_view what) {
     const auto &t = next(what);
     if (t.kind != Token::Kind::Word && t.kind != Token::Kind::Number)
-      throw LineError(std::format("oczekiwano: {}, a jest '{}'", what, t.text));
+      throw LineError(std::format("expected {}, got '{}'", what, t.text));
     return t.text;
   }
 
-  // Nazwa aktora / PROC / sceny – bez kropki.
+  // Actor / PROC / scene name – no dots.
   std::string name(std::string_view what) {
     auto text = word(what);
     if (text.find_first_of("./@") != std::string::npos)
-      throw LineError(std::format("{} nie może zawierać '.', '/' ani '@': '{}'", what, text));
+      throw LineError(std::format("{} cannot contain '.', '/' or '@': '{}'", what, text));
     return text;
   }
 
-  // Aktor albo grupa: `Player`, `SELF`, `@coin` (tag), a w FOR także `Health` (komponent).
+  // `Player`, `SELF`, `@coin` (tag) or, in FOR, `Health` (component).
   std::string selector(std::string_view what) {
     auto text = word(what);
     const auto body = text.starts_with('@') ? std::string_view(text).substr(1) : std::string_view(text);
     if (body.empty() || body.find_first_of("./@") != std::string_view::npos)
-      throw LineError(std::format("{}: oczekiwano nazwy albo @tagu, a jest '{}'", what, text));
+      throw LineError(std::format("{}: expected a name or @tag, got '{}'", what, text));
     return text;
   }
 
   double number(std::string_view what) {
     const auto &t = next(what);
     if (t.kind != Token::Kind::Number)
-      throw LineError(std::format("oczekiwano liczby ({}), a jest '{}'", what, t.text));
+      throw LineError(std::format("expected a number ({}), got '{}'", what, t.text));
     return t.number;
   }
 
@@ -90,14 +90,14 @@ public:
     const auto dot = text.find('.');
     if (dot == std::string::npos || dot == 0 || dot + 1 == text.size())
       throw LineError(std::format(
-          "oczekiwano pola w formie Aktor.pole ({}), a jest '{}'", what, text));
+          "expected a field as Actor.field ({}), got '{}'", what, text));
     return Ref{text.substr(0, dot), text.substr(dot + 1)};
   }
 
   Value value(std::string_view what) {
     const auto *t = peek();
     if (!t)
-      throw LineError(std::format("brakuje: {}", what));
+      throw LineError(std::format("missing: {}", what));
 
     if (t->kind == Token::Kind::Number) {
       ++_pos;
@@ -130,7 +130,7 @@ public:
     }
 
     throw LineError(std::format(
-        "oczekiwano {}: liczby, Aktor.pole albo RANDOM a b, a jest '{}'", what,
+        "expected {}: a number, Actor.field or RANDOM a b, got '{}'", what,
         t->text));
   }
 
@@ -150,16 +150,16 @@ public:
 
   void expect_end() {
     if (!done())
-      throw LineError(std::format("nadmiarowe słowo '{}' na końcu linii", peek()->text));
+      throw LineError(std::format("unexpected word '{}' at the end of the line", peek()->text));
   }
 };
 
 Key parse_key(Cursor &c) {
-  const auto name = c.word("nazwa klawisza");
+  const auto name = c.word("key name");
   if (auto key = key_from_name(name))
     return *key;
   throw LineError(std::format(
-      "nieznany klawisz '{}' (litery A-Z, cyfry 0-9, SPACE, ENTER, ESCAPE, "
+      "unknown key '{}' (letters A-Z, digits 0-9, SPACE, ENTER, ESCAPE, "
       "SHIFT, LEFT, RIGHT, UP, DOWN)",
       name));
 }
@@ -177,28 +177,28 @@ Condition parse_condition(Cursor &c) {
     cond.key = parse_key(c);
   } else if (c.accept("TOUCH")) {
     cond.kind = Condition::Kind::Touch;
-    cond.a = c.selector("pierwszy aktor w TOUCH");
-    cond.b = c.selector("drugi aktor w TOUCH");
+    cond.a = c.selector("first actor in TOUCH");
+    cond.b = c.selector("second actor in TOUCH");
   } else if (c.accept("EXISTS")) {
     cond.kind = Condition::Kind::Exists;
-    cond.a = c.selector("aktor w EXISTS");
+    cond.a = c.selector("actor in EXISTS");
   } else if (c.accept("CHANCE")) {
     cond.kind = Condition::Kind::Chance;
-    cond.left = c.value("procent w CHANCE");
+    cond.left = c.value("percentage in CHANCE");
   } else {
     cond.kind = Condition::Kind::Compare;
-    cond.left = c.value("lewa strona porównania");
-    const auto &op = c.next("operator porównania (<, <=, >, >=, ==, !=)");
+    cond.left = c.value("left side of the comparison");
+    const auto &op = c.next("comparison operator (<, <=, >, >=, ==, !=)");
     if (op.kind != Token::Kind::Compare)
       throw LineError(std::format(
-          "oczekiwano operatora porównania (<, <=, >, >=, ==, !=), a jest '{}'", op.text));
+          "expected a comparison operator (<, <=, >, >=, ==, !=), got '{}'", op.text));
     if (op.text == "<") cond.op = CompareOp::Less;
     else if (op.text == "<=") cond.op = CompareOp::LessEqual;
     else if (op.text == ">") cond.op = CompareOp::Greater;
     else if (op.text == ">=") cond.op = CompareOp::GreaterEqual;
     else if (op.text == "==") cond.op = CompareOp::Equal;
     else cond.op = CompareOp::NotEqual;
-    cond.right = c.value("prawa strona porównania");
+    cond.right = c.value("right side of the comparison");
   }
   return cond;
 }
@@ -207,82 +207,82 @@ Instr parse_statement(Cursor &c, int line) {
   Instr instr;
   instr.line = line;
 
-  // IF warunek [AND warunek...] : instrukcja  (można zagnieżdżać IF)
+  // IF condition [AND condition...] : instruction (IFs can nest)
   while (c.accept("IF")) {
     instr.guard.push_back(parse_condition(c));
     while (c.accept("AND"))
       instr.guard.push_back(parse_condition(c));
-    const auto &colon = c.next("dwukropek ':' po warunku IF");
+    const auto &colon = c.next("colon ':' after the IF condition");
     if (colon.kind != Token::Kind::Colon)
       throw LineError(std::format(
-          "po warunku IF potrzebny jest dwukropek ':', a jest '{}'", colon.text));
+          "the IF condition needs a colon ':', got '{}'", colon.text));
   }
 
   const auto *first = c.peek();
   if (!first)
-    throw LineError("brakuje instrukcji po ':'");
-  const auto keyword = to_upper(c.word("instrukcja"));
+    throw LineError("missing instruction after ':'");
+  const auto keyword = to_upper(c.word("instruction"));
 
   if (keyword == "MOVE") {
     instr.op = Op::Move;
-    instr.target = c.name("aktor w MOVE");
-    instr.values = {c.value("przesunięcie X"), c.value("przesunięcie Y")};
+    instr.target = c.name("actor in MOVE");
+    instr.values = {c.value("X offset"), c.value("Y offset")};
     if (!c.done())
-      instr.values.push_back(c.value("przesunięcie Z"));
+      instr.values.push_back(c.value("Z offset"));
   } else if (keyword == "SET" || keyword == "ADD" || keyword == "MUL") {
     instr.op = keyword == "SET" ? Op::Set : keyword == "ADD" ? Op::Add : Op::Mul;
-    instr.ref = c.ref("pole do zmiany");
+    instr.ref = c.ref("field to change");
     if (keyword == "SET" && !c.done() && c.peek()->kind == Token::Kind::String) {
       Value text;
       text.kind = Value::Kind::Text;
-      text.text = c.next("tekst").text;
+      text.text = c.next("text").text;
       instr.values = {text};
     } else {
-      instr.values = {c.value("wartość")};
+      instr.values = {c.value("value")};
     }
   } else if (keyword == "SPAWN") {
     instr.op = Op::Spawn;
-    instr.target = c.name("archetyp w SPAWN");
+    instr.target = c.name("archetype in SPAWN");
     if (c.accept("AS"))
-      instr.other = c.name("nazwa nowego aktora po AS");
+      instr.other = c.name("new actor name after AS");
     if (c.accept("AT")) {
-      instr.values = {c.value("pozycja X"), c.value("pozycja Y")};
+      instr.values = {c.value("X position"), c.value("Y position")};
       if (!c.done())
-        instr.values.push_back(c.value("pozycja Z"));
+        instr.values.push_back(c.value("Z position"));
     }
   } else if (keyword == "DESTROY") {
     instr.op = Op::Destroy;
-    instr.target = c.name("aktor w DESTROY");
+    instr.target = c.name("actor in DESTROY");
   } else if (keyword == "FOLLOW") {
     instr.op = Op::Follow;
-    instr.target = c.name("aktor, który podąża");
-    instr.other = c.name("cel FOLLOW");
-    instr.values = {c.value("prędkość FOLLOW")};
+    instr.target = c.name("following actor");
+    instr.other = c.name("FOLLOW target");
+    instr.values = {c.value("FOLLOW speed")};
   } else if (keyword == "TEXT") {
     instr.op = Op::Text;
-    instr.target = c.name("aktor w TEXT");
+    instr.target = c.name("actor in TEXT");
     instr.text = c.rest_as_text();
   } else if (keyword == "LOG") {
     instr.op = Op::Log;
     instr.text = c.rest_as_text();
   } else if (keyword == "CALL") {
     instr.op = Op::Call;
-    instr.target = c.name("nazwa funkcji Lua");
+    instr.target = c.name("Lua function name");
     while (!c.done())
       instr.args.push_back(c.next("argument").text);
   } else if (keyword == "PROC_ADD" || keyword == "PROC_REMOVE") {
     instr.op = keyword == "PROC_ADD" ? Op::ProcAdd : Op::ProcRemove;
-    instr.target = c.name("nazwa PROC");
+    instr.target = c.name("PROC name");
   } else if (keyword == "SCENE") {
     instr.op = Op::Scene;
-    instr.target = c.name("nazwa sceny");
+    instr.target = c.name("scene name");
   } else if (keyword == "GUI_SHOW" || keyword == "GUI_HIDE" || keyword == "GUI_TOGGLE") {
     instr.op = keyword == "GUI_SHOW" ? Op::GuiShow : keyword == "GUI_HIDE" ? Op::GuiHide : Op::GuiToggle;
-    instr.target = c.name("nazwa GUI (plik gui/nazwa.xml)");
+    instr.target = c.name("GUI name (file gui/<name>.xml)");
   } else if (keyword == "PROC" || keyword == "END") {
-    throw LineError(std::format("{} nie może stać za IF", keyword));
+    throw LineError(std::format("{} cannot follow IF", keyword));
   } else {
-    throw LineError(std::format("nieznana instrukcja '{}'.{}", first->text,
+    throw LineError(std::format("unknown instruction '{}'.{}", first->text,
                                 suggestion(first->text)));
   }
 
@@ -307,13 +307,13 @@ InstructionsResult parse_instructions(std::string_view source, const std::string
     Cursor c(lexed.tokens);
     try {
       if (c.accept("PROC") || c.accept("END"))
-        throw LineError("tu wpisz same instrukcje, bez PROC i END");
+        throw LineError("write plain instructions here, without PROC and END");
       result.instructions.push_back(parse_statement(c, line));
     } catch (const LineError &e) {
       result.diagnostics.push_back({Diagnostic::Severity::Error, file, line, e.what()});
     }
   };
-  // Średnik w cudzysłowie (np. TEXT Hud "a;b") nie dzieli instrukcji.
+  // A quoted ";" (TEXT Hud "a;b") does not split.
   bool quoted = false;
   std::size_t start = 0;
   for (std::size_t i = 0; i <= source.size(); ++i) {
@@ -359,18 +359,18 @@ ParseResult parse_program(std::string_view source, const std::string &file) {
       if (c.accept("PROC")) {
         if (current) {
           error(current->firstLine,
-                std::format("PROC {} nie ma END (następna PROC zaczyna się w linii {})",
+                std::format("PROC {} has no END (the next PROC starts on line {})",
                             current->name, lineNo));
           current->lastLine = lineNo - 1;
           current = nullptr;
         }
         Proc proc;
-        proc.name = c.name("nazwa PROC");
+        proc.name = c.name("PROC name");
         proc.firstLine = lineNo;
         if (result.program.find(proc.name))
-          error(lineNo, std::format("PROC {} jest już zdefiniowana", proc.name));
-        // Od tej chwili PROC jest otwarta – nawet jeśli dalsza część nagłówka
-        // ma błąd, jej END nie będzie „END bez PROC”.
+          error(lineNo, std::format("PROC {} is already defined", proc.name));
+        // The PROC is open from here even if the rest of the header is broken,
+        // so its END is not reported as "END without PROC".
         result.program.procs.push_back(proc);
         current = &result.program.procs.back();
         while (!c.done()) {
@@ -378,15 +378,15 @@ ParseResult parse_program(std::string_view source, const std::string &file) {
             current->mode = ProcMode::Once;
           } else if (current->mode == ProcMode::Loop && c.accept("EVERY")) {
             current->mode = ProcMode::Every;
-            const auto n = c.number("liczba klatek po EVERY");
+            const auto n = c.number("frame count after EVERY");
             if (n < 1 || n != std::floor(n))
-              throw LineError("EVERY wymaga dodatniej liczby całkowitej klatek");
+              throw LineError("EVERY needs a positive whole number of frames");
             current->every = static_cast<int>(n);
           } else if (current->forEach.empty() && c.accept("FOR")) {
-            current->forEach = c.selector("komponent albo @tag po FOR");
+            current->forEach = c.selector("component or @tag after FOR");
           } else {
-            throw LineError(std::format("nieznane słowo '{}' po nazwie PROC (dozwolone: ONCE, "
-                                        "EVERY n, FOR Komponent, FOR @tag)",
+            throw LineError(std::format("unknown word '{}' after the PROC name (allowed: ONCE, "
+                                        "EVERY n, FOR Component, FOR @tag)",
                                         c.peek()->text));
           }
         }
@@ -396,7 +396,7 @@ ParseResult parse_program(std::string_view source, const std::string &file) {
       if (c.accept("END")) {
         c.expect_end();
         if (!current) {
-          error(lineNo, "END bez PROC");
+          error(lineNo, "END without PROC");
           continue;
         }
         current->lastLine = lineNo;
@@ -405,8 +405,8 @@ ParseResult parse_program(std::string_view source, const std::string &file) {
       }
 
       if (!current) {
-        error(lineNo, "instrukcja poza PROC – każda instrukcja musi być "
-                      "między `PROC nazwa` a `END`");
+        error(lineNo, "instruction outside a PROC – every instruction must be "
+                      "between `PROC name` and `END`");
         continue;
       }
       current->body.push_back(parse_statement(c, lineNo));
@@ -416,7 +416,7 @@ ParseResult parse_program(std::string_view source, const std::string &file) {
   }
 
   if (current) {
-    error(current->firstLine, std::format("PROC {} nie ma END", current->name));
+    error(current->firstLine, std::format("PROC {} has no END", current->name));
     current->lastLine = lineNo;
   }
   return result;

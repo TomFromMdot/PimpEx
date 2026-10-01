@@ -21,7 +21,7 @@ std::string text_of(const Diagnostics &diagnostics) {
 std::shared_ptr<ComponentRegistry> registry_with_health(Diagnostics &diagnostics) {
   auto registry = ComponentRegistry::with_builtins();
   registry->load_custom(R"(<Components>
-  <Component name="Health" doc="Punkty życia">
+  <Component name="Health" doc="Hit points">
     <Field name="hp" type="number" default="3"/>
     <Field name="max" type="integer" default="5"/>
     <Field name="shield" type="bool" default="false"/>
@@ -40,7 +40,7 @@ World load(const std::shared_ptr<ComponentRegistry> &registry, const char *xml, 
 
 } // namespace
 
-TEST_CASE("rejestr: komponenty wbudowane mają pola z typami i wartościami domyślnymi") {
+TEST_CASE("registry: built-in components have typed fields with defaults") {
   const auto registry = ComponentRegistry::with_builtins();
   for (const char *name : {"Transform", "Body", "Collider", "Rect", "Circle", "Sprite", "Text", "Cube",
                            "Sphere", "Cylinder", "Plane", "Model", "Camera", "Light"})
@@ -53,11 +53,11 @@ TEST_CASE("rejestr: komponenty wbudowane mają pola z typami i wartościami domy
   CHECK(std::get<std::string>(mode->defaultValue) == "fixed");
   std::string error;
   CHECK_FALSE(coerce_field(*mode, std::string("drone"), error).has_value());
-  CHECK(error.find("dozwolone: fixed, follow, orbit, fps") != std::string::npos);
+  CHECK(error.find("allowed: fixed, follow, orbit, fps") != std::string::npos);
   CHECK(registry->find("Body")->field("grounded")->readOnly);
 }
 
-TEST_CASE("components.xml: komponent użytkownika w XML, polach i zapytaniach") {
+TEST_CASE("components.xml: a user component in XML, fields and queries") {
   Diagnostics diagnostics;
   const auto registry = registry_with_health(diagnostics);
   REQUIRE(diagnostics.empty());
@@ -72,7 +72,7 @@ TEST_CASE("components.xml: komponent użytkownika w XML, polach i zapytaniach") 
 
   CHECK(world.get("Player", "Health.hp") == 10);
   CHECK(world.get("Player", "Health.shield") == 1);
-  CHECK(world.get("Orc", "Health.hp") == 3); // domyślne
+  CHECK(world.get("Orc", "Health.hp") == 3); // default
   CHECK(world.get("Orc", "Health.max") == 5);
   CHECK(world.query("Health") == std::vector<std::string>{"Orc", "Player"});
   CHECK(world.query("@enemy") == std::vector<std::string>{"Orc"});
@@ -81,16 +81,16 @@ TEST_CASE("components.xml: komponent użytkownika w XML, polach i zapytaniach") 
 
   CHECK_FALSE(world.set_field("Orc", "Health.hp", 1.0).has_value());
   CHECK(world.get("Orc", "Health.hp") == 1);
-  CHECK_FALSE(world.set_field("Rock", "Health.hp", 7.0).has_value()); // komponent dodany
+  CHECK_FALSE(world.set_field("Rock", "Health.hp", 7.0).has_value()); // component added
   CHECK(world.has_component(world.find("Rock"), "Health"));
   CHECK(world.get("Rock", "Health.max") == 5);
 
   const auto error = world.set_field("Orc", "Heath.hp", 1.0);
   REQUIRE(error);
-  CHECK(error->find("czy chodziło o Health?") != std::string::npos);
+  CHECK(error->find("did you mean Health?") != std::string::npos);
   const auto fieldError = world.set_field("Orc", "Health.pk", 1.0);
   REQUIRE(fieldError);
-  CHECK(fieldError->find("czy chodziło o hp?") != std::string::npos);
+  CHECK(fieldError->find("did you mean hp?") != std::string::npos);
 
   std::ostringstream dump;
   world.dump(dump);
@@ -99,7 +99,7 @@ TEST_CASE("components.xml: komponent użytkownika w XML, polach i zapytaniach") 
         std::string::npos);
 }
 
-TEST_CASE("components.xml: błędy definicji") {
+TEST_CASE("components.xml: definition errors") {
   Diagnostics diagnostics;
   auto registry = ComponentRegistry::with_builtins();
   registry->load_custom(R"(<Components>
@@ -110,14 +110,14 @@ TEST_CASE("components.xml: błędy definicji") {
                         "components.xml", diagnostics);
   const auto text = text_of(diagnostics);
   INFO(text);
-  CHECK(text.find("components.xml:2: błąd: <Component> musi mieć name zaczynające się wielką literą") !=
+  CHECK(text.find("components.xml:2: error: <Component> needs a name starting with a capital letter") !=
         std::string::npos);
-  CHECK(text.find("components.xml:3: błąd: nazwa 'Rect' jest zajęta przez silnik") != std::string::npos);
-  CHECK(text.find("components.xml:4: błąd: nieznany typ pola 'float'") != std::string::npos);
-  CHECK(text.find("k=\"abc\" musi być liczbą") != std::string::npos);
+  CHECK(text.find("components.xml:3: error: the name 'Rect' is reserved by the engine") != std::string::npos);
+  CHECK(text.find("components.xml:4: error: unknown field type 'float'") != std::string::npos);
+  CHECK(text.find("k=\"abc\" must be a number") != std::string::npos);
 }
 
-TEST_CASE("scene.xml: literówki w komponentach i polach mają podpowiedzi") {
+TEST_CASE("scene.xml: typos in components and fields get hints") {
   Diagnostics diagnostics;
   boot::parse_scene_xml(R"(<Scene>
   <Actor name="A" colr="red"><Rectt color="red"/><Circle colour="red"/><Camera mode="drone"/></Actor>
@@ -125,13 +125,13 @@ TEST_CASE("scene.xml: literówki w komponentach i polach mają podpowiedzi") {
                         "scene.xml", "main", diagnostics);
   const auto text = text_of(diagnostics);
   INFO(text);
-  CHECK(text.find("nieznany komponent <Rectt> (czy chodziło o Rect?)") != std::string::npos);
-  CHECK(text.find("<Circle> nie ma pola 'colour' (czy chodziło o color?)") != std::string::npos);
-  CHECK(text.find("mode=\"drone\" – dozwolone: fixed, follow, orbit, fps") != std::string::npos);
-  CHECK(text.find("<Actor> nie ma atrybutu 'colr'") != std::string::npos);
+  CHECK(text.find("unknown component <Rectt> (did you mean Rect?)") != std::string::npos);
+  CHECK(text.find("<Circle> has no field 'colour' (did you mean color?)") != std::string::npos);
+  CHECK(text.find("mode=\"drone\" – allowed: fixed, follow, orbit, fps") != std::string::npos);
+  CHECK(text.find("<Actor> has no attribute 'colr'") != std::string::npos);
 }
 
-TEST_CASE("scena 3D: domyślny rozmiar 1, pola 3D i zasoby modeli") {
+TEST_CASE("3D scene: default size 1, 3D fields and model resources") {
   Diagnostics diagnostics;
   World world;
   world.load(boot::parse_scene_xml(R"(<Scene mode="3d">
@@ -145,7 +145,7 @@ TEST_CASE("scena 3D: domyślny rozmiar 1, pola 3D i zasoby modeli") {
   const auto text = text_of(diagnostics);
   INFO(text);
   CHECK(diagnostics.size() == 1);
-  CHECK(text.find("'Bad' używa modelu 'nope'") != std::string::npos);
+  CHECK(text.find("'Bad' uses model 'nope'") != std::string::npos);
   CHECK(world.mode() == SceneMode::Mode3D);
   CHECK(world.get("Box", "w") == 1);
   CHECK(world.get("Box", "d") == 1);
@@ -156,7 +156,7 @@ TEST_CASE("scena 3D: domyślny rozmiar 1, pola 3D i zasoby modeli") {
   CHECK(world.get("Cam", "Camera.distance") == 6);
 }
 
-TEST_CASE("fizyka: grawitacja, lądowanie na solidzie i styki z triggerem") {
+TEST_CASE("physics: gravity, landing on solids and trigger contacts") {
   Diagnostics diagnostics;
   World world;
   world.load(boot::parse_scene_xml(R"(<Scene>
@@ -173,13 +173,13 @@ TEST_CASE("fizyka: grawitacja, lądowanie na solidzie i styki z triggerem") {
       if ((a == "Player" && b == "Coin") || (a == "Coin" && b == "Player"))
         touchedCoin = true;
     }
-  CHECK(world.get("Player", "y") == 180); // stoi na podłodze: 200 - 10 - 10
+  CHECK(world.get("Player", "y") == 180); // standing on the floor: 200 - 10 - 10
   CHECK(world.get("Player", "vy") == 0);
   CHECK(world.get("Player", "grounded") == 1);
-  CHECK(touchedCoin); // trigger nie zatrzymuje, ale jest w stykach
-  CHECK(world.set_field("Player", "grounded", 0.0).has_value()); // tylko do odczytu
+  CHECK(touchedCoin); // a trigger does not stop but is a contact
+  CHECK(world.set_field("Player", "grounded", 0.0).has_value()); // read-only
 
-  // 3D: w dół to -y.
+  // 3D: down is -y.
   World world3d;
   world3d.load(boot::parse_scene_xml(R"(<Scene mode="3d">
   <Actor name="Ball" y="5" gravity="0.1"><Collider/></Actor>
@@ -192,7 +192,7 @@ TEST_CASE("fizyka: grawitacja, lądowanie na solidzie i styki z triggerem") {
   CHECK(world3d.get("Ball", "grounded") == 1);
 }
 
-TEST_CASE("Tilemap: mapa ASCII tworzy aktorów z archetypów i ustawia istniejących") {
+TEST_CASE("Tilemap: an ASCII map creates actors from archetypes and places existing ones") {
   Diagnostics diagnostics;
   const auto data = boot::parse_scene_xml(R"(<Scene mode="3d">
   <Archetype name="Wall" y="1" w="2" h="2" d="2"><Cube color="gray"/><Collider/></Archetype>
@@ -215,16 +215,16 @@ TEST_CASE("Tilemap: mapa ASCII tworzy aktorów z archetypów i ustawia istnieją
     text += d.format() + "\n";
   INFO(text);
   REQUIRE(diagnostics.empty());
-  CHECK(data.actors.size() == 1 + 9 + 1); // Player + 9 ścian + moneta
+  CHECK(data.actors.size() == 1 + 9 + 1); // Player + 9 walls + a coin
 
   World world;
   world.load(data);
   CHECK(world.get("Player", "x") == 12); // 10 + 1 * 2
-  CHECK(world.get("Player", "z") == 2);  // wiersz 1
+  CHECK(world.get("Player", "z") == 2);  // row 1
   CHECK(world.get("Player", "y") == doctest::Approx(0.6));
   CHECK(world.get("Wall_0_0", "x") == 10);
   CHECK(world.get("Wall_3_2", "z") == 4);
-  CHECK(world.get("Wall_3_2", "y") == 1); // y z archetypu
+  CHECK(world.get("Wall_3_2", "y") == 1); // y from the archetype
   CHECK(world.get("Coin_3_1", "x") == 16);
   CHECK(world.has_tag(world.find("Coin_3_1"), "coin"));
   CHECK(world.is_static_tile(world.find("Wall_0_0")));
@@ -233,11 +233,11 @@ TEST_CASE("Tilemap: mapa ASCII tworzy aktorów z archetypów i ustawia istnieją
   std::ostringstream dump;
   world.dump(dump);
   INFO(dump.str());
-  CHECK(dump.str().find("Wall_0_0") == std::string::npos); // ściany tylko policzone
-  CHECK(dump.str().find("mapa (statyczne kafle, pominięte): Coin=1 Wall=9") != std::string::npos);
+  CHECK(dump.str().find("Wall_0_0") == std::string::npos); // walls are only counted
+  CHECK(dump.str().find("map (static tiles, omitted): Coin=1 Wall=9") != std::string::npos);
 }
 
-TEST_CASE("Tilemap: błędy z numerami linii") {
+TEST_CASE("Tilemap: errors with line numbers") {
   Diagnostics diagnostics;
   boot::parse_scene_xml(R"(<Scene>
   <Archetype name="Wall"/>
@@ -256,13 +256,13 @@ TEST_CASE("Tilemap: błędy z numerami linii") {
   for (const auto &d : diagnostics)
     text += d.format() + "\n";
   INFO(text);
-  CHECK(text.find("scene.xml:4: błąd: nie ma archetypu 'Wal' (czy chodziło o Wall?)") != std::string::npos);
-  CHECK(text.find("scene.xml:5: błąd: nie ma aktora 'Nobody'") != std::string::npos);
-  CHECK(text.find("scene.xml:6: błąd: <Legend char") != std::string::npos);
-  CHECK(text.find("scene.xml:9: błąd: znak 'X' na mapie nie ma wpisu w <Legend>") != std::string::npos);
+  CHECK(text.find("scene.xml:4: error: no archetype 'Wal' (did you mean Wall?)") != std::string::npos);
+  CHECK(text.find("scene.xml:5: error: no actor 'Nobody'") != std::string::npos);
+  CHECK(text.find("scene.xml:6: error: <Legend char") != std::string::npos);
+  CHECK(text.find("scene.xml:9: error: character 'X' on the map has no <Legend> entry") != std::string::npos);
 }
 
-TEST_CASE("raycast: pierwszy solidny Collider na drodze promienia") {
+TEST_CASE("raycast: the first solid Collider on the ray") {
   Diagnostics diagnostics;
   World world;
   world.load(boot::parse_scene_xml(R"(<Scene mode="3d">
@@ -276,10 +276,10 @@ TEST_CASE("raycast: pierwszy solidny Collider na drodze promienia") {
   const auto eye = world.find("Eye");
   auto hit = world.raycast(0, 1, 0, 0, 0, -1, 100, eye);
   REQUIRE(hit);
-  CHECK(world.name_of(hit->entity) == "Wall"); // trigger (Ghost) nie zatrzymuje
+  CHECK(world.name_of(hit->entity) == "Wall"); // a trigger (Ghost) does not stop it
   CHECK(hit->distance == doctest::Approx(2.75));
-  CHECK_FALSE(world.raycast(0, 1, 0, 0, 0, -1, 2, eye)); // za krótko
-  CHECK_FALSE(world.raycast(0, 1, 0, 1, 0, 0, 100, eye)); // w bok – nic
+  CHECK_FALSE(world.raycast(0, 1, 0, 0, 0, -1, 2, eye)); // too short
+  CHECK_FALSE(world.raycast(0, 1, 0, 1, 0, 0, 100, eye)); // sideways – nothing
   world.destroy("Wall");
   hit = world.raycast(0, 1, 0, 0, 0, -1, 100, eye);
   REQUIRE(hit);

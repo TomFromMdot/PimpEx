@@ -1,9 +1,0 @@
-<!-- Pauza: ESC w grze ją pokazuje (scene.swap), ESC albo „Graj dalej” chowa.
-     pause="true" zatrzymuje piłkę i paletki, dopóki pauza jest widoczna. -->
-<Gui pause="true" dim="#000000aa">
-  <Panel  anchor="center" w="360" h="300" color="#1b1b2b" border="#ffffff30"/>
-  <Label  anchor="center" y="-95" text="PAUZA" size="48" color="gold"/>
-  <Label  anchor="center" y="-50" text="{Game.lewy} : {Game.prawy}" size="28" color="white"/>
-  <Button anchor="center" y="15" text="Graj dalej" key="ESCAPE" click="GUI_HIDE pauza"/>
-  <Button anchor="center" y="90" text="Od nowa" click="SCENE main"/>
-</Gui>

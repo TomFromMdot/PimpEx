@@ -1,54 +1,55 @@
-# PimpEx – praca nad silnikiem
+# PimpEx – working on the engine
 
-Silnik gier dla dzieci, w którym cała gra to tekst. Wizja i architektura są
-w `README.md`, a formaty plików gry w `docs/`.
+A game engine for kids where the whole game is text. The vision and
+architecture are in `README.md`, the game file formats in `docs/`.
 
-## Budowanie i testy
+## Building and testing
 
 ```
-cmake --preset linux-debug          # vcpkg z $VCPKG_ROOT albo ~/vcpkg
+cmake --preset linux-debug          # vcpkg from $VCPKG_ROOT or ~/vcpkg
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-- Testy jednostkowe (doctest) są w `tests/*.cpp`. VM, Boot i Lua testuje się
-  bez okna (`vm::ManualInput`, `BootFixture` w `tests/test_boot.cpp`).
-- Testy end-to-end w `CMakeLists.txt` sprawdzają szablon (`pimpex init`)
-  i każdy katalog w `examples/` przez `pimpex check` i `play --headless`.
-- Do podglądu na żywo służy `./build/pimpex play examples/pong --frames 60 --screenshot shot.png`.
+- Unit tests (doctest) are in `tests/*.cpp`. VM, Boot and Lua are tested
+  without a window (`vm::ManualInput`, `BootFixture` in `tests/test_boot.cpp`).
+- End-to-end tests in `CMakeLists.txt` check the template (`pimpex init`) and
+  every directory in `examples/` with `pimpex check` and `play --headless`.
+- For a live look: `./build/pimpex play examples/pong --frames 60 --screenshot shot.png`.
 
-## Zasady
+## Rules
 
-- C++23, komentarze i komunikaty dla użytkownika **po polsku**. Błędy
-  zawsze w formacie `plik:linia: błąd: opis` (`Diagnostic`).
-- Tylko `render/` i `core/Engine.cpp` znają raylib. VM, Boot i World muszą
-  działać bez okna.
-- Tylko `boot::Boot` zapisuje `scene.swap`, zawsze przez `write_file_atomic`
-  i po `expect()` na watcherze.
-- Nowy komponent wbudowany: struktura w `scene/Components.hpp` + deskryptor
-  (`Binder`) w `ComponentRegistry::with_builtins()`. Loader, `.swap`, Lua,
-  API i dump działają same. Potem rysowanie (`render/`) albo logika
-  (`scene/Physics.cpp`), regeneracja `docs/components.md`
-  (`pimpex components --markdown > docs/components.md`, pilnuje tego ctest)
-  i testy w `tests/test_components.cpp`.
-- Nowa metoda API: `api/LiveApi.cpp` (`dispatch` + tabela `Methods`),
-  `docs/api.md`, test w `tests/test_api.cpp`. Jeśli ma być dostępna dla
-  agentów, także narzędzie w `api/McpServer.cpp` (`tools_list` +
-  `call_tool`) i `tests/test_mcp.cpp`.
-- Serwer MCP pisze protokół na stdout. Wszystko inne musi iść na stderr
-  (`McpServer::run` przekierowuje fd 1).
-- Nowy szablon sceny: `templates/scenes/<nazwa>/{about.txt,scene/,project/}`
-  oraz wpis w `tests/e2e/templates.sh`. Zachowania trzymamy w
+- C++23. Code, comments, docs and user-facing messages are in **English**.
+  Comment only what the code cannot say (why, workarounds, pitfalls). Errors
+  are always `file:line: error: message` (`Diagnostic`).
+- Only `render/` and `core/Engine.cpp` know raylib. VM, Boot and World must
+  work without a window.
+- Only `boot::Boot` writes `scene.swap`, always through `write_file_atomic`
+  and after `expect()` on the watcher.
+- A new built-in component: a struct in `scene/Components.hpp` + a descriptor
+  (`Binder`) in `ComponentRegistry::with_builtins()`. The loader, `.swap`,
+  Lua, the API and the dump then just work. Then drawing (`render/`) or logic
+  (`scene/Physics.cpp`), regenerating `docs/components.md`
+  (`pimpex components --markdown > docs/components.md`, ctest checks it) and
+  tests in `tests/test_components.cpp`.
+- A new API method: `api/LiveApi.cpp` (`dispatch` + the `Methods` table),
+  `docs/api.md`, a test in `tests/test_api.cpp`. If agents should have it,
+  also a tool in `api/McpServer.cpp` (`tools_list` + `call_tool`) and
+  `tests/test_mcp.cpp`.
+- The MCP server writes the protocol to stdout. Everything else must go to
+  stderr (`McpServer::run` redirects fd 1).
+- A new scene template: `templates/scenes/<name>/{about.txt,scene/,project/}`
+  and an entry in `tests/e2e/templates.sh`. Behaviors live in
   `templates/behaviors/`.
-- Nowy opcode wymaga zmian w wielu miejscach naraz: `vm/Program.hpp`
-  (Op), `vm/Parser.cpp` (składnia + lista `Instructions`), `vm/Vm.cpp`
-  (wykonanie), `boot/ProjectCheck.cpp` (sprawdzanie odwołań),
-  `docs/opcodes.md` oraz testy parsera i VM.
-- Szablon projektu (`templates/project/`) i `docs/` są wbudowane w binarkę
-  przez `cmake/EmbedTemplate.cmake`. `{{NAME}}` zamienia się na nazwę projektu.
-- Zmiana API Lua (`script/LuaRuntime.cpp`) wymaga aktualizacji `docs/lua-api.md`.
-- GUI (`gui/Gui.hpp`): dane i `GuiSystem` (pokazywanie po nazwie, najechanie,
-  kliknięcia) bez raylib; wczytywanie w `boot/XmlLoader.cpp`
-  (`parse_gui_xml`), rysowanie w `render/Renderer.cpp` (`draw_gui`).
-  Nowy element GUI: `ElementKind` + atrybuty w `parse_gui_xml` + rysowanie,
-  `docs/gui.md` i testy w `tests/test_gui.cpp`.
+- A new opcode touches several places at once: `vm/Program.hpp` (Op),
+  `vm/Parser.cpp` (syntax + the `Instructions` list), `vm/Vm.cpp`
+  (execution), `boot/ProjectCheck.cpp` (reference checks), `docs/opcodes.md`
+  and parser and VM tests.
+- The project template (`templates/project/`) and `docs/` are embedded in the
+  binary by `cmake/EmbedTemplate.cmake`. `{{NAME}}` becomes the project name.
+- Changing the Lua API (`script/LuaRuntime.cpp`) means updating `docs/lua-api.md`.
+- GUI (`gui/Gui.hpp`): data and `GuiSystem` (show by name, hover, clicks)
+  without raylib; loading in `boot/XmlLoader.cpp` (`parse_gui_xml`), drawing
+  in `render/Renderer.cpp` (`draw_gui`). A new GUI element: `ElementKind` +
+  attributes in `parse_gui_xml` + drawing, `docs/gui.md` and tests in
+  `tests/test_gui.cpp`.

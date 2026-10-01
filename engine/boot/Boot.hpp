@@ -17,13 +17,12 @@
 
 namespace PimpEx::boot {
 
-// Boot trzyma w pamięci wszystko, czego potrzebuje scena: świat (aktorów),
-// program z scene.swap, bibliotekę procedur i skrypty Lua. Tylko Boot
-// zapisuje plik .swap – wkleja i wycina z niego procedury w trakcie gry.
-// Działa wyłącznie na wątku głównym.
+// Boot holds everything a scene needs in memory: the world, the scene.swap
+// program, the procedure library, Lua and the GUI. Only Boot writes .swap
+// files – it pastes and cuts procedures while the game runs. Main thread only.
 class Boot : public vm::IVmHost, public script::ILuaHost {
 public:
-  // Wywoływane po każdym zapisie pliku przez silnik (dla watchera).
+  // Called after every file the engine writes (for the watcher).
   using SelfWriteCallback = std::function<void(const fs::path &, std::size_t hash)>;
 
 private:
@@ -46,21 +45,21 @@ private:
 
   std::string _swapText;
   vm::Program _program;
-  // false = plik scene.swap na dysku ma błędy. Wtedy Boot nie nadpisuje go
-  // (zniszczyłby pracę użytkownika), a zmiany robi tylko w pamięci.
+  // false = scene.swap on disk has errors. Boot then changes the program only
+  // in memory instead of overwriting the user's work.
   bool _swapFileValid = true;
   std::string _libraryText;
   vm::Program _library;
 
   vm::Vm _vm;
   gui::GuiSystem _gui;
-  std::string _guiActionFile; // plik GUI, którego przycisk teraz działa (do komunikatów)
+  std::string _guiActionFile; // GUI file whose button is running (for diagnostics)
   std::unique_ptr<script::LuaRuntime> _lua;
   std::vector<Request> _requests;
   const vm::FrameContext *_frame = nullptr;
-  std::vector<scene::Contact> _contacts; // styki z ostatniej klatki fizyki
+  std::vector<scene::Contact> _contacts;
   SelfWriteCallback _onSelfWrite;
-  bool _persistSwap = true; // false (pimpex play): zmiany .swap tylko w pamięci
+  bool _persistSwap = true; // false (pimpex play): .swap changes stay in memory
 
   std::string swap_display() const { return _paths.display(_paths.scene_swap(_sceneName)); }
   void remove_in_memory(const std::string &name);
@@ -73,48 +72,45 @@ public:
   Boot(ProjectPaths paths, Log &log, unsigned seed = std::random_device{}());
   ~Boot() override;
 
-  // Wczytuje pimpex.xml, skrypty i scenę startową. false = nie da się grać.
+  // Loads pimpex.xml, scripts, GUI and the start scene. false = cannot play.
   bool start(const std::string &sceneOverride = "");
   bool load_scene(const std::string &name);
 
-  // Wczytuje components.xml (jeśli jest). false = błędy w pliku.
+  // false = components.xml has errors.
   bool load_components(const std::string *text = nullptr);
 
-  // Jedna klatka logiki: kliknięcia GUI, procedury, prośby o zmiany w .swap,
-  // ruch. Widoczne GUI z pause="true" zatrzymuje procedury, Lua i fizykę.
+  // One logic frame: GUI clicks, procedures, Lua, physics, .swap requests.
+  // A visible GUI with pause="true" stops procedures, Lua and physics.
   void run_frame(const vm::FrameContext &ctx);
 
-  // Wykonuje zamówione zmiany (.swap, scena) od razu – np. z API, gdy gra stoi.
+  // Applies queued .swap/scene requests now – e.g. from the API while paused.
   void apply_requests();
 
   script::LuaRuntime &lua() { return *_lua; }
   const std::string &swap_text() const { return _swapText; }
   const vm::Program &library() const { return _library; }
 
-  // --- hot-reload (dane przygotowane na wątku zasobów) ----------------------
+  // Hot-reload (data prepared on the asset thread).
   void apply_swap(std::string text, vm::ParseResult parsed);
   void apply_library(std::string text, vm::ParseResult parsed);
   void apply_scene_xml(scene::SceneData data, Diagnostics diagnostics);
   void apply_script(const fs::path &path, const std::string &source);
-  // components.xml zmienił się: nowy rejestr i ponowne wczytanie scene.xml.
+  // New registry and a reload of scene.xml.
   void apply_components_xml(const std::string &text);
   void apply_gui_xml(gui::GuiScene scene, Diagnostics diagnostics);
 
   void set_self_write_callback(SelfWriteCallback callback) { _onSelfWrite = std::move(callback); }
 
-  // Tryb gry (play): Boot nie zapisuje zmian w scene.swap na dysk.
   void set_persist_swap(bool persist) { _persistSwap = persist; }
 
-  // Pliki, które watcher ma obserwować dla bieżącej sceny.
   std::vector<fs::path> watched_files() const;
 
-  // Tekstowy zrzut stanu do .pimpex/state.txt (dla ludzi i agentów AI).
+  // Writes .pimpex/state.txt for people and AI agents.
   void write_state(long frame) const;
 
   const ProjectPaths &paths() const { return _paths; }
   const scene::ProjectConfig &config() const { return _config; }
-  // Rejestr komponentów (wbudowane + components.xml). Niezmienny – przy
-  // zmianie components.xml powstaje nowy, więc można go czytać z innych wątków.
+  // Immutable – a components.xml change creates a new one, so other threads may read it.
   std::shared_ptr<const scene::ComponentRegistry> components() const { return _components; }
   const std::string &scene_name() const { return _sceneName; }
   int scene_generation() const { return _sceneGeneration; }
@@ -124,7 +120,7 @@ public:
   scene::World &world() { return _world; }
   const vm::Program &program() const { return _program; }
 
-  // --- vm::IVmHost i script::ILuaHost ---------------------------------------
+  // vm::IVmHost and script::ILuaHost
   void call_function(const std::string &name, const std::vector<std::string> &args,
                      int line) override;
   void request_proc_add(const std::string &name, int line) override;

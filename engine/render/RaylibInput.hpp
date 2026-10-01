@@ -4,7 +4,6 @@
 
 namespace PimpEx::render {
 
-// Stan klawiatury i myszki odczytany z raylib raz na klatkę.
 class RaylibInput : public vm::IInput {
   std::array<bool, vm::KeyCount> _down{};
   std::array<bool, vm::KeyCount> _pressed{};
@@ -17,8 +16,7 @@ class RaylibInput : public vm::IInput {
 public:
   void poll();
 
-  // Kamera fps z uwolnionym kursorem: ruch myszy (np. do krzyżyka okna)
-  // nie obraca gracza.
+  // Free cursor with an fps camera: moving to the window's X must not turn the player.
   void set_ignore_motion(bool ignore) { _ignoreMotion = ignore; }
 
   bool down(vm::Key key) const override { return _down[static_cast<std::size_t>(key)]; }

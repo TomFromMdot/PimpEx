@@ -18,7 +18,7 @@ constexpr std::array<std::pair<std::string_view, Anchor>, 9> AnchorNames = {{
     {"bottom-right", Anchor::BottomRight},
 }};
 
-// Przyciski i panele zasłaniają to, co pod nimi. Napisy i obrazki nie.
+// Buttons and panels hide what is below them; labels and images do not.
 bool blocks_mouse(ElementKind kind) { return kind == ElementKind::Button || kind == ElementKind::Panel; }
 
 } // namespace
@@ -52,10 +52,8 @@ Rect layout(const Element &element, int screenWidth, int screenHeight) {
   return {ax + element.x - element.w / 2, ay + element.y - element.h / 2, element.w, element.h};
 }
 
-// --- GuiSystem -----------------------------------------------------------------
-
 void GuiSystem::set(GuiScene scene) {
-  // Indeksy elementów mogły się zmienić – stan myszy dla tej sceny od nowa.
+  // Element indices may have changed – reset mouse state for this scene.
   if (_hovered && _hovered->scene == scene.name)
     _hovered.reset();
   if (_pressed && _pressed->scene == scene.name)
@@ -135,7 +133,7 @@ bool GuiSystem::wants_mouse() const {
 }
 
 std::optional<GuiSystem::Hit> GuiSystem::hit_test(float x, float y, int screenWidth, int screenHeight) const {
-  // Od wierzchu: ostatnia pokazana scena, ostatni narysowany element.
+  // Top first: last shown scene, last drawn element.
   for (auto it = _shown.rbegin(); it != _shown.rend(); ++it) {
     const auto *scene = find(*it);
     if (!scene)
@@ -146,10 +144,10 @@ std::optional<GuiSystem::Hit> GuiSystem::hit_test(float x, float y, int screenWi
         continue;
       if (element.kind == ElementKind::Button)
         return Hit{scene->name, i};
-      return std::nullopt; // panel zasłania to, co pod nim
+      return std::nullopt;
     }
     if (scene->pause)
-      return std::nullopt; // GUI z pauzą przykrywa wszystko pod sobą
+      return std::nullopt; // a pause GUI covers everything below
   }
   return std::nullopt;
 }
@@ -174,7 +172,7 @@ std::vector<GuiSystem::Click> GuiSystem::update(const vm::IInput &input, int scr
   }
   _wasDown = down;
 
-  // Klawisze przycisków (np. key="ESCAPE" na „Wróć”): pierwszy od wierzchu.
+  // Button keys (key="ESCAPE"): the topmost match wins.
   for (std::size_t k = 0; k < vm::KeyCount; ++k) {
     const auto key = static_cast<vm::Key>(k);
     if (!input.pressed(key))

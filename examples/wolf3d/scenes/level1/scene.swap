@@ -1,0 +1,30 @@
+# Level 1 – scene logic. Movement, shooting, guards, doors and pickups
+# live in Lua behaviors (scripts/behaviors/). Here: the HUD and the end of the game.
+
+# HUD: red flash when hit, muzzle flash, messages.
+PROC hud
+  IF Game.hurt > 0   : SET Flash.visible 1
+  IF Game.hurt > 0   : ADD Game.hurt -1
+  IF Game.hurt <= 0  : SET Flash.visible 0
+  IF Game.muzzle > 0 : SET Muzzle.visible 1
+  IF Game.muzzle > 0 : ADD Game.muzzle -1
+  IF Game.muzzle <= 0 : SET Muzzle.visible 0
+  IF Game.msgt == 1  : SET Msg.Text.value ""
+  IF Game.msgt > 0   : ADD Game.msgt -1
+END
+
+PROC game_over
+  IF Player.Health.hp <= 0 : SCENE lose
+  IF TOUCH Player @exit    : SCENE win
+END
+
+# ESC: the pause menu from gui/pause.xml (the game stops, the cursor is free).
+PROC pause
+  IF PRESSED ESCAPE : GUI_SHOW pause
+END
+
+# Cheats (keys 8 and 9) paste procedures from library.swap.
+PROC cheats
+  IF PRESSED 9 : PROC_ADD iddqd
+  IF PRESSED 8 : PROC_ADD idkfa
+END

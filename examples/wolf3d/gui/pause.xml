@@ -1,0 +1,11 @@
+<!-- Pause: ESC in the game shows it (scenes/level1/scene.swap). While it is
+     visible the game stops and the fps camera frees the cursor for clicking. -->
+<Gui pause="true" dim="#000000aa">
+  <Panel  anchor="center" w="380" h="300" color="#2a1a10" border="#c8a04a"/>
+  <Label  anchor="center" y="-95" text="PAUSED" size="48" color="#c8a04a"/>
+  <Label  anchor="center" y="-50" text="Score: {Game.score}   Health: {Player.Health.hp}" size="22" color="white"/>
+  <Button anchor="center" y="15" text="Resume" key="ESCAPE" click="GUI_HIDE pause"
+          color="#5a3a1a" hover="#7a5226"/>
+  <Button anchor="center" y="90" text="Restart" click="SCENE level1"
+          color="#5a3a1a" hover="#7a5226"/>
+</Gui>

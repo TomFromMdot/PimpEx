@@ -1,41 +1,42 @@
-# Pliki projektu: `pimpex.xml` i `scene.xml`
+# Project files: `pimpex.xml` and `scene.xml`
 
-## Układ projektu
+## Project layout
 
 ```
-moja_gra/
-  pimpex.xml                 ustawienia gry: okno, scena startowa
-  scenes/<scena>/scene.xml   aktorzy sceny (kto jest na planszy, jak wygląda)
-  scenes/<scena>/scene.swap  procedury sceny (co się dzieje) – docs/opcodes.md
-  scenes/<scena>/library.swap  procedury do wklejania na żądanie (opcjonalnie)
-  components.xml             własne komponenty (opcjonalnie) – docs/components.md
-  scripts/*.lua              funkcje Lua wołane przez CALL i systemy – docs/lua-api.md
-  scripts/behaviors/*.lua    zachowania aktorów – docs/behaviors.md
-  assets/                    obrazki
-  .pimpex/runtime.log        błędy i LOG z działającej gry
-  .pimpex/state.txt          zrzut stanu sceny (aktorzy i ich pola)
+my_game/
+  pimpex.xml                 game settings: window, start scene
+  scenes/<scene>/scene.xml   the scene's actors (who is on the board, how they look)
+  scenes/<scene>/scene.swap  the scene's procedures (what happens) – docs/opcodes.md
+  scenes/<scene>/library.swap  procedures pasted on demand (optional)
+  components.xml             your own components (optional) – docs/components.md
+  gui/<name>.xml             GUI scenes: menus, pause, buttons – docs/gui.md
+  scripts/*.lua              Lua functions for CALL and systems – docs/lua-api.md
+  scripts/behaviors/*.lua    actor behaviors – docs/behaviors.md
+  assets/                    images
+  .pimpex/runtime.log        errors and LOG output of the running game
+  .pimpex/state.txt          a dump of the scene state (actors and their fields)
 ```
 
 ## `pimpex.xml`
 
 ```xml
-<Project name="moja_gra">
-  <Window title="Moja gra" width="800" height="600" fps="60" background="#101018"/>
+<Project name="my_game">
+  <Window title="My game" width="800" height="600" fps="60" background="#101018"/>
   <StartScene name="main"/>
   <HotReload keepState="true"/>
 </Project>
 ```
 
-- `StartScene` to nazwa katalogu w `scenes/`.
-- `HotReload keepState="true"` (domyślnie) oznacza, że po zapisaniu
-  `scene.xml` aktorzy zostają tam, gdzie są, a zmienia się tylko ich wygląd.
-  Przy `false` scena startuje od nowa.
+- `StartScene` is a directory name in `scenes/`.
+- `HotReload keepState="true"` (the default) means that after `scene.xml` is
+  saved the actors stay where they are and only their looks change. With
+  `false` the scene starts over.
 
 ## `scene.xml`
 
-Aktor to nazwa + komponenty (pełna lista w docs/components.md). Nową scenę
-z gotowego szablonu tworzy `pimpex scene new <nazwa> --template <szablon>`
-(lista: `pimpex scene list`).
+An actor is a name plus components (the full list is in docs/components.md).
+`pimpex scene new <name> --template <template>` creates a scene from a
+ready-made template (list: `pimpex scene list`).
 
 ```xml
 <Scene background="#101018">
@@ -44,7 +45,7 @@ z gotowego szablonu tworzy `pimpex scene new <nazwa> --template <szablon>`
   </Resources>
 
   <Actor name="Player" x="400" y="300" w="40" h="40">
-    <Rect color="niebieski"/>
+    <Rect color="blue"/>
     <Var name="speed" value="4"/>
   </Actor>
 
@@ -53,7 +54,7 @@ z gotowego szablonu tworzy `pimpex scene new <nazwa> --template <szablon>`
   </Actor>
 
   <Actor name="Score" x="20" y="20" w="0" h="0" space="screen">
-    <Text value="Punkty: {Game.points}" size="24" color="white"/>
+    <Text value="Points: {Game.points}" size="24" color="white"/>
   </Actor>
 
   <Archetype name="Bullet" w="6" h="12" vy="-8">
@@ -62,60 +63,61 @@ z gotowego szablonu tworzy `pimpex scene new <nazwa> --template <szablon>`
 </Scene>
 ```
 
-### Atrybuty `<Scene>`
+### `<Scene>` attributes
 
-| Atrybut      | Znaczenie                                                        |
+| Attribute    | Meaning                                                          |
 |--------------|------------------------------------------------------------------|
-| `background` | kolor tła sceny (zamiast koloru z `pimpex.xml`)                  |
-| `mode`       | `2d` (domyślnie) albo `3d`                                       |
-| `gui`        | sceny GUI widoczne od startu sceny, np. `gui="hud"` albo `gui="hud menu"` (pliki `gui/<nazwa>.xml`, docs/gui.md) |
+| `background` | the scene's background color (instead of the one in `pimpex.xml`) |
+| `mode`       | `2d` (default) or `3d`                                           |
+| `gui`        | GUI scenes shown when the scene starts, e.g. `gui="hud"` or `gui="hud menu"` (files `gui/<name>.xml`, docs/gui.md) |
 
-### Atrybuty `<Actor>` i `<Archetype>`
+### `<Actor>` and `<Archetype>` attributes
 
-| Atrybut    | Domyślnie | Znaczenie                                   |
+| Attribute  | Default   | Meaning                                     |
 |------------|-----------|---------------------------------------------|
-| `name`     | wymagany  | unikalna nazwa (bez spacji, `.`, `/`, `:`, `@`) |
-| `tags`     | –         | tagi po przecinku, np. `enemy,flying` – do `@enemy` w `.swap` i Lua |
-| `x`, `y`, `z` | 0      | pozycja **środka** aktora (`z` – w 3D)      |
-| `w`, `h`, `d` | 32 (w 3D: 1) | szerokość, wysokość, głębokość (też kształt kolizji) |
-| `vx`, `vy`, `vz` | 0   | prędkość na klatkę (dodaje komponent Body)  |
-| `gravity`  | 0         | grawitacja (Body)                           |
-| `rotation` / `rz` | 0  | obrót w stopniach (w 3D też `rx`, `ry`)     |
-| `scale`    | 1         | skala modelu 3D                             |
-| `layer`    | 0         | kolejność rysowania 2D (większe = wyżej)    |
-| `space`    | world     | `screen` = HUD: pozycja w pikselach ekranu, niezależna od kamery |
-| `visible`  | true      | czy aktor jest rysowany                     |
+| `name`     | required  | a unique name (no spaces, `.`, `/`, `:`, `@`) |
+| `tags`     | –         | comma-separated tags, e.g. `enemy,flying` – for `@enemy` in `.swap` and Lua |
+| `x`, `y`, `z` | 0      | the actor's **centre** (`z` – in 3D)        |
+| `w`, `h`, `d` | 32 (1 in 3D) | width, height, depth (also the collision box) |
+| `vx`, `vy`, `vz` | 0   | velocity per frame (adds a Body component)  |
+| `gravity`  | 0         | gravity (Body)                              |
+| `rotation` / `rz` | 0  | rotation in degrees (also `rx`, `ry` in 3D) |
+| `scale`    | 1         | 3D model scale                              |
+| `layer`    | 0         | 2D drawing order (higher = on top)          |
+| `space`    | world     | `screen` = HUD: a position in screen pixels, independent of the camera |
+| `visible`  | true      | whether the actor is drawn                  |
 
-### Komponenty (elementy w środku aktora)
+### Components (elements inside an actor)
 
-Najczęstsze poniżej, a wszystkie (także 3D, `Camera`, `Light`, `Collider`)
-w docs/components.md.
+The most common ones are below; all of them (including 3D, `Camera`, `Light`,
+`Collider`) are in docs/components.md.
 
-| Element                                    | Znaczenie                                       |
+| Element                                    | Meaning                                         |
 |--------------------------------------------|-------------------------------------------------|
-| `<Rect color="..."/>`                      | prostokąt `w` × `h`                             |
-| `<Circle color="..."/>`                    | koło o średnicy `w`                             |
-| `<Sprite texture="id" tint="..."/>`        | obrazek z `<Resources>` rozciągnięty do `w`×`h` |
-| `<Text value="..." size="20" color="..."/>`| napis; `{Aktor.pole}` wstawia wartość na żywo   |
-| `<Var name="..." value="0"/>`              | zmienna aktora, np. życia, punkty               |
-| `<Collider/>`                              | kolizje: solid (ściana) albo `kind="trigger"`   |
-| `<Behavior name="..." .../>`               | zachowanie Lua (docs/behaviors.md)              |
+| `<Rect color="..."/>`                      | a `w` × `h` rectangle                           |
+| `<Circle color="..."/>`                    | a circle with diameter `w`                      |
+| `<Sprite texture="id" tint="..."/>`        | an image from `<Resources>` stretched to `w`×`h` |
+| `<Text value="..." size="20" color="..."/>`| text; `{Actor.field}` inserts a live value      |
+| `<Var name="..." value="0"/>`              | an actor variable, e.g. lives, points           |
+| `<Collider/>`                              | collisions: solid (a wall) or `kind="trigger"`  |
+| `<Behavior name="..." .../>`               | a Lua behavior (docs/behaviors.md)              |
 
-**Archetyp** to wzór aktora, który nie istnieje od początku. Tworzy go
-`SPAWN` w `scene.swap` albo `spawn()` w Lua.
+An **archetype** is a template for an actor that does not exist from the
+start. `SPAWN` in `scene.swap` or `spawn()` in Lua creates it.
 
-### Kolory
+### Colors
 
-`#rgb`, `#rrggbb`, `#rrggbbaa` albo nazwy: `white`, `black`, `red`, `green`,
+`#rgb`, `#rrggbb`, `#rrggbbaa` or names: `white`, `black`, `red`, `green`,
 `blue`, `yellow`, `orange`, `purple`, `pink`, `gray`, `brown`, `cyan`, `gold`,
-`transparent`. Po polsku: `biały`, `czarny`, `czerwony`, `zielony`,
-`niebieski`, `żółty`, `pomarańczowy`, `fioletowy`, `różowy`, `szary`,
-`brązowy`, `złoty`.
+`transparent`. Polish names work too: `biały`, `czarny`, `czerwony`,
+`zielony`, `niebieski`, `żółty`, `pomarańczowy`, `fioletowy`, `różowy`,
+`szary`, `brązowy`, `złoty`.
 
-## Mapa ASCII: `<Tilemap>`
+## ASCII maps: `<Tilemap>`
 
-Poziom z kratek (ściany, drzwi, przeciwnicy) można narysować znakami.
-Każdy znak mapy to aktor z archetypu albo pozycja istniejącego aktora:
+A level made of cells (walls, doors, enemies) can be drawn with characters.
+Every map character is an actor from an archetype or the position of an
+existing actor:
 
 ```xml
 <Archetype name="Wall" y="1" w="2" h="2" d="2"><Cube color="gray"/><Collider/></Archetype>
@@ -134,17 +136,17 @@ Każdy znak mapy to aktor z archetypu albo pozycja istniejącego aktora:
 </Tilemap>
 ```
 
-- `cell` to rozmiar kratki (domyślnie 1 w 3D, 32 w 2D). `x`, `y`, `z` to
-  przesunięcie całej mapy.
-- W 3D mapa leży na podłodze: kolumna to oś `x`, wiersz to oś `z`, a `y`
-  bierze się z archetypu. W 2D kolumna to `x`, wiersz to `y`.
-- `.` i spacja to puste pola. Wspólne wcięcie wierszy jest pomijane.
-- Aktorzy z mapy dostają nazwy `Archetyp_kolumna_wiersz`, np. `Wall_3_5`,
-  i tagi z archetypu, więc łatwo obsłużyć ich przez `@tag`.
-- Kafle bez ruchu i zachowań (np. ściany) `state.txt` i API tylko liczą,
-  żeby setki ścian nie zasłaniały reszty.
+- `cell` is the cell size (default 1 in 3D, 32 in 2D). `x`, `y`, `z` offset
+  the whole map.
+- In 3D the map lies on the floor: a column is the `x` axis, a row the `z`
+  axis, and `y` comes from the archetype. In 2D a column is `x`, a row `y`.
+- `.` and spaces are empty cells. Common indentation of the rows is ignored.
+- Map actors are named `Archetype_column_row`, e.g. `Wall_3_5`, and get the
+  archetype's tags, so `@tag` handles them easily.
+- Tiles without movement or behaviors (e.g. walls) are only counted in
+  `state.txt` and the API, so hundreds of walls do not hide the rest.
 
-## Sceny 3D
+## 3D scenes
 
 ```xml
 <Scene mode="3d" background="#87ceeb">
@@ -158,12 +160,14 @@ Każdy znak mapy to aktor z archetypu albo pozycja istniejącego aktora:
 </Scene>
 ```
 
-- W 3D `y` rośnie **w górę**, a jednostki to „metry” (domyślny rozmiar 1).
-- Bryły: `Cube`, `Sphere`, `Cylinder`, `Plane`, `Model`.
-- Kamera: `fixed` (z pozycji aktora-kamery), `follow` (za plecami celu),
-  `orbit` (krąży wokół celu), `fps` (oczy celu). Bez kamery scena powoli
-  obraca się wokół środka.
-- Bez żadnego `<Light>` świeci domyślne „słońce”. Światło `kind="ambient"`
-  ustawia jasność otoczenia (domyślnie 0.35), a `directional` świeci od
-  swojej pozycji w stronę punktu (0, 0, 0).
-- Napisy (`Text`) na aktorach 3D rysują się nad nimi, a `space="screen"` to HUD.
+- In 3D `y` grows **up** and units are "metres" (default size 1).
+- Shapes: `Cube`, `Sphere`, `Cylinder`, `Plane`, `Model`.
+- Cameras: `fixed` (from the camera actor's position), `follow` (behind the
+  target), `orbit` (circles the target), `fps` (the target's eyes). Without a
+  camera the scene slowly turns around its centre.
+- With an `fps` camera the cursor starts free; a click in the window grabs it
+  for mouse look, and ESC, switching windows or a GUI with buttons frees it.
+- Without any `<Light>` a default sun shines. `kind="ambient"` sets the
+  ambient brightness (default 0.35), and `directional` shines from its
+  position towards (0, 0, 0).
+- Text (`Text`) on 3D actors is drawn above them; `space="screen"` is the HUD.

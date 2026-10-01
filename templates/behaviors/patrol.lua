@@ -1,6 +1,6 @@
--- Chodzi tam i z powrotem.
--- Parametry: axis – oś ruchu: x, y albo z (domyślnie x),
---            distance – jak daleko od startu (domyślnie 100), speed (domyślnie 2).
+-- Walks back and forth.
+-- Parameters: axis – x, y or z (default x),
+--             distance – how far from the start (default 100), speed (default 2).
 --   <Behavior name="patrol" axis="x" distance="120" speed="2"/>
 return {
   on_start = function(self)

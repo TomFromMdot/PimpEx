@@ -9,7 +9,7 @@
 namespace PimpEx::scene {
 namespace {
 
-// Skróty pól: "x" zamiast "Transform.x", "vx" zamiast "Body.vx".
+// Field shortcuts: "x" for "Transform.x", "vx" for "Body.vx".
 struct Alias {
   std::string_view name, component, field;
 };
@@ -38,7 +38,7 @@ void World::apply_components(entt::entity e, const ActorDef &def) {
   for (const auto &init : def.components) {
     const auto *desc = _components->find(init.component);
     if (!desc)
-      continue; // loader już to zgłosił
+      continue; // already reported by the loader
     desc->add(_registry, e);
     for (const auto &[fieldName, value] : init.values)
       if (const auto *field = desc->field(fieldName))
@@ -103,7 +103,7 @@ void World::reload(const SceneData &data, bool keepState) {
     }
     const auto e = it->second;
 
-    // Stan, który zostaje: pozycja, prędkość, zmienne, dane komponentów użytkownika.
+    // Kept: position, velocity, variables and user component data.
     const auto oldTransform = _registry.get<Transform>(e);
     const auto oldBody = _registry.try_get<Body>(e) ? std::optional(_registry.get<Body>(e)) : std::nullopt;
     const auto oldVars = _registry.get<Vars>(e).values;
@@ -184,8 +184,6 @@ std::string World::name_of(entt::entity e) const {
   return name ? name->value : std::string();
 }
 
-// --- pola --------------------------------------------------------------------------------
-
 std::optional<World::FieldRef> World::resolve(std::string_view path, std::string *error) const {
   const auto dot = path.find('.');
   std::string_view componentName, fieldName;
@@ -196,7 +194,7 @@ std::optional<World::FieldRef> World::resolve(std::string_view path, std::string
         fieldName = alias.field;
       }
     if (componentName.empty())
-      return FieldRef{nullptr, nullptr, std::string(path)}; // zmienna
+      return FieldRef{nullptr, nullptr, std::string(path)}; // a variable
   } else {
     componentName = path.substr(0, dot);
     fieldName = path.substr(dot + 1);
@@ -206,8 +204,8 @@ std::optional<World::FieldRef> World::resolve(std::string_view path, std::string
   if (!component) {
     if (error) {
       const auto hint = closest_name(componentName, _components->names());
-      *error = std::format("nie ma komponentu '{}'{}", componentName,
-                           hint.empty() ? "" : std::format(" (czy chodziło o {}?)", hint));
+      *error = std::format("no component '{}'{}", componentName,
+                           hint.empty() ? "" : std::format(" (did you mean {}?)", hint));
     }
     return std::nullopt;
   }
@@ -218,8 +216,8 @@ std::optional<World::FieldRef> World::resolve(std::string_view path, std::string
       for (const auto &f : component->fields)
         names.push_back(f.name);
       const auto hint = closest_name(fieldName, names);
-      *error = std::format("komponent {} nie ma pola '{}'{}", componentName, fieldName,
-                           hint.empty() ? "" : std::format(" (czy chodziło o {}?)", hint));
+      *error = std::format("component {} has no field '{}'{}", componentName, fieldName,
+                           hint.empty() ? "" : std::format(" (did you mean {}?)", hint));
     }
     return std::nullopt;
   }
@@ -231,7 +229,7 @@ std::optional<FieldValue> World::get_field(const std::string &actor, std::string
   const auto e = find(actor);
   if (e == entt::null) {
     if (error)
-      *error = std::format("aktor '{}' nie istnieje", actor);
+      *error = std::format("actor '{}' does not exist", actor);
     return std::nullopt;
   }
   const auto ref = resolve(path, error);
@@ -241,15 +239,15 @@ std::optional<FieldValue> World::get_field(const std::string &actor, std::string
     const auto &vars = _registry.get<Vars>(e).values;
     const auto it = vars.find(ref->var);
     if (it == vars.end())
-      return std::nullopt; // zmienna jeszcze nieustawiona
+      return std::nullopt; // variable not set yet
     return it->second;
   }
   if (!ref->component->has(_registry, e)) {
-    // Brak Body przy "vx" itp. – wartość domyślna, jak dla świeżego komponentu.
+    // No Body for "vx" etc. – read the default, as for a fresh component.
     if (path.find('.') == std::string_view::npos)
       return ref->field->defaultValue;
     if (error)
-      *error = std::format("aktor '{}' nie ma komponentu {}", actor, ref->component->name);
+      *error = std::format("actor '{}' has no component {}", actor, ref->component->name);
     return std::nullopt;
   }
   return ref->component->get(_registry, e, *ref->field);
@@ -268,7 +266,7 @@ std::optional<std::string> World::set_field(const std::string &actor, std::strin
                                             const FieldValue &value) {
   const auto e = find(actor);
   if (e == entt::null)
-    return std::format("aktor '{}' nie istnieje", actor);
+    return std::format("actor '{}' does not exist", actor);
   std::string error;
   const auto ref = resolve(path, &error);
   if (!ref)
@@ -276,12 +274,12 @@ std::optional<std::string> World::set_field(const std::string &actor, std::strin
   if (!ref->component) {
     const auto *number = std::get_if<double>(&value);
     if (!number)
-      return std::format("zmienna '{}' może przechowywać tylko liczby", ref->var);
+      return std::format("variable '{}' can only hold numbers", ref->var);
     _registry.get<Vars>(e).values[ref->var] = *number;
     return std::nullopt;
   }
   if (ref->field->readOnly)
-    return std::format("pole {}.{} jest tylko do odczytu", ref->component->name, ref->field->name);
+    return std::format("field {}.{} is read-only", ref->component->name, ref->field->name);
   const auto coerced = coerce_field(*ref->field, value, error);
   if (!coerced)
     return error;
@@ -291,8 +289,6 @@ std::optional<std::string> World::set_field(const std::string &actor, std::strin
   return std::nullopt;
 }
 
-// --- komponenty i zapytania ------------------------------------------------------------------
-
 bool World::has_component(entt::entity e, std::string_view component) const {
   const auto *desc = _components->find(component);
   return desc && _registry.valid(e) && desc->has(_registry, e);
@@ -301,10 +297,10 @@ bool World::has_component(entt::entity e, std::string_view component) const {
 std::optional<std::string> World::add_component(const std::string &actor, const std::string &component) {
   const auto e = find(actor);
   if (e == entt::null)
-    return std::format("aktor '{}' nie istnieje", actor);
+    return std::format("actor '{}' does not exist", actor);
   const auto *desc = _components->find(component);
   if (!desc)
-    return std::format("nie ma komponentu '{}'", component);
+    return std::format("no component '{}'", component);
   desc->add(_registry, e);
   return std::nullopt;
 }
@@ -377,7 +373,7 @@ std::optional<World::RayHit> World::raycast(float x, float y, float z, float dx,
   for (auto [e, collider, t] : _registry.view<Collider, Transform>().each()) {
     if (e == ignore || collider.kind != "solid")
       continue;
-    // Test „slab”: przecięcie promienia z prostopadłościanem aktora.
+    // Slab test: ray vs. the actor's box.
     const float center[3] = {t.x, t.y, t.z};
     const float half[3] = {t.w / 2, t.h / 2, t.d / 2};
     float tNear = 0, tFar = maxDistance;
@@ -411,7 +407,7 @@ std::vector<std::string> World::names() const {
 
 void World::dump(std::ostream &out, const TextFormatter &formatText) const {
   const bool is3d = _mode == SceneMode::Mode3D;
-  std::map<std::string, int> staticTiles; // archetyp -> ile kafli
+  std::map<std::string, int> staticTiles; // archetype -> tile count
   for (const auto &[name, e] : _byName) {
     if (is_static_tile(e)) {
       ++staticTiles[_registry.get<Origin>(e).archetype];
@@ -425,7 +421,7 @@ void World::dump(std::ostream &out, const TextFormatter &formatText) const {
     if (is3d)
       out << " d=" << format_number(t.d);
 
-    // Pozostałe komponenty: tylko pola różne od domyślnych.
+    // Other components: only fields that differ from defaults.
     for (const auto &desc : _components->all()) {
       if (!desc.has(_registry, e))
         continue;
@@ -470,7 +466,7 @@ void World::dump(std::ostream &out, const TextFormatter &formatText) const {
     out << '\n';
   }
   if (!staticTiles.empty()) {
-    out << "mapa (statyczne kafle, pominięte):";
+    out << "map (static tiles, omitted):";
     for (const auto &[archetype, count] : staticTiles)
       out << ' ' << archetype << '=' << count;
     out << '\n';

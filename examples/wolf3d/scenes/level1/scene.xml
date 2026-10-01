@@ -1,11 +1,11 @@
 <!--
-  Wolf 3D na PimpEx – poziom 1.
-  Mapa to zwykły tekst: każdy znak to aktor z archetypu (legenda niżej).
-  Jedna kratka = 2 × 2 metry. Zmień mapę, zapisz – gra wczyta ją na nowo.
+  Wolf 3D on PimpEx – level 1.
+  The map is plain text: every character is an actor from an archetype (legend below).
+  One cell = 2 × 2 metres. Change the map, save – the game reloads it.
 -->
 <Scene mode="3d" background="#2b2b2b">
 
-  <!-- ===== Archetypy: z nich powstają aktorzy na mapie ===== -->
+  <!-- ===== Archetypes: the map actors are made from these ===== -->
 
   <Archetype name="Wall" y="1" w="2" h="2" d="2">
     <Cube color="#7c7c7c"/><Collider/>
@@ -14,13 +14,13 @@
     <Cube color="#34458f"/><Collider/>
   </Archetype>
 
-  <!-- Drzwi: E otwiera (zachowanie door), wjeżdżają w sufit -->
+  <!-- Door: E opens it (the door behavior), it slides into the ceiling -->
   <Archetype name="Door" y="1" w="2" h="2" d="2" tags="door">
     <Cube color="#2f8f8f"/><Collider/>
     <Behavior name="door" stay="180"/>
   </Archetype>
 
-  <!-- Strażnik: widzi gracza (raycast), goni go i strzela -->
+  <!-- Guard: sees the player (raycast), chases and shoots -->
   <Archetype name="Guard" y="0.7" w="0.8" h="1.4" d="0.8" vx="0" tags="guard">
     <Cylinder color="#8b6f47"/><Collider/>
     <Health hp="25" max="25"/>
@@ -30,7 +30,7 @@
     <Cube color="#5a1a1a"/>
   </Archetype>
 
-  <!-- Znajdźki -->
+  <!-- Pickups -->
   <Archetype name="Medkit" y="0.2" w="0.6" h="0.3" d="0.6" tags="pickup">
     <Cube color="white"/><Behavior name="pickup" kind="health" amount="25"/>
   </Archetype>
@@ -44,7 +44,7 @@
     <Cube color="#22cc44"/>
   </Archetype>
 
-  <!-- ===== Gracz, kamera, świat ===== -->
+  <!-- ===== Player, camera, world ===== -->
 
   <Actor name="Player" y="0.6" w="0.6" h="1.2" d="0.6" ry="-90" vx="0">
     <Collider/>
@@ -55,8 +55,8 @@
 
   <Actor name="Floor" x="23" y="-0.05" z="17" w="48" h="0.1" d="36"><Cube color="#707070"/></Actor>
 
-  <!-- Światło jak w Wolfie: jasne otoczenie + dwa „słońca” z osi X, więc
-       ściany wschód/zachód są jaśniejsze niż północ/południe. -->
+  <!-- Wolf-style light: bright ambient + two "suns" on the X axis, so east/west
+       walls are brighter than north/south ones. -->
   <Actor name="Ambient"><Light kind="ambient" color="white" intensity="0.7"/></Actor>
   <Actor name="SunEast" x="1000" z="17"><Light kind="directional" color="white" intensity="0.35"/></Actor>
   <Actor name="SunWest" x="-1000" z="17"><Light kind="directional" color="white" intensity="0.35"/></Actor>
@@ -93,7 +93,7 @@
     </Map>
   </Tilemap>
 
-  <!-- ===== Stan gry i HUD (space="screen" = piksele ekranu) ===== -->
+  <!-- ===== Game state and HUD (space="screen" = screen pixels) ===== -->
 
   <Actor name="Game" w="0" h="0" visible="false">
     <Var name="ammo" value="8"/>
@@ -107,7 +107,7 @@
 
   <Actor name="Bar" x="400" y="570" w="800" h="60" layer="30" space="screen"><Rect color="#10206a"/></Actor>
   <Actor name="Hud" x="16" y="556" w="0" h="0" layer="40" space="screen">
-    <Text value="ŻYCIE {Player.Health.hp}%   AMMO {Game.ammo}   PUNKTY {Game.score}   STRAŻNICY {Game.kills}/{Game.guards}" size="24" color="white"/>
+    <Text value="HEALTH {Player.Health.hp}%   AMMO {Game.ammo}   SCORE {Game.score}   GUARDS {Game.kills}/{Game.guards}" size="24" color="white"/>
   </Actor>
   <Actor name="Msg" x="16" y="16" w="0" h="0" layer="40" space="screen"><Text value="" size="26" color="gold"/></Actor>
   <Actor name="Gun" x="400" y="500" w="40" h="80" layer="20" space="screen"><Rect color="#4a4a4a"/></Actor>
