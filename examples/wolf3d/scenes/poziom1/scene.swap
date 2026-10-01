@@ -18,6 +18,11 @@ PROC koniec
   IF TOUCH Player @exit    : SCENE wygrana
 END
 
+# ESC: pauza z gui/pauza.xml (gra stoi, kursor wolny).
+PROC pauza
+  IF PRESSED ESCAPE : GUI_SHOW pauza
+END
+
 # Kody (klawisze 8 i 9) wklejają procedury z library.swap.
 PROC kody
   IF PRESSED 9 : PROC_ADD iddqd

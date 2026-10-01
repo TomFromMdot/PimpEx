@@ -1,8 +1,5 @@
-<Scene background="#14081a">
+<Scene background="#14081a" gui="koniec">
   <Actor name="Napis" x="230" y="260" w="0" h="0">
     <Text value="Koniec gry!" size="60" color="gold"/>
-  </Actor>
-  <Actor name="Podpowiedz" x="250" y="340" w="0" h="0">
-    <Text value="ENTER = jeszcze raz" size="28" color="white"/>
   </Actor>
 </Scene>

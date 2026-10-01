@@ -15,6 +15,8 @@ pimpex dev examples/wolf3d
 | SHIFT                    | bieg                          |
 | SPACJA                   | strzał                        |
 | E                        | otwieranie drzwi              |
+| klik w okno              | mysz steruje kamerą (na starcie kursor jest wolny) |
+| ESC                      | pauza (`gui/pauza.xml`) i wolny kursor |
 | 9 / 8                    | kody: nieśmiertelność / amunicja (z `library.swap`) |
 
 ## Jak to jest zrobione

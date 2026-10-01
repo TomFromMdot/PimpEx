@@ -40,3 +40,8 @@ PROC tryb_gry
   IF PRESSED C : PROC_ADD komputer
   IF PRESSED V : PROC_REMOVE komputer
 END
+
+# ESC pokazuje pauzę (gui/pauza.xml). Pauza sama zatrzymuje grę.
+PROC pauza
+  IF PRESSED ESCAPE : GUI_SHOW pauza
+END

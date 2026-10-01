@@ -1,0 +1,5 @@
+<!-- Ekran wygranej i przegranej – <Scene gui="koniec">. -->
+<Gui>
+  <Button anchor="center" y="100" w="340" text="Zagraj jeszcze raz" key="ENTER" click="SCENE poziom1"
+          color="#5a3a1a" hover="#7a5226"/>
+</Gui>

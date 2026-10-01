@@ -29,5 +29,9 @@ run 20 "SPACE:5" "ammo=7"
 # Obrót, podejście do drzwi, E, drzwi wjeżdżają w sufit, przejście do pokoju strażnika.
 run 300 "RIGHT:0-29 UP:30-63 LEFT:64-93 UP:94-190 E:195 UP:230-280" \
   "Player x=18.82 y=0.60 z=6.08" "Door_7_3 x=14 y=2.92 z=6" "ammo=8"
+# ESC: pauza z gui/pauza.xml – gracz stoi mimo strzałki.
+run 30 "ESCAPE:2 UP:3-29" "gui: pauza (pauza)" "Player x=2 y=0.60 z=2 "
+# Klik w „Graj dalej” chowa pauzę i gra rusza dalej.
+run 30 "ESCAPE:2 CLICK@400/315:6 UP:10-29" "Player x=4.40 y=0.60 z=2 "
 [ $FAILED -eq 0 ] && echo "ok: wolf3d"
 exit $FAILED

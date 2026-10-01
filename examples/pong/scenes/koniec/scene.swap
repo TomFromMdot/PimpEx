@@ -1,3 +1,1 @@
-PROC menu
-  IF PRESSED ENTER : SCENE main
-END
+# Przycisk „Zagraj jeszcze raz” (ENTER) jest w gui/koniec.xml.
