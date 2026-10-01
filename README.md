@@ -1,15 +1,42 @@
 # PimpEx – The Game Engine
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/wolf3d.png" alt="Wolf 3D example" width="400"><br><b>Wolf 3D</b> – <code>examples/wolf3d</code></td>
+    <td align="center"><img src="docs/screenshots/pong.png" alt="Pong example" width="400"><br><b>Pong</b> – <code>examples/pong</code></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/wolf3d-pause.png" alt="Wolf 3D pause menu" width="400"><br>Pause menu – <code>gui/pause.xml</code></td>
+    <td align="center"><img src="docs/screenshots/pong-pause.png" alt="Pong pause menu" width="400"><br>The same GUI system in 2D</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/arena3d.png" alt="arena3d template" width="400"><br><code>arena3d</code> scene template</td>
+    <td align="center"><img src="docs/screenshots/platformer2d.png" alt="platformer2d template" width="400"><br><code>platformer2d</code> scene template</td>
+  </tr>
+</table>
+
 > **PimpEx** is a game engine for the youngest generation of creators. The
 > whole game is text files. There is no GUI editor: what happens "under the
 > hood" is visible in the files and can be changed while the game runs.
 
 - **Author:** Tommy · **Started:** 26.03.2026 · **Status:** early development (0.2)
 
+**What you get:**
+
+- **Games as text** – actors in XML, logic in a tiny `.swap` language, behaviors in Lua.
+- **Hot-reload everything** – save a file and the running game picks it up between frames.
+- **2D and 3D** – shapes, sprites, models, lights, follow/orbit/fps cameras, AABB physics, ASCII tilemaps.
+- **GUI by name** – menus, pause screens and buttons in `gui/<name>.xml`, shown with `GUI_SHOW pause`.
+- **Ready for AI agents** – an MCP server, a live JSON-RPC API and headless runs with scripted input.
+
+## Quick start
+
 ```
 pimpex init my_game     # a new project with a ready mini-game
 pimpex dev my_game      # the game in a window + hot-reload: save a file → see the change
 ```
+
+Or play the examples: `pimpex dev examples/wolf3d`, `pimpex dev examples/pong`.
 
 ## How it works
 

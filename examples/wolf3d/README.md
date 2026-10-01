@@ -7,6 +7,10 @@ treasure and a lift (the green square) at the end.
 pimpex dev examples/wolf3d
 ```
 
+| In the game | The pause menu |
+|:---:|:---:|
+| ![Wolf 3D](../../docs/screenshots/wolf3d.png) | ![Pause menu](../../docs/screenshots/wolf3d-pause.png) |
+
 | Key                       | Action                         |
 |---------------------------|--------------------------------|
 | up/down arrows, W/S       | forward / back                 |
